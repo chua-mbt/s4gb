@@ -5,8 +5,10 @@ package org.akaii.s4gb.emulator.cpu
  * - 8-bit registers: A, B, C, D, E, H, L, and Flags
  * - 16-bit registers: AF, BC, DE, HL, SP (Stack Pointer), PC (Program Counter)
  * - Flag register with Zero (Z), Subtraction (N), Half Carry (H), and Carry (C) flags
+ *
+ * @see [[https://gbdev.io/pandocs/CPU_Registers_and_Flags.html CPU Registers and Flags]]
  */
-private[cpu] case class Registers(
+case class Registers(
   var a: Int = 0,
   var f: Int = 0,
   var b: Int = 0,
