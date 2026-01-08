@@ -1,5 +1,7 @@
-package org.akaii.s4gb.emulator.cpu
+package org.akaii.s4gb.emulator.instructions
 
+import org.akaii.s4gb.emulator.cpu.Registers
+import org.akaii.s4gb.emulator.instructions.{Instruction, OpCode}
 import utest.*
 
 object InstructionTests extends TestSuite {

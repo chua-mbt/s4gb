@@ -1,6 +1,6 @@
-package org.akaii.s4gb.emulator.cpu
+package org.akaii.s4gb.emulator.instructions
 
-import OpCode.Masks._
+import org.akaii.s4gb.emulator.instructions.OpCode.Masks.*
 
 /**
  * Represents an instruction in the Gameboy instruction set.
