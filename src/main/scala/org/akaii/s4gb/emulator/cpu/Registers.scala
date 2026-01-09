@@ -1,5 +1,9 @@
 package org.akaii.s4gb.emulator.cpu
 
+import org.akaii.s4gb.emulator.byteops.*
+import spire.math.{UByte, UShort}
+import spire.syntax.literals.*
+
 /**
  * The Game Boy CPU is based on the Z80 architecture and includes:
  * - 8-bit registers: A, B, C, D, E, H, L, and Flags
@@ -9,76 +13,85 @@ package org.akaii.s4gb.emulator.cpu
  * @see [[https://gbdev.io/pandocs/CPU_Registers_and_Flags.html CPU Registers and Flags]]
  */
 case class Registers(
-  private val underlying: Array[Int] = Array.fill(8)(0),
-  var sp: Int = 0,
-  var pc: Int = 0
+  private val underlying: Array[UByte] = Array.fill(8)(UByte.MinValue),
+  var sp: UByte = UByte.MinValue,
+  var pc: UByte = UByte.MinValue
 ) {
 
-  import Registers._
+  import Registers.*
 
-  def apply(r: R8): Int = underlying(r.ordinal)
-  def update(r: R8, value: Int): Unit = underlying(r.ordinal) = value & 0xFF
+  private val byteMask: UShort = 0xFF.toUShort
+  private val flagMask: UByte = 0xF0.toUByte
 
-  def apply(r: R16): Int = (underlying(r.hi.ordinal) << 8) | underlying(r.lo.ordinal)
-  def update(r: R16, value: Int): Unit = {
-    val v = value & 0xFFFF
-    underlying(r.hi.ordinal) = (v >>> 8) & 0xFF
-    underlying(r.lo.ordinal) = v & 0xFF
+  def apply(r: R8): UByte = underlying(r.ordinal)
+  def update(r: R8, v: UByte): Unit = underlying.update(r.ordinal, v)
+
+  def apply(r: R16): UShort = (underlying(r.hi.ordinal).toUShort << 8) | underlying(r.lo.ordinal).toUShort
+  def update(r: R16, v: UShort): Unit = {
+    underlying.update(r.hi.ordinal, v.registerHiByte)
+    underlying.update(r.lo.ordinal, v.registerLoByte)
   }
 
   /** 8-bit registers (direct) */
-  def a: Int = underlying(R8.A.ordinal)
-  def a_=(v: Int): Unit = underlying(R8.A.ordinal) = v & 0xFF
+  def a: UByte = apply(R8.A)
+  def a_=(v: UByte): Unit = update(R8.A, v)
 
-  def b: Int = underlying(R8.B.ordinal)
-  def b_=(v: Int): Unit = underlying(R8.B.ordinal) = v & 0xFF
+  def b: UByte = apply(R8.B)
+  def b_=(v: UByte): Unit = update(R8.B, v)
 
-  def c: Int = underlying(R8.C.ordinal)
-  def c_=(v: Int): Unit = underlying(R8.C.ordinal) = v & 0xFF
+  def c: UByte = apply(R8.C)
+  def c_=(v: UByte): Unit = update(R8.C, v)
 
-  def d: Int = underlying(R8.D.ordinal)
-  def d_=(v: Int): Unit = underlying(R8.D.ordinal) = v & 0xFF
+  def d: UByte = apply(R8.D)
+  def d_=(v: UByte): Unit = update(R8.D, v)
 
-  def e: Int = underlying(R8.E.ordinal)
-  def e_=(v: Int): Unit = underlying(R8.E.ordinal) = v & 0xFF
+  def e: UByte = apply(R8.E)
+  def e_=(v: UByte): Unit = update(R8.E, v)
 
-  def h: Int = underlying(R8.H.ordinal)
-  def h_=(v: Int): Unit = underlying(R8.H.ordinal) = v & 0xFF
+  def h: UByte = apply(R8.H)
+  def h_=(v: UByte): Unit = update(R8.H, v)
 
-  def l: Int = underlying(R8.L.ordinal)
-  def l_=(v: Int): Unit = underlying(R8.L.ordinal) = v & 0xFF
+  def l: UByte = apply(R8.L)
+  def l_=(v: UByte): Unit = update(R8.L, v)
 
-  def f: Int = underlying(R8.F.ordinal)
-  def f_=(v: Int): Unit = underlying(R8.F.ordinal) = v & 0xFF // don't force lower 4 bits to 0 here
+  def f: UByte = apply(R8.F)
+  def f_=(v: UByte): Unit = update(R8.F, v & flagMask)
 
   /** 16-bit registers (direct) */
-  def bc: Int = apply(R16.BC)
-  def bc_=(v: Int): Unit = update(R16.BC, v)
+  def bc: UShort = apply(R16.BC)
+  def bc_=(v: UShort): Unit = update(R16.BC, v)
 
-  def de: Int = apply(R16.DE)
-  def de_=(v: Int): Unit = update(R16.DE, v)
+  def de: UShort = apply(R16.DE)
+  def de_=(v: UShort): Unit = update(R16.DE, v)
 
-  def hl: Int = apply(R16.HL)
-  def hl_=(v: Int): Unit = update(R16.HL, v)
+  def hl: UShort = apply(R16.HL)
+  def hl_=(v: UShort): Unit = update(R16.HL, v)
 
-  def af: Int = (a << 8) | f
-  def af_=(v: Int): Unit = {
-    a = (v >>> 8) & 0xFF; f = v & 0xF0
+  def af: UShort = (a.toUShort << 8) | f.toUShort
+
+  def af_=(v: UShort): Unit = {
+    a = v.registerHiByte
+    f = v.registerLoByte & flagMask
   }
 
   object flags {
-    @inline def z: Boolean = (f & 0x80) != 0
-    @inline def z_=(v: Boolean): Unit = f = (f & ~0x80) | (if v then 0x80 else 0)
+    def apply(flag: Flag): Boolean = (f & flag.mask) != UByte(0)
+    def update(flag: Flag, value: Boolean): Unit =
+      f = (f & ~flag.mask) | (if value then flag.mask else UByte(0))
 
-    @inline def n: Boolean = (f & 0x40) != 0
-    @inline def n_=(v: Boolean): Unit = f = (f & ~0x40) | (if v then 0x40 else 0)
+    @inline def z: Boolean = apply(Flag.Z)
+    @inline def z_=(v: Boolean): Unit = update(Flag.Z, v)
 
-    @inline def h: Boolean = (f & 0x20) != 0
-    @inline def h_=(v: Boolean): Unit = f = (f & ~0x20) | (if v then 0x20 else 0)
+    @inline def n: Boolean = apply(Flag.N)
+    @inline def n_=(v: Boolean): Unit = update(Flag.N, v)
 
-    @inline def c: Boolean = (f & 0x10) != 0
-    @inline def c_=(v: Boolean): Unit = f = (f & ~0x10) | (if v then 0x10 else 0)
+    @inline def h: Boolean = apply(Flag.H)
+    @inline def h_=(v: Boolean): Unit = update(Flag.H, v)
+
+    @inline def c: Boolean = apply(Flag.C)
+    @inline def c_=(v: Boolean): Unit = update(Flag.C, v)
   }
+
 
 }
 
@@ -92,7 +105,14 @@ object Registers {
     case BC extends R16(R8.B, R8.C)
     case DE extends R16(R8.D, R8.E)
     case HL extends R16(R8.H, R8.L)
-    // SP is special and handled separately
+    case AF extends R16(R8.A, R8.F)
+  }
+
+  enum Flag(val mask: UByte) {
+    case Z extends Flag(UByte(0x80))
+    case N extends Flag(UByte(0x40))
+    case H extends Flag(UByte(0x20))
+    case C extends Flag(UByte(0x10))
   }
 
 }

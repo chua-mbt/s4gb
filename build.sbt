@@ -4,6 +4,10 @@ ThisBuild / version := "0.1.0-SNAPSHOT"
 lazy val root = (project in file("."))
   .settings(
     name := "s4gb",
-    libraryDependencies += "com.lihaoyi" %% "utest" % "0.9.4" % Test,
+    libraryDependencies ++= Seq(
+      "org.typelevel" %% "spire" % "0.18.0",
+      "org.typelevel" %% "spire-macros" % "0.18.0",
+      "com.lihaoyi" %% "utest" % "0.9.4" % Test,
+    ),
     testFrameworks += new TestFramework("utest.runner.Framework")
   )

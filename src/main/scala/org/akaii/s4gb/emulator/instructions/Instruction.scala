@@ -1,35 +1,28 @@
 package org.akaii.s4gb.emulator.instructions
 
-import org.akaii.s4gb.emulator.cpu.Registers
 import org.akaii.s4gb.emulator.MemoryMap
+import org.akaii.s4gb.emulator.byteops.*
+import org.akaii.s4gb.emulator.cpu.Registers
+import spire.math.{UByte, UShort}
 
 /**
  * Represents an instruction in the Gameboy instruction set.
  *
+ * Raw input should always be a triple of bytes (up to 3 bytes per instruction).
+ *
  * @see [[https://gbdev.io/pandocs/CPU_Instruction_Set.html]]
  */
-sealed abstract class Instruction(private val input: Int) extends Product with Serializable {
-  val value: Int = input & 0xFFFFFF // full instruction value (up to 3 bytes)
-  val opCode: Int = input & 0xFF
-  val imm8: Option[Int] = None
-  val imm16: Option[Int] = None
+sealed abstract class Instruction(protected val value: Array[UByte]) extends Product with Serializable {
+  val opCode: UByte = value.head
 
   def execute(registers: Registers, memory: MemoryMap): Unit = ???
 
-  override def toString: String = {
-    val b0 = (value & 0xFF)
-    val b1 = (value >>> 8) & 0xFF
-    val b2 = (value >>> 16) & 0xFF
-    f"$productPrefix(0x$b0%02X$b1%02X$b2%02X)"
-  }
-
-
+  override def toString: String = f"$productPrefix(0x${opCode.toInt}%02X)"
 }
 
 object Instruction {
-  def decode(input: Int): Instruction = {
-    val opCode = input & 0xFF
-    OpCode.decode(opCode.toByte) match {
+  def decode(input: Array[UByte]): Instruction = {
+    OpCode.decode(input.head) match {
       // Block 0 (0b00)  https://gbdev.io/pandocs/CPU_Instruction_Set.html#block-0
       case OpCode.NOP => NOP
       case OpCode.LD_R16_IMM16 => LD_R16_IMM16(input)
@@ -51,15 +44,23 @@ object Instruction {
 
   trait HasImm8 {
     self: Instruction =>
-    override val imm8: Option[Int] = Some((value >>> 8) & 0xFF)
+    val imm8: UByte = value(1)
+
+    override def toString: String = {
+      val hexStr = f"${self.opCode.toInt}%02X" + f"${imm8.toInt}%02X"
+      s"$productPrefix(0x$hexStr)"
+    }
   }
 
   trait HasImm16 {
     self: Instruction =>
-    override val imm16: Option[Int] = {
-      val low = (value >>> 8) & 0xFF
-      val high = (value >>> 16) & 0xFF
-      Some(low | (high << 8)) // little-endian
+    val imm16: UShort = (value(2).toUShort << 8) | value(1).toUShort
+
+    override def toString: String = {
+      val hexStr = f"${self.opCode.toInt}%02X" +
+        f"${self.value(1).toInt}%02X" +
+        f"${self.value(2).toInt}%02X"
+      s"$productPrefix(0x$hexStr)"
     }
   }
 
@@ -82,24 +83,27 @@ object Instruction {
      * Generally, direction is from right to left (i.e., LD dest <- src)
      **/
 
-  case class LD_R16_IMM16(private val input: Int) extends Instruction(input) with HasImm16 {
-    private val rawDest: Int = OpCode.Extract.bits54(opCode)
-    val dest: Registers.R16 = Registers.R16.values(rawDest)
+  case class LD_R16_IMM16(private val input: Array[UByte]) extends Instruction(input) with HasImm16 {
+    lazy val dest: Registers.R16 = Registers.R16.values(OpCode.Extract.bits54(opCode))
+
+    override def execute(registers: Registers, memory: MemoryMap): Unit = {
+      registers.update(dest, imm16)
+    }
   }
 
-  case class LD_R16MEM_A(private val input: Int) extends Instruction(input) {
+  case class LD_R16MEM_A(private val input: Array[UByte]) extends Instruction(input) {
     private val rawDestRef: Int = OpCode.Extract.bits54(opCode)
     val destRef: Registers.R16 = Registers.R16.values(rawDestRef)
   }
 
-  case class LD_A_R16MEM(private val input: Int) extends Instruction(input) {
+  case class LD_A_R16MEM(private val input: Array[UByte]) extends Instruction(input) {
     private val rawSrcRef: Int = OpCode.Extract.bits54(opCode)
     val srcRef: Registers.R16 = Registers.R16.values(rawSrcRef)
   }
 
-  case class LD_MEM_IMM16_SP(private val input: Int) extends Instruction(input) with HasImm16
+  case class LD_MEM_IMM16_SP(private val input: Array[UByte]) extends Instruction(input) with HasImm16
 
-  case class LD_R8_IMM8(private val input: Int) extends Instruction(input) with HasImm8 {
+  case class LD_R8_IMM8(private val input: Array[UByte]) extends Instruction(input) with HasImm8 {
     private val rawDest: Int = OpCode.Extract.bits543(opCode)
     val dest: Registers.R8 = Registers.R8.values(rawDest)
   }
@@ -109,20 +113,20 @@ object Instruction {
    * https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#8-bit_arithmetic_instructions
    **/
 
-  case class INC_R8(private val input: Int) extends Instruction(input) with Has543Operand
+  case class INC_R8(private val input: Array[UByte]) extends Instruction(input) with Has543Operand
 
-  case class DEC_R8(private val input: Int) extends Instruction(input) with Has543Operand
+  case class DEC_R8(private val input: Array[UByte]) extends Instruction(input) with Has543Operand
 
   /*
    * 16-bit arithmetic instructions
    * https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#16-bit_arithmetic_instructions
    **/
 
-  case class ADD_HL_R16(private val input: Int) extends Instruction(input) with Has54Operand
+  case class ADD_HL_R16(private val input: Array[UByte]) extends Instruction(input) with Has54Operand
 
-  case class INC_R16(private val input: Int) extends Instruction(input) with Has54Operand
+  case class INC_R16(private val input: Array[UByte]) extends Instruction(input) with Has54Operand
 
-  case class DEC_R16(private val input: Int) extends Instruction(input) with Has54Operand
+  case class DEC_R16(private val input: Array[UByte]) extends Instruction(input) with Has54Operand
 
   /*
    * Bitwise logic instructions
@@ -168,7 +172,7 @@ object Instruction {
    * NOP - No OPeration.
    * https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#NOP
    */
-  case object NOP extends Instruction(0x0) {
+  case object NOP extends Instruction(0x0.toInstructionInput) {
     override def execute(registers: Registers, memory: MemoryMap): Unit = {}
   }
 
