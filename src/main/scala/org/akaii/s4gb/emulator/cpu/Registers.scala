@@ -92,7 +92,16 @@ case class Registers(
     @inline def c_=(v: Boolean): Unit = update(Flag.C, v)
   }
 
+  override def equals(obj: Any): Boolean = obj match {
+    case that: Registers =>
+      this.sp == that.sp &&
+        this.pc == that.pc &&
+        this.underlying.sameElements(that.underlying)
+    case _ => false
+  }
 
+  override def hashCode(): Int =
+    java.util.Arrays.hashCode(underlying.map(_.toInt) :+ sp.toInt :+ pc.toInt)
 }
 
 object Registers {

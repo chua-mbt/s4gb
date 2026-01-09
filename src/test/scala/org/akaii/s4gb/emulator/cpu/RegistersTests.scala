@@ -25,15 +25,9 @@ object RegistersTests extends TestSuite {
       )
 
       val values = Seq(0x00, 0x12, 0x7F, 0x80, 0xFF).map(UByte(_))
-
-      for {
-        (r, set, get) <- cases
-        v <- values
-      } {
-        set(v)
-        val expected =
-          if (r == R8.F) v & UByte(0xF0) else v
-
+      cases.zip(values).foreach { case ((r8, set, get), value) =>
+        set(value)
+        val expected = if (r8 == R8.F) value & UByte(0xF0) else value
         assert(get() == expected)
       }
     }
@@ -50,20 +44,17 @@ object RegistersTests extends TestSuite {
 
       val values = Seq(0x0000, 0x1234, 0x7FFF, 0x8000, 0xFFFF).map(UShort(_))
 
-      for {
-        (r16, set16, get16) <- cases
-        v <- values
-      } {
-        set16(v)
+      cases.zip(values).foreach { case ((r16, set16, get16), value) =>
+        set16(value)
 
         val expected16 =
-          if (r16 == R16.AF) v & UShort(0xFFF0)
-          else v
+          if (r16 == R16.AF) value & UShort(0xFFF0)
+          else value
 
         assert(get16() == expected16)
 
-        val expectedHi = v.registerHiByte
-        val expectedLo = if (r16 == R16.AF) v.registerLoByte & UByte(0xF0) else v.registerLoByte
+        val expectedHi = value.registerHiByte
+        val expectedLo = if (r16 == R16.AF) value.registerLoByte & UByte(0xF0) else value.registerLoByte
 
         assert(regs(r16.hi) == expectedHi)
         assert(regs(r16.lo) == expectedLo)
@@ -80,7 +71,9 @@ object RegistersTests extends TestSuite {
         (Flag.C, regs.flags.c_=, () => regs.flags.c)
       )
 
-      for ((flag, set, get) <- cases) {
+      cases.foreach { case (flag, set, get) =>
+        assert(!get())
+
         set(true)
         assert(get())
         assert((regs.f & flag.mask) != UByte(0))
@@ -90,6 +83,5 @@ object RegistersTests extends TestSuite {
         assert((regs.f & flag.mask) == UByte(0))
       }
     }
-
   }
 }

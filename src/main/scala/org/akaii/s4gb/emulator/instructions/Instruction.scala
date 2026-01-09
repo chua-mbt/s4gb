@@ -77,12 +77,17 @@ object Instruction {
   }
 
   /*
-     * Load instructions
-     * https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#Load_instructions
+   * Load instructions
+   * https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#Load_instructions
+   *
+   * Generally, direction is from right to left (i.e., LD dest <- src)
+   **/
 
-     * Generally, direction is from right to left (i.e., LD dest <- src)
-     **/
-
+  /**
+   * LD_R16_IMM16 - Copy the value imm16 (n16) into register r16.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD_r16,n16]]
+   */
   case class LD_R16_IMM16(private val input: Array[UByte]) extends Instruction(input) with HasImm16 {
     lazy val dest: Registers.R16 = Registers.R16.values(OpCode.Extract.bits54(opCode))
 
@@ -91,21 +96,46 @@ object Instruction {
     }
   }
 
+  /**
+   * LD_R16MEM_A - Copy the value in register A into the byte pointed to by r16.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD__r16_,A]]
+   */
   case class LD_R16MEM_A(private val input: Array[UByte]) extends Instruction(input) {
     private val rawDestRef: Int = OpCode.Extract.bits54(opCode)
     val destRef: Registers.R16 = Registers.R16.values(rawDestRef)
+
+    override def execute(registers: Registers, memory: MemoryMap): Unit = {
+      memory.write(registers(destRef), registers.a)
+    }
   }
 
+  /**
+   * LD_A_R16MEM - Copy the byte pointed to by r16 into register A.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD_A,_r16_]]
+   */
   case class LD_A_R16MEM(private val input: Array[UByte]) extends Instruction(input) {
     private val rawSrcRef: Int = OpCode.Extract.bits54(opCode)
     val srcRef: Registers.R16 = Registers.R16.values(rawSrcRef)
+
+    override def execute(registers: Registers, memory: MemoryMap): Unit = {
+      registers.a = memory(registers(srcRef))
+    }
   }
 
-  case class LD_MEM_IMM16_SP(private val input: Array[UByte]) extends Instruction(input) with HasImm16
-
+  /**
+   * LD_R8_IMM8 - Copy the value n8 into register r8.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD_r8,n8]]
+   */
   case class LD_R8_IMM8(private val input: Array[UByte]) extends Instruction(input) with HasImm8 {
     private val rawDest: Int = OpCode.Extract.bits543(opCode)
     val dest: Registers.R8 = Registers.R8.values(rawDest)
+
+    override def execute(registers: Registers, memory: MemoryMap): Unit = {
+      registers.update(dest, imm8)
+    }
   }
 
   /*
@@ -158,6 +188,13 @@ object Instruction {
    * https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#Stack_manipulation_instructions
    **/
 
+  /**
+   * LD_MEM_IMM16_SP - Copy SP & $FF at address n16 and SP >> 8 at address n16 + 1.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD__n16_,SP]]
+   */
+  case class LD_MEM_IMM16_SP(private val input: Array[UByte]) extends Instruction(input) with HasImm16
+
   /*
    * Interrupt-related instructions
    * https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#Interrupt-related_instructions
@@ -170,7 +207,8 @@ object Instruction {
 
   /**
    * NOP - No OPeration.
-   * https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#NOP
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#NOP]]
    */
   case object NOP extends Instruction(0x0.toInstructionInput) {
     override def execute(registers: Registers, memory: MemoryMap): Unit = {}

@@ -13,4 +13,11 @@ case class TestMap() extends MemoryMap {
 
   override def write(address: UShort, value: UByte): Unit =
     memory.update(address.toInt, value)
+
+  override def equals(obj: Any): Boolean = obj match {
+    case that: TestMap => this.memory.sameElements(that.memory)
+    case _ => false
+  }
+
+  override def hashCode(): Int = java.util.Arrays.hashCode(memory.map(_.toInt))
 }
