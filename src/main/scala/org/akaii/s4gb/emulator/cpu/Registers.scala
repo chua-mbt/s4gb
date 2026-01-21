@@ -14,14 +14,19 @@ import spire.syntax.literals.*
  */
 case class Registers(
   private val underlying: Array[UByte] = Array.fill(8)(UByte.MinValue),
-  var sp: UByte = UByte.MinValue,
-  var pc: UByte = UByte.MinValue
+  var sp: UShort = UShort.MinValue,
+  var pc: UShort = UShort.MinValue
 ) {
 
   import Registers.*
 
   private val byteMask: UShort = 0xFF.toUShort
   private val flagMask: UByte = 0xF0.toUByte
+
+  def advance(cycles: Int, bytes: Int): Unit = {
+    sp = sp + cycles.toUShort
+    pc = pc + bytes.toUShort
+  }
 
   def apply(r: R8): UByte = underlying(r.ordinal)
   def update(r: R8, v: UByte): Unit = underlying.update(r.ordinal, v)
@@ -75,6 +80,7 @@ case class Registers(
   }
 
   object flags {
+    def clear(): Unit = f = UByte(0)
     def apply(flag: Flag): Boolean = (f & flag.mask) != UByte(0)
     def update(flag: Flag, value: Boolean): Unit =
       f = (f & ~flag.mask) | (if value then flag.mask else UByte(0))

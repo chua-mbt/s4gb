@@ -18,7 +18,12 @@ object MiscInstructionsTests extends TestSuite {
 
       val state = (Registers(), TestMap())
       instruction.execute.apply.tupled(state)
-      assert(state == (Registers(), TestMap())) // NOP should not change state
+
+      val expectedRegisters = Registers()
+      expectedRegisters.pc = 1.toUShort
+      expectedRegisters.sp = 1.toUShort
+
+      assert(state == (expectedRegisters, TestMap())) // NOP should not change state besides PC and SP
     }
   }
 }

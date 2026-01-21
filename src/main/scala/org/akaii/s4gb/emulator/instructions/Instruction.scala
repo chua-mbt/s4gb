@@ -15,8 +15,15 @@ import spire.math.{UByte, UShort}
  */
 sealed abstract class Instruction(protected val value: Array[UByte]) extends Product with Serializable {
   val opCode: UByte = value.head
+  val cycles: Int
+  val bytes: Int
 
-  def execute(registers: Registers, memory: MemoryMap): Unit = ???
+  def execute(registers: Registers, memory: MemoryMap): Unit = {
+    executeImplementation(registers, memory)
+    registers.advance(cycles, bytes)
+  }
+
+  protected def executeImplementation(registers: Registers, memory: MemoryMap): Unit = ???
 
   override def toString: String = f"$productPrefix(0x${opCode.toInt}%02X)"
 }
@@ -67,16 +74,16 @@ object Instruction {
     }
   }
 
-  trait Has54Operand {
+  trait HasR8Operand {
     self: Instruction =>
-    private val operand54: Int = opCode.range(5, 4)
-    val operand: Registers.R16 = Registers.R16.values(operand54)
+    protected val start: Int
+    val operand: Registers.R8 = Registers.R8.values(opCode.range(start, start - 1))
   }
 
-  trait Has543Operand {
+  trait HasR16Operand {
     self: Instruction =>
-    private val operand543: Int = opCode.range(5, 3)
-    val operand: Registers.R8 = Registers.R8.values(operand543)
+    protected val start: Int
+    val operand: Registers.R16 = Registers.R16.values(opCode.range(start, start - 2))
   }
 
   /*
@@ -92,11 +99,13 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD_r16,n16]]
    */
   case class LD_R16_IMM16(private val input: Array[UByte]) extends Instruction(input) with HasImm16 {
+    override val cycles: Int = 3
+    override val bytes: Int = 3
+
     lazy val dest: Registers.R16 = Registers.R16.values(opCode.range(5, 4))
 
-    override def execute(registers: Registers, memory: MemoryMap): Unit = {
+    override def executeImplementation(registers: Registers, memory: MemoryMap): Unit =
       registers.update(dest, imm16)
-    }
   }
 
   /**
@@ -105,12 +114,14 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD__r16_,A]]
    */
   case class LD_R16MEM_A(private val input: Array[UByte]) extends Instruction(input) {
-    private val rawDestRef: Int = opCode.range(5, 4)
-    val destRef: Registers.R16 = Registers.R16.values(rawDestRef)
+    override val cycles: Int = 2
+    override val bytes: Int = 1
 
-    override def execute(registers: Registers, memory: MemoryMap): Unit = {
+    private val rawDestRef: Int = opCode.range(5, 4)
+    lazy val destRef: Registers.R16 = Registers.R16.values(rawDestRef)
+
+    override def executeImplementation(registers: Registers, memory: MemoryMap): Unit =
       memory.write(registers(destRef), registers.a)
-    }
   }
 
   /**
@@ -119,12 +130,14 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD_A,_r16_]]
    */
   case class LD_A_R16MEM(private val input: Array[UByte]) extends Instruction(input) {
-    private val rawSrcRef: Int = opCode.range(5, 4)
-    val srcRef: Registers.R16 = Registers.R16.values(rawSrcRef)
+    override val cycles: Int = 2
+    override val bytes: Int = 1
 
-    override def execute(registers: Registers, memory: MemoryMap): Unit = {
+    private val rawSrcRef: Int = opCode.range(5, 4)
+    lazy val srcRef: Registers.R16 = Registers.R16.values(rawSrcRef)
+
+    override def executeImplementation(registers: Registers, memory: MemoryMap): Unit =
       registers.a = memory(registers(srcRef))
-    }
   }
 
   /**
@@ -133,12 +146,14 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD_r8,n8]]
    */
   case class LD_R8_IMM8(private val input: Array[UByte]) extends Instruction(input) with HasImm8 {
-    private val rawDest: Int = opCode.range(5, 3)
-    val dest: Registers.R8 = Registers.R8.values(rawDest)
+    override val cycles: Int = 2
+    override val bytes: Int = 2
 
-    override def execute(registers: Registers, memory: MemoryMap): Unit = {
+    private val rawDest: Int = opCode.range(5, 3)
+    lazy val dest: Registers.R8 = Registers.R8.values(rawDest)
+
+    override def executeImplementation(registers: Registers, memory: MemoryMap): Unit =
       registers.update(dest, imm8)
-    }
   }
 
   /**
@@ -150,15 +165,17 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD_r8,r8]]
    */
   case class LD_R8_R8(private val input: Array[UByte]) extends Instruction(input) {
+    override val cycles: Int = 1
+    override val bytes: Int = 1
+
     private val rawSource: Int = opCode.range(2, 0)
-    val source: Registers.R8 = Registers.R8.values(rawSource)
+    lazy val source: Registers.R8 = Registers.R8.values(rawSource)
 
     private val rawDest: Int = opCode.range(5, 3)
-    val dest: Registers.R8 = Registers.R8.values(rawDest)
+    lazy val dest: Registers.R8 = Registers.R8.values(rawDest)
 
-    override def execute(registers: Registers, memory: MemoryMap): Unit = {
+    override def executeImplementation(registers: Registers, memory: MemoryMap): Unit =
       registers.update(dest, registers(source))
-    }
   }
 
   /*
@@ -166,20 +183,104 @@ object Instruction {
    * https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#8-bit_arithmetic_instructions
    **/
 
-  case class INC_R8(private val input: Array[UByte]) extends Instruction(input) with Has543Operand
+  /**
+   * INC_R8 - Increment the value in register r8 by 1.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#INC_r8]]
+   */
+  case class INC_R8(private val input: Array[UByte]) extends Instruction(input) with HasR8Operand {
+    override val cycles: Int = 1
+    override val bytes: Int = 1
+    override val start: Int = 5
 
-  case class DEC_R8(private val input: Array[UByte]) extends Instruction(input) with Has543Operand
+    override def executeImplementation(registers: Registers, memory: MemoryMap): Unit = {
+      val originalValue = registers(operand)
+      val result = originalValue + 1.toUByte
+
+      registers.update(operand, result)
+
+      registers.flags.z = result == 0.toUByte
+      registers.flags.n = false
+      registers.flags.h = (originalValue & 0x0F.toUByte) + 1.toUByte > 0x0F.toUByte // Just the bottom nibble
+    }
+  }
+
+  /**
+   * DEC_R8 - Decrement the value in register r8 by 1.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#DEC_r8]]
+   */
+  case class DEC_R8(private val input: Array[UByte]) extends Instruction(input) with HasR8Operand {
+    override val cycles: Int = 1
+    override val bytes: Int = 1
+    override val start: Int = 5
+
+    override def executeImplementation(registers: Registers, memory: MemoryMap): Unit = {
+      val originalValue = registers(operand)
+      val result = originalValue - 1.toUByte
+
+      registers.update(operand, result)
+
+      registers.flags.z = result == 0.toUByte
+      registers.flags.n = true
+      registers.flags.h = (originalValue & 0x0F.toUByte) == 0.toUByte // Just the bottom nibble
+    }
+  }
 
   /*
    * 16-bit arithmetic instructions
    * https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#16-bit_arithmetic_instructions
    **/
 
-  case class ADD_HL_R16(private val input: Array[UByte]) extends Instruction(input) with Has54Operand
+  /**
+   * ADD_HL_R16 - Add the value in r16 to HL.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#ADD_HL,r16]]
+   */
+  case class ADD_HL_R16(private val input: Array[UByte]) extends Instruction(input) with HasR16Operand {
+    override val cycles: Int = 2
+    override val bytes: Int = 1
+    override val start: Int = 5
 
-  case class INC_R16(private val input: Array[UByte]) extends Instruction(input) with Has54Operand
+    override def executeImplementation(registers: Registers, memory: MemoryMap): Unit = {
+      val hl = registers.hl.toInt
+      val r16 = registers(operand).toInt
+      val result = hl + r16
 
-  case class DEC_R16(private val input: Array[UByte]) extends Instruction(input) with Has54Operand
+      registers.flags.clear()
+      registers.flags.h = ((hl & 0x0FFF) + (r16 & 0x0FFF)) > 0x0FFF // Just the bottom 3 nibbles
+      registers.flags.c = result > 0xFFFF
+      registers.hl = result.toUShort
+    }
+  }
+
+  /**
+   * INC_R16 - Increment the value in register r16 by 1.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#INC_r16]]
+   */
+  case class INC_R16(private val input: Array[UByte]) extends Instruction(input) with HasR16Operand {
+    override val cycles: Int = 2
+    override val bytes: Int = 1
+    override val start: Int = 5
+
+    override def executeImplementation(registers: Registers, memory: MemoryMap): Unit =
+      registers.update(operand, registers(operand) + 1.toUShort)
+  }
+
+  /**
+   * DEC_R16 - Decrement the value in register r16 by 1.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#DEC_r16]]
+   */
+  case class DEC_R16(private val input: Array[UByte]) extends Instruction(input) with HasR16Operand {
+    override val cycles: Int = 2
+    override val bytes: Int = 1
+    override val start: Int = 5
+
+    override def executeImplementation(registers: Registers, memory: MemoryMap): Unit =
+      registers.update(operand, registers(operand) - 1.toUShort)
+  }
 
   /*
    * Bitwise logic instructions
@@ -216,7 +317,16 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD__n16_,SP]]
    */
-  case class LD_MEM_IMM16_SP(private val input: Array[UByte]) extends Instruction(input) with HasImm16
+  case class LD_MEM_IMM16_SP(private val input: Array[UByte]) extends Instruction(input) with HasImm16 {
+    override val cycles: Int = 5
+    override val bytes: Int = 3
+
+    override def executeImplementation(registers: Registers, memory: MemoryMap): Unit = {
+      val sp = registers.sp
+      memory.write(imm16, sp.registerLoByte)
+      memory.write(imm16 + 1.toUShort, sp.registerHiByte)
+    }
+  }
 
   /*
    * Interrupt-related instructions
@@ -244,7 +354,10 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#HALT]]
    */
   case object HALT extends Instruction(Array(OpCode.HALT.pattern)) {
-    override def execute(registers: Registers, memory: MemoryMap): Unit = ??? // TODO
+    override val cycles: Int = 1 // TODO
+    override val bytes: Int = 1 // TODO
+
+    override def executeImplementation(registers: Registers, memory: MemoryMap): Unit = ??? // TODO
   }
 
   /*
@@ -258,7 +371,10 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#NOP]]
    */
   case object NOP extends Instruction(0x0.toInstructionInput) {
-    override def execute(registers: Registers, memory: MemoryMap): Unit = {}
+    override val cycles: Int = 1
+    override val bytes: Int = 1
+
+    override def executeImplementation(registers: Registers, memory: MemoryMap): Unit = {}
   }
 
 }
