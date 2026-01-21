@@ -3,6 +3,7 @@ package org.akaii.s4gb.emulator.instructions
 import org.akaii.s4gb.emulator.MemoryMap
 import org.akaii.s4gb.emulator.byteops.*
 import org.akaii.s4gb.emulator.cpu.Registers
+import org.akaii.s4gb.emulator.instructions.OpCode.Extract.*
 import spire.math.{UByte, UShort}
 
 /**
@@ -36,6 +37,8 @@ object Instruction {
       case OpCode.DEC_R8 => DEC_R8(input)
       case OpCode.LD_R8_IMM8 => LD_R8_IMM8(input)
       // Block 1 (0b01) https://gbdev.io/pandocs/CPU_Instruction_Set.html#block-1-8-bit-register-to-register-loads
+      case OpCode.LD_R8_R8 => LD_R8_R8(input)
+      case OpCode.HALT => HALT
       // Block 2 (0b10) https://gbdev.io/pandocs/CPU_Instruction_Set.html#block-2-8-bit-arithmetic
       // Block 3 (0b11) https://gbdev.io/pandocs/CPU_Instruction_Set.html#block-3
       // TODO: implement other instructions
@@ -66,13 +69,13 @@ object Instruction {
 
   trait Has54Operand {
     self: Instruction =>
-    private val operand54: Int = OpCode.Extract.bits54(opCode)
+    private val operand54: Int = opCode.range(5, 4)
     val operand: Registers.R16 = Registers.R16.values(operand54)
   }
 
   trait Has543Operand {
     self: Instruction =>
-    private val operand543: Int = OpCode.Extract.bits543(opCode)
+    private val operand543: Int = opCode.range(5, 3)
     val operand: Registers.R8 = Registers.R8.values(operand543)
   }
 
@@ -89,7 +92,7 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD_r16,n16]]
    */
   case class LD_R16_IMM16(private val input: Array[UByte]) extends Instruction(input) with HasImm16 {
-    lazy val dest: Registers.R16 = Registers.R16.values(OpCode.Extract.bits54(opCode))
+    lazy val dest: Registers.R16 = Registers.R16.values(opCode.range(5, 4))
 
     override def execute(registers: Registers, memory: MemoryMap): Unit = {
       registers.update(dest, imm16)
@@ -102,7 +105,7 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD__r16_,A]]
    */
   case class LD_R16MEM_A(private val input: Array[UByte]) extends Instruction(input) {
-    private val rawDestRef: Int = OpCode.Extract.bits54(opCode)
+    private val rawDestRef: Int = opCode.range(5, 4)
     val destRef: Registers.R16 = Registers.R16.values(rawDestRef)
 
     override def execute(registers: Registers, memory: MemoryMap): Unit = {
@@ -116,7 +119,7 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD_A,_r16_]]
    */
   case class LD_A_R16MEM(private val input: Array[UByte]) extends Instruction(input) {
-    private val rawSrcRef: Int = OpCode.Extract.bits54(opCode)
+    private val rawSrcRef: Int = opCode.range(5, 4)
     val srcRef: Registers.R16 = Registers.R16.values(rawSrcRef)
 
     override def execute(registers: Registers, memory: MemoryMap): Unit = {
@@ -130,11 +133,31 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD_r8,n8]]
    */
   case class LD_R8_IMM8(private val input: Array[UByte]) extends Instruction(input) with HasImm8 {
-    private val rawDest: Int = OpCode.Extract.bits543(opCode)
+    private val rawDest: Int = opCode.range(5, 3)
     val dest: Registers.R8 = Registers.R8.values(rawDest)
 
     override def execute(registers: Registers, memory: MemoryMap): Unit = {
       registers.update(dest, imm8)
+    }
+  }
+
+  /**
+   * LD r8,r8 - Copy (aka Load) the value in register on the right into the register on the left.
+   *
+   * Storing a register into itself is a no-op; however, some Game Boy emulators interpret LD B,B as a breakpoint,
+   * or LD D,D as a debug message (such as BGB).
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD_r8,r8]]
+   */
+  case class LD_R8_R8(private val input: Array[UByte]) extends Instruction(input) {
+    private val rawSource: Int = opCode.range(2, 0)
+    val source: Registers.R8 = Registers.R8.values(rawSource)
+
+    private val rawDest: Int = opCode.range(5, 3)
+    val dest: Registers.R8 = Registers.R8.values(rawDest)
+
+    override def execute(registers: Registers, memory: MemoryMap): Unit = {
+      registers.update(dest, registers(source))
     }
   }
 
@@ -199,6 +222,30 @@ object Instruction {
    * Interrupt-related instructions
    * https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#Interrupt-related_instructions
    **/
+
+  /**
+   * Halt - Enter CPU low-power consumption mode until an interrupt occurs.
+   *
+   * The exact behavior of this instruction depends on the state of the IME flag, and whether interrupts are
+   * pending (i.e. whether ‘[IE] & [IF]’ is non-zero):
+   *
+   * If the IME flag is set:
+   * The CPU enters low-power mode until after an interrupt is about to be serviced. The handler is executed
+   * normally, and the CPU resumes execution after the HALT when that returns.
+   *
+   * If the IME flag is not set, and no interrupts are pending:
+   * As soon as an interrupt becomes pending, the CPU resumes execution. This is like the above, except that
+   * the handler is not called.
+   *
+   * If the IME flag is not set, and some interrupt is pending:
+   * The CPU continues execution after the HALT, but the byte after it is read twice in a row
+   * (PC is not incremented, due to a hardware bug).
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#HALT]]
+   */
+  case object HALT extends Instruction(Array(OpCode.HALT.pattern)) {
+    override def execute(registers: Registers, memory: MemoryMap): Unit = ??? // TODO
+  }
 
   /*
    * Miscellaneous instructions

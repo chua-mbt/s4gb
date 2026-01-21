@@ -27,6 +27,14 @@ enum OpCode(val pattern: UByte, val mask: UByte = 0xFF.toUByte) {
   case DEC_R8 extends OpCode(0x05.toUByte, excludeBits543) // 00OOO101
 
   case LD_R8_IMM8 extends OpCode(0x06.toUByte, excludeBits543) // 00OOO110
+
+  // Block 1: https://gbdev.io/pandocs/CPU_Instruction_Set.html#block-1-8-bit-register-to-register-loads
+  case HALT extends OpCode(0x76.toUByte, excludeNone) // 01110110
+  case LD_R8_R8 extends OpCode(0x40.toUByte, excludeBits543210) // 01DDDSSS
+
+  // Block 2: https://gbdev.io/pandocs/CPU_Instruction_Set.html#block-2-8-bit-arithmetic
+
+  // Block 3: https://gbdev.io/pandocs/CPU_Instruction_Set.html#block-3
 }
 
 object OpCode {
@@ -37,13 +45,14 @@ object OpCode {
   }
 
   object Masks {
+    val excludeNone: UByte = 0xFF.toUByte // 11111111
     val excludeBits54: UByte = 0xCF.toUByte // 11001111
     val excludeBits543: UByte = 0xC7.toUByte // 11000111
+    val excludeBits543210: UByte = 0xC0.toUByte // 11000000
   }
 
   object Extract {
-    def bits54(value: UByte): Int = ((value >>> 4) & 0x03.toUByte).toInt
-
-    def bits543(value: UByte): Int = ((value >>> 3) & 0x07.toUByte).toInt
+    extension (value: UByte)
+      def range(hi: Int, lo: Int): Int = (value.toInt >>> lo) & ((1 << (hi - lo + 1)) - 1)
   }
 }

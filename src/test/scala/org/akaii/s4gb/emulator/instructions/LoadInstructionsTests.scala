@@ -99,5 +99,32 @@ object LoadInstructionsTests extends TestSuite {
         assert(registers(destRegister) == imm8)
       }
     }
+
+    test("LD_R8_R8") {
+      val registerPairs = Registers.R8.values.toSeq.flatMap(dest =>
+        Registers.R8.values.toSeq.map(src => (dest, src))
+      )
+
+      registerPairs.foreach { case (destRegister, srcRegister) =>
+        val opcode: UByte = OpCode.LD_R8_R8.pattern | (destRegister.ordinal << 3).toUByte | srcRegister.ordinal.toUByte
+        val input: Array[UByte] = Array(opcode)
+        val instruction = Instruction.decode(input)
+
+        assert(instruction.isInstanceOf[Instruction.LD_R8_R8])
+        assert(instruction.toString == f"LD_R8_R8(0x${opcode.toInt}%02X)")
+        assert(instruction.opCode == opcode)
+        assert(instruction.asInstanceOf[Instruction.LD_R8_R8].dest == destRegister)
+        assert(instruction.asInstanceOf[Instruction.LD_R8_R8].source == srcRegister)
+
+        val registers = Registers()
+        val memory = TestMap()
+
+        val value: UByte = 0x42.toUByte
+        registers(srcRegister) = value
+
+        instruction.execute(registers, memory)
+        assert(registers(destRegister) == value)
+      }
+    }
   }
 }
