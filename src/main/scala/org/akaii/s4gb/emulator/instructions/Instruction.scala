@@ -12,18 +12,30 @@ import spire.math.{UByte, UShort}
  * Raw input should always be a triple of bytes (up to 3 bytes per instruction).
  *
  * @see [[https://gbdev.io/pandocs/CPU_Instruction_Set.html]]
+ * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7]]
+ * @see [[https://izik1.github.io/gbops/]]
  */
 sealed abstract class Instruction(protected val value: Array[UByte]) extends Product with Serializable {
   val opCode: UByte = value.head
   val cycles: Int
   val bytes: Int
 
-  def execute(registers: Registers, memory: MemoryMap): Unit = {
-    executeImplementation(registers, memory)
-    registers.advance(cycles, bytes)
+  def execute(state: Instruction.State): Boolean = {
+    if (state.elapsed < micro.length) {
+      //System.out.println(s"Executing micro-instruction step $step for $this\n")
+      val microInstruction = micro(state.elapsed)
+      microInstruction.execute(state)
+      state.registers.advance(
+        cycles = microInstruction.cycles,
+        bytes = if (state.elapsed == 0) bytes else 0
+      )
+    }
+
+    state.elapsed + 1 > micro.length
   }
 
-  protected def executeImplementation(registers: Registers, memory: MemoryMap): Unit = ???
+  protected[instructions] def micro: Seq[Instruction.Micro] = Seq(Instruction.Micro.fetchOpCode())
+  protected def executeImplementation(state: Instruction.State): Unit = ???
 
   override def toString: String = f"$productPrefix(0x${opCode.toInt}%02X)"
 }
@@ -50,6 +62,16 @@ object Instruction {
       // Block 3 (0b11) https://gbdev.io/pandocs/CPU_Instruction_Set.html#block-3
       // TODO: implement other instructions
     }
+  }
+
+  case class State(registers: Registers, memory: MemoryMap, elapsed: Int = 0)
+  private type MicroInstruction = State => Unit
+  final case class Micro private(cycles: Int = 0, execute: MicroInstruction = _ => ())
+  object Micro {
+    def readMemory(execute: MicroInstruction = _ => ()): Micro = Micro(1, execute)
+    def writeMemory(execute: MicroInstruction = _ => ()): Micro = Micro(1, execute)
+    def fetchOpCode(execute: MicroInstruction = _ => ()): Micro = readMemory(execute)
+    def internal(execute: MicroInstruction = _ => ()): Micro = Micro(0, execute)
   }
 
   trait HasImm8 {
@@ -104,8 +126,10 @@ object Instruction {
 
     lazy val dest: Registers.R16 = Registers.R16.values(opCode.range(5, 4))
 
-    override def executeImplementation(registers: Registers, memory: MemoryMap): Unit =
-      registers.update(dest, imm16)
+    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+      Micro.readMemory { state => state.registers.update(dest.lo, imm16.registerLoByte) },
+      Micro.readMemory { state => state.registers.update(dest.hi, imm16.registerHiByte) },
+    )
   }
 
   /**
@@ -120,8 +144,9 @@ object Instruction {
     private val rawDestRef: Int = opCode.range(5, 4)
     lazy val destRef: Registers.R16 = Registers.R16.values(rawDestRef)
 
-    override def executeImplementation(registers: Registers, memory: MemoryMap): Unit =
-      memory.write(registers(destRef), registers.a)
+    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+      Micro.writeMemory { state => state.memory.write(state.registers(destRef), state.registers.a) }
+    )
   }
 
   /**
@@ -136,8 +161,9 @@ object Instruction {
     private val rawSrcRef: Int = opCode.range(5, 4)
     lazy val srcRef: Registers.R16 = Registers.R16.values(rawSrcRef)
 
-    override def executeImplementation(registers: Registers, memory: MemoryMap): Unit =
-      registers.a = memory(registers(srcRef))
+    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+      Micro.readMemory { state => state.registers.a = state.memory(state.registers(srcRef)) }
+    )
   }
 
   /**
@@ -152,8 +178,9 @@ object Instruction {
     private val rawDest: Int = opCode.range(5, 3)
     lazy val dest: Registers.R8 = Registers.R8.values(rawDest)
 
-    override def executeImplementation(registers: Registers, memory: MemoryMap): Unit =
-      registers.update(dest, imm8)
+    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+      Micro.readMemory { state => state.registers.update(dest, imm8) }
+    )
   }
 
   /**
@@ -174,8 +201,9 @@ object Instruction {
     private val rawDest: Int = opCode.range(5, 3)
     lazy val dest: Registers.R8 = Registers.R8.values(rawDest)
 
-    override def executeImplementation(registers: Registers, memory: MemoryMap): Unit =
-      registers.update(dest, registers(source))
+    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+      Micro.internal { state => state.registers.update(dest, state.registers(source)) }
+    )
   }
 
   /*
@@ -193,16 +221,18 @@ object Instruction {
     override val bytes: Int = 1
     override val start: Int = 5
 
-    override def executeImplementation(registers: Registers, memory: MemoryMap): Unit = {
-      val originalValue = registers(operand)
-      val result = originalValue + 1.toUByte
+    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+      Micro.internal { state =>
+        val originalValue = state.registers(operand)
+        val result = originalValue + 1.toUByte
 
-      registers.update(operand, result)
+        state.registers.update(operand, result)
 
-      registers.flags.z = result == 0.toUByte
-      registers.flags.n = false
-      registers.flags.h = (originalValue & 0x0F.toUByte) + 1.toUByte > 0x0F.toUByte // Just the bottom nibble
-    }
+        state.registers.flags.z = result == 0.toUByte
+        state.registers.flags.n = false
+        state.registers.flags.h = (originalValue & 0x0F.toUByte) + 1.toUByte > 0x0F.toUByte // Just the bottom nibble
+      }
+    )
   }
 
   /**
@@ -215,16 +245,18 @@ object Instruction {
     override val bytes: Int = 1
     override val start: Int = 5
 
-    override def executeImplementation(registers: Registers, memory: MemoryMap): Unit = {
-      val originalValue = registers(operand)
-      val result = originalValue - 1.toUByte
+    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+      Micro.internal { state =>
+        val originalValue = state.registers(operand)
+        val result = originalValue - 1.toUByte
 
-      registers.update(operand, result)
+        state.registers.update(operand, result)
 
-      registers.flags.z = result == 0.toUByte
-      registers.flags.n = true
-      registers.flags.h = (originalValue & 0x0F.toUByte) == 0.toUByte // Just the bottom nibble
-    }
+        state.registers.flags.z = result == 0.toUByte
+        state.registers.flags.n = true
+        state.registers.flags.h = (originalValue & 0x0F.toUByte) == 0.toUByte // Just the bottom nibble
+      }
+    )
   }
 
   /*
@@ -242,15 +274,15 @@ object Instruction {
     override val bytes: Int = 1
     override val start: Int = 5
 
-    override def executeImplementation(registers: Registers, memory: MemoryMap): Unit = {
-      val hl = registers.hl.toInt
-      val r16 = registers(operand).toInt
+    override def executeImplementation(state: Instruction.State): Unit = {
+      val hl = state.registers.hl.toInt
+      val r16 = state.registers(operand).toInt
       val result = hl + r16
 
-      registers.flags.clear()
-      registers.flags.h = ((hl & 0x0FFF) + (r16 & 0x0FFF)) > 0x0FFF // Just the bottom 3 nibbles
-      registers.flags.c = result > 0xFFFF
-      registers.hl = result.toUShort
+      state.registers.flags.clear()
+      state.registers.flags.h = ((hl & 0x0FFF) + (r16 & 0x0FFF)) > 0x0FFF // Just the bottom 3 nibbles
+      state.registers.flags.c = result > 0xFFFF
+      state.registers.hl = result.toUShort
     }
   }
 
@@ -264,8 +296,8 @@ object Instruction {
     override val bytes: Int = 1
     override val start: Int = 5
 
-    override def executeImplementation(registers: Registers, memory: MemoryMap): Unit =
-      registers.update(operand, registers(operand) + 1.toUShort)
+    override def executeImplementation(state: Instruction.State): Unit =
+      state.registers.update(operand, state.registers(operand) + 1.toUShort)
   }
 
   /**
@@ -278,8 +310,8 @@ object Instruction {
     override val bytes: Int = 1
     override val start: Int = 5
 
-    override def executeImplementation(registers: Registers, memory: MemoryMap): Unit =
-      registers.update(operand, registers(operand) - 1.toUShort)
+    override def executeImplementation(state: Instruction.State): Unit =
+      state.registers.update(operand, state.registers(operand) - 1.toUShort)
   }
 
   /*
@@ -321,10 +353,10 @@ object Instruction {
     override val cycles: Int = 5
     override val bytes: Int = 3
 
-    override def executeImplementation(registers: Registers, memory: MemoryMap): Unit = {
-      val sp = registers.sp
-      memory.write(imm16, sp.registerLoByte)
-      memory.write(imm16 + 1.toUShort, sp.registerHiByte)
+    override def executeImplementation(state: Instruction.State): Unit = {
+      val sp = state.registers.sp
+      state.memory.write(imm16, sp.registerLoByte)
+      state.memory.write(imm16 + 1.toUShort, sp.registerHiByte)
     }
   }
 
@@ -357,7 +389,7 @@ object Instruction {
     override val cycles: Int = 1 // TODO
     override val bytes: Int = 1 // TODO
 
-    override def executeImplementation(registers: Registers, memory: MemoryMap): Unit = ??? // TODO
+    override def executeImplementation(state: Instruction.State): Unit = ??? // TODO
   }
 
   /*
@@ -374,7 +406,7 @@ object Instruction {
     override val cycles: Int = 1
     override val bytes: Int = 1
 
-    override def executeImplementation(registers: Registers, memory: MemoryMap): Unit = {}
+    override def executeImplementation(state: Instruction.State): Unit = {}
   }
 
 }

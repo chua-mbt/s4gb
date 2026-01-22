@@ -8,7 +8,7 @@ import org.akaii.s4gb.emulator.instructions.{Instruction, OpCode}
 import spire.math.{UByte, UShort}
 import utest.*
 
-object LoadInstructionsTests extends TestSuite {
+object LoadInstructionsTests extends InstructionsTest {
 
   val tests: Tests = Tests {
     test("LD_R16_IMM16") {
@@ -21,18 +21,26 @@ object LoadInstructionsTests extends TestSuite {
         val input: Array[UByte] = Array(opcode, immLo, immHi)
         val instruction = Instruction.decode(input)
 
-        assert(instruction.isInstanceOf[Instruction.LD_R16_IMM16])
         assert(instruction.toString == f"LD_R16_IMM16(0x${opcode.toInt}%02X${immLo.toInt}%02X${immHi.toInt}%02X)")
-        assert(instruction.opCode == opcode)
-        assert(instruction.asInstanceOf[Instruction.LD_R16_IMM16].imm16 == imm16)
-        assert(instruction.asInstanceOf[Instruction.LD_R16_IMM16].dest == register)
+        verifyInstruction[Instruction.LD_R16_IMM16](opcode, instruction) { ld =>
+          assert(ld.imm16 == imm16)
+          assert(ld.dest == register)
+        }
 
         val registers = Registers()
-        instruction.execute(registers, TestMap())
+        val finalState = exhaustInstruction(instruction, Instruction.State(registers, TestMap()))
 
-        assert(registers(register) == imm16)
+        val expectedRegisters = Registers()
+        // Results
+        expectedRegisters.pc = instruction.bytes.toUShort
+        expectedRegisters.sp = instruction.cycles.toUShort
+        expectedRegisters(register) = imm16
 
-        verifyPCAndSP(registers, instruction)
+        verifyState(
+          finalState, instruction,
+          expectedRegisters = expectedRegisters,
+          expectedMemory = TestMap()
+        )
       }
     }
 
@@ -42,21 +50,30 @@ object LoadInstructionsTests extends TestSuite {
         val input: Array[UByte] = Array(opcode)
         val instruction = Instruction.decode(input)
 
-        assert(instruction.isInstanceOf[Instruction.LD_R16MEM_A])
         assert(instruction.toString == f"LD_R16MEM_A(0x${opcode.toInt}%02X)")
-        assert(instruction.opCode == opcode)
-        assert(instruction.asInstanceOf[Instruction.LD_R16MEM_A].destRef == addressRegister)
+        verifyInstruction[Instruction.LD_R16MEM_A](opcode, instruction) { ld =>
+          assert(ld.destRef == addressRegister)
+        }
 
         val registers = Registers()
-        val memory = TestMap()
         registers.a = 0x42.toUByte
+        val finalState = exhaustInstruction(instruction, Instruction.State(registers, TestMap()))
 
-        instruction.execute(registers, memory)
+        val expectedRegisters = Registers()
+        expectedRegisters.a = 0x42.toUByte
+        // Results
+        expectedRegisters.pc = instruction.bytes.toUShort
+        expectedRegisters.sp = instruction.cycles.toUShort
 
-        val memoryAddress = registers(addressRegister)
-        assert(memory(memoryAddress) == registers.a)
+        val expectedMemory = TestMap()
+        // Results
+        expectedMemory.write(registers(addressRegister), registers.a)
 
-        verifyPCAndSP(registers, instruction)
+        verifyState(
+          finalState, instruction,
+          expectedRegisters = expectedRegisters,
+          expectedMemory = expectedMemory
+        )
       }
     }
 
@@ -66,10 +83,10 @@ object LoadInstructionsTests extends TestSuite {
         val input: Array[UByte] = Array(opcode)
         val instruction = Instruction.decode(input)
 
-        assert(instruction.isInstanceOf[Instruction.LD_A_R16MEM])
         assert(instruction.toString == f"LD_A_R16MEM(0x${opcode.toInt}%02X)")
-        assert(instruction.opCode == opcode)
-        assert(instruction.asInstanceOf[Instruction.LD_A_R16MEM].srcRef == srcRegister)
+        verifyInstruction[Instruction.LD_A_R16MEM](opcode, instruction) { ld =>
+          assert(ld.srcRef == srcRegister)
+        }
 
         val registers = Registers()
         val memory = TestMap()
@@ -78,10 +95,21 @@ object LoadInstructionsTests extends TestSuite {
         registers(srcRegister) = 0xC000.toUShort
         memory.write(registers(srcRegister), value)
 
-        instruction.execute(registers, memory)
-        assert(registers.a == value)
+        val finalState = exhaustInstruction(instruction, Instruction.State(registers, memory))
 
-        verifyPCAndSP(registers, instruction)
+        val expectedRegisters = Registers()
+        expectedRegisters(srcRegister) = 0xC000.toUShort
+
+        // Results
+        expectedRegisters.pc = instruction.bytes.toUShort
+        expectedRegisters.sp = instruction.cycles.toUShort
+        expectedRegisters.a = value
+
+        verifyState(
+          finalState, instruction,
+          expectedRegisters = expectedRegisters,
+          expectedMemory = memory
+        )
       }
     }
 
@@ -92,26 +120,30 @@ object LoadInstructionsTests extends TestSuite {
         val input: Array[UByte] = Array(opcode, imm8)
         val instruction = Instruction.decode(input)
 
-        assert(instruction.isInstanceOf[Instruction.LD_R8_IMM8])
         assert(instruction.toString == f"LD_R8_IMM8(0x${opcode.toInt}%02X${imm8.toInt}%02X)")
-        assert(instruction.opCode == opcode)
-        assert(instruction.asInstanceOf[Instruction.LD_R8_IMM8].dest == destRegister)
-        assert(instruction.asInstanceOf[Instruction.LD_R8_IMM8].imm8 == imm8)
+        verifyInstruction[Instruction.LD_R8_IMM8](opcode, instruction) { ld =>
+          assert(ld.dest == destRegister)
+          assert(ld.imm8 == imm8)
+        }
 
         val registers = Registers()
         val memory = TestMap()
 
-        instruction.execute(registers, memory)
-        assert(registers(destRegister) == imm8)
+        val finalState = exhaustInstruction(instruction, Instruction.State(registers, memory))
+        val expectedRegisters = Registers()
 
-        verifyPCAndSP(registers, instruction)
+        // Results
+        expectedRegisters.pc = instruction.bytes.toUShort
+        expectedRegisters.sp = instruction.cycles.toUShort
+        expectedRegisters(destRegister) = imm8
+
+        verifyState(
+          finalState, instruction,
+          expectedRegisters = expectedRegisters,
+          expectedMemory = memory
+        )
       }
     }
 
-  }
-
-  private def verifyPCAndSP(registers: Registers, instruction: Instruction): Unit = {
-    assert(registers.sp == instruction.cycles.toUShort)
-    assert(registers.pc == instruction.bytes.toUShort)
   }
 }

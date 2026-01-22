@@ -8,22 +8,26 @@ import org.akaii.s4gb.emulator.instructions.{Instruction, OpCode}
 import spire.math.{UByte, UShort}
 import utest.*
 
-object MiscInstructionsTests extends TestSuite {
+object MiscInstructionsTests extends InstructionsTest {
 
   val tests: Tests = Tests {
     test("NOP") {
       val instruction = Instruction.decode(Array(OpCode.NOP.pattern))
-      assert(instruction == Instruction.NOP)
       assert(instruction.toString == "NOP(0x00)")
+      verifyInstruction[Instruction.NOP.type](OpCode.NOP.pattern, instruction)
 
-      val state = (Registers(), TestMap())
-      instruction.execute.apply.tupled(state)
+      val finalState = exhaustInstruction(instruction, Instruction.State(Registers(), TestMap()))
 
       val expectedRegisters = Registers()
-      expectedRegisters.pc = 1.toUShort
-      expectedRegisters.sp = 1.toUShort
+      expectedRegisters.pc = instruction.bytes.toUShort
+      expectedRegisters.sp = instruction.cycles.toUShort
 
-      assert(state == (expectedRegisters, TestMap())) // NOP should not change state besides PC and SP
+      // NOP should not change state besides PC and SP
+      verifyState(
+        finalState, instruction,
+        expectedRegisters = expectedRegisters,
+        expectedMemory = TestMap()
+      )
     }
   }
 }
