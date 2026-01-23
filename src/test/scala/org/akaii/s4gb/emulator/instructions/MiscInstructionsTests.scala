@@ -16,18 +16,7 @@ object MiscInstructionsTests extends InstructionsTest {
       assert(instruction.toString == "NOP(0x00)")
       verifyInstruction[Instruction.NOP.type](OpCode.NOP.pattern, instruction)
 
-      val finalState = exhaustInstruction(instruction, Instruction.State(Registers(), TestMap()))
-
-      val expectedRegisters = Registers()
-      expectedRegisters.pc = instruction.bytes.toUShort
-      expectedRegisters.sp = instruction.cycles.toUShort
-
-      // NOP should not change state besides PC and SP
-      verifyState(
-        finalState, instruction,
-        expectedRegisters = expectedRegisters,
-        expectedMemory = TestMap()
-      )
+      testInstruction(instruction = instruction)
     }
   }
 }

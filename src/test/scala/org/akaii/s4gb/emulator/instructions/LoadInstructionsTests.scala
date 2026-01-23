@@ -13,7 +13,7 @@ object LoadInstructionsTests extends InstructionsTest {
   val tests: Tests = Tests {
     test("LD_R16_IMM16") {
       val imm16 = 0x1234.toUShort
-      Registers.R16.values.foreach { register =>
+      forAllR16 { register =>
         val opcode: UByte = OpCode.LD_R16_IMM16.pattern | (register.ordinal << 4).toUByte
         val immLo: UByte = imm16.registerLoByte
         val immHi: UByte = imm16.registerHiByte
@@ -27,25 +27,15 @@ object LoadInstructionsTests extends InstructionsTest {
           assert(ld.dest == register)
         }
 
-        val registers = Registers()
-        val finalState = exhaustInstruction(instruction, Instruction.State(registers, TestMap()))
-
-        val expectedRegisters = Registers()
-        // Results
-        expectedRegisters.pc = instruction.bytes.toUShort
-        expectedRegisters.sp = instruction.cycles.toUShort
-        expectedRegisters(register) = imm16
-
-        verifyState(
-          finalState, instruction,
-          expectedRegisters = expectedRegisters,
-          expectedMemory = TestMap()
+        testInstruction(
+          instruction = instruction,
+          registerExpect = registers => registers(register) = imm16
         )
       }
     }
 
     test("LD_R16MEM_A") {
-      Registers.R16.values.foreach { addressRegister =>
+      forAllR16 { addressRegister =>
         val opcode: UByte = OpCode.LD_R16MEM_A.pattern | (addressRegister.ordinal << 4).toUByte
         val input: Array[UByte] = Array(opcode)
         val instruction = Instruction.decode(input)
@@ -55,30 +45,21 @@ object LoadInstructionsTests extends InstructionsTest {
           assert(ld.destRef == addressRegister)
         }
 
-        val registers = Registers()
-        registers.a = 0x42.toUByte
-        val finalState = exhaustInstruction(instruction, Instruction.State(registers, TestMap()))
-
-        val expectedRegisters = Registers()
-        expectedRegisters.a = 0x42.toUByte
-        // Results
-        expectedRegisters.pc = instruction.bytes.toUShort
-        expectedRegisters.sp = instruction.cycles.toUShort
-
-        val expectedMemory = TestMap()
-        // Results
-        expectedMemory.write(registers(addressRegister), registers.a)
-
-        verifyState(
-          finalState, instruction,
-          expectedRegisters = expectedRegisters,
-          expectedMemory = expectedMemory
+        testInstruction(
+          instruction = instruction,
+          registerSetup = registers => {
+            registers.a = 0x42.toUByte
+            registers(addressRegister) = 0xC000.toUShort
+          },
+          memoryExpect = memory => {
+            memory.write(0xC000.toUShort, 0x42.toUByte)
+          }
         )
       }
     }
 
     test("LD_A_R16MEM") {
-      Registers.R16.values.foreach { srcRegister =>
+      forAllR16 { srcRegister =>
         val opcode: UByte = OpCode.LD_A_R16MEM.pattern | (srcRegister.ordinal << 4).toUByte
         val input: Array[UByte] = Array(opcode)
         val instruction = Instruction.decode(input)
@@ -88,34 +69,18 @@ object LoadInstructionsTests extends InstructionsTest {
           assert(ld.srcRef == srcRegister)
         }
 
-        val registers = Registers()
-        val memory = TestMap()
-
-        val value: UByte = 0x42.toUByte
-        registers(srcRegister) = 0xC000.toUShort
-        memory.write(registers(srcRegister), value)
-
-        val finalState = exhaustInstruction(instruction, Instruction.State(registers, memory))
-
-        val expectedRegisters = Registers()
-        expectedRegisters(srcRegister) = 0xC000.toUShort
-
-        // Results
-        expectedRegisters.pc = instruction.bytes.toUShort
-        expectedRegisters.sp = instruction.cycles.toUShort
-        expectedRegisters.a = value
-
-        verifyState(
-          finalState, instruction,
-          expectedRegisters = expectedRegisters,
-          expectedMemory = memory
+        testInstruction(
+          instruction = instruction,
+          registerSetup = registers => registers(srcRegister) = 0xC000.toUShort,
+          memorySetup = (registers, memory) => memory.write(registers(srcRegister), 0x42.toUByte),
+          registerExpect = _.a = 0x42.toUByte
         )
       }
     }
 
     test("LD_R8_IMM8") {
       val imm8: UByte = 0x42.toUByte
-      Registers.R8.values.foreach { destRegister =>
+      forAllR8 { destRegister =>
         val opcode: UByte = OpCode.LD_R8_IMM8.pattern | (destRegister.ordinal << 3).toUByte
         val input: Array[UByte] = Array(opcode, imm8)
         val instruction = Instruction.decode(input)
@@ -126,24 +91,33 @@ object LoadInstructionsTests extends InstructionsTest {
           assert(ld.imm8 == imm8)
         }
 
-        val registers = Registers()
-        val memory = TestMap()
-
-        val finalState = exhaustInstruction(instruction, Instruction.State(registers, memory))
-        val expectedRegisters = Registers()
-
-        // Results
-        expectedRegisters.pc = instruction.bytes.toUShort
-        expectedRegisters.sp = instruction.cycles.toUShort
-        expectedRegisters(destRegister) = imm8
-
-        verifyState(
-          finalState, instruction,
-          expectedRegisters = expectedRegisters,
-          expectedMemory = memory
+        testInstruction(
+          instruction = instruction,
+          registerExpect = registers => registers(destRegister) = imm8
         )
       }
     }
 
+    test("LD_R8_R8") {
+      val value: UByte = 0x33.toUByte
+      forAllR8Pairs { (sourceRegister, destRegister) =>
+        val opcode: UByte = OpCode.LD_R8_R8.pattern | (destRegister.ordinal << 3).toUByte | (sourceRegister.ordinal << 0).toUByte
+        val input: Array[UByte] = Array(opcode)
+        val instruction = Instruction.decode(input)
+
+        assert(instruction.toString == f"LD_R8_R8(0x${opcode.toInt}%02X)")
+        verifyInstruction[Instruction.LD_R8_R8](opcode, instruction) { ld =>
+          assert(ld.source == sourceRegister)
+          assert(ld.dest == destRegister)
+        }
+
+        testInstruction(
+          instruction = instruction,
+          registerSetup = registers => registers(sourceRegister) = value,
+          registerExpect = registers => registers(destRegister) = value
+        )
+      }
+    }
   }
 }
+

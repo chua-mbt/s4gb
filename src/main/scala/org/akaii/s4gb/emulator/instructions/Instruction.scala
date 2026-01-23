@@ -22,7 +22,6 @@ sealed abstract class Instruction(protected val value: Array[UByte]) extends Pro
 
   def execute(state: Instruction.State): Boolean = {
     if (state.elapsed < micro.length) {
-      //System.out.println(s"Executing micro-instruction step $step for $this\n")
       val microInstruction = micro(state.elapsed)
       microInstruction.execute(state)
       state.registers.advance(
@@ -71,7 +70,6 @@ object Instruction {
     def readMemory(execute: MicroInstruction = _ => ()): Micro = Micro(1, execute)
     def writeMemory(execute: MicroInstruction = _ => ()): Micro = Micro(1, execute)
     def fetchOpCode(execute: MicroInstruction = _ => ()): Micro = readMemory(execute)
-    def internal(execute: MicroInstruction = _ => ()): Micro = Micro(0, execute)
   }
 
   trait HasImm8 {
@@ -201,8 +199,8 @@ object Instruction {
     private val rawDest: Int = opCode.range(5, 3)
     lazy val dest: Registers.R8 = Registers.R8.values(rawDest)
 
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
-      Micro.internal { state => state.registers.update(dest, state.registers(source)) }
+    override protected[instructions] def micro: Seq[Micro] = Seq(
+      Micro.fetchOpCode { state => state.registers.update(dest, state.registers(source)) }
     )
   }
 
@@ -221,8 +219,8 @@ object Instruction {
     override val bytes: Int = 1
     override val start: Int = 5
 
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
-      Micro.internal { state =>
+    override protected[instructions] def micro: Seq[Micro] = Seq(
+      Micro.fetchOpCode { state =>
         val originalValue = state.registers(operand)
         val result = originalValue + 1.toUByte
 
@@ -245,8 +243,8 @@ object Instruction {
     override val bytes: Int = 1
     override val start: Int = 5
 
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
-      Micro.internal { state =>
+    override protected[instructions] def micro: Seq[Micro] = Seq(
+      Micro.fetchOpCode { state =>
         val originalValue = state.registers(operand)
         val result = originalValue - 1.toUByte
 

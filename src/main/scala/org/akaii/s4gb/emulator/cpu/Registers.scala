@@ -13,7 +13,7 @@ import spire.syntax.literals.*
  * @see [[https://gbdev.io/pandocs/CPU_Registers_and_Flags.html CPU Registers and Flags]]
  */
 case class Registers(
-  private val underlying: Array[UByte] = Array.fill(8)(UByte.MinValue),
+  underlying: Array[UByte] = Array.fill(8)(UByte.MinValue),
   var sp: UShort = UShort.MinValue,
   var pc: UShort = UShort.MinValue
 ) {
