@@ -74,7 +74,7 @@ object Instruction {
 
   trait HasImm8 {
     self: Instruction =>
-    val imm8: UByte = value(1)
+    lazy val imm8: UByte = value(1)
 
     override def toString: String = {
       val hexStr = f"${self.opCode.toInt}%02X" + f"${imm8.toInt}%02X"
@@ -84,7 +84,7 @@ object Instruction {
 
   trait HasImm16 {
     self: Instruction =>
-    val imm16: UShort = (value(2).toUShort << 8) | value(1).toUShort
+    lazy val imm16: UShort = (value(2).toUShort << 8) | value(1).toUShort
 
     override def toString: String = {
       val hexStr = f"${self.opCode.toInt}%02X" +
@@ -96,14 +96,14 @@ object Instruction {
 
   trait HasR8Operand {
     self: Instruction =>
-    protected val start: Int
-    val operand: Registers.R8 = Registers.R8.values(opCode.range(start, start - 1))
+    protected lazy val start: Int
+    lazy val operand: Registers.R8 = Registers.R8.values(opCode.range(start, start - 2))
   }
 
   trait HasR16Operand {
     self: Instruction =>
-    protected val start: Int
-    val operand: Registers.R16 = Registers.R16.values(opCode.range(start, start - 2))
+    protected lazy val start: Int
+    lazy val operand: Registers.R16 = Registers.R16.values(opCode.range(start, start - 1))
   }
 
   /*
@@ -182,7 +182,7 @@ object Instruction {
   }
 
   /**
-   * LD r8,r8 - Copy (aka Load) the value in register on the right into the register on the left.
+   * LD_R8_R8 - Copy (aka Load) the value in register on the right into the register on the left.
    *
    * Storing a register into itself is a no-op; however, some Game Boy emulators interpret LD B,B as a breakpoint,
    * or LD D,D as a debug message (such as BGB).
@@ -217,7 +217,7 @@ object Instruction {
   case class INC_R8(private val input: Array[UByte]) extends Instruction(input) with HasR8Operand {
     override val cycles: Int = 1
     override val bytes: Int = 1
-    override val start: Int = 5
+    override lazy val start: Int = 5
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
       Micro.fetchOpCode { state =>
@@ -241,7 +241,7 @@ object Instruction {
   case class DEC_R8(private val input: Array[UByte]) extends Instruction(input) with HasR8Operand {
     override val cycles: Int = 1
     override val bytes: Int = 1
-    override val start: Int = 5
+    override lazy val start: Int = 5
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
       Micro.fetchOpCode { state =>
@@ -270,7 +270,7 @@ object Instruction {
   case class ADD_HL_R16(private val input: Array[UByte]) extends Instruction(input) with HasR16Operand {
     override val cycles: Int = 2
     override val bytes: Int = 1
-    override val start: Int = 5
+    override lazy val start: Int = 5
 
     override def executeImplementation(state: Instruction.State): Unit = {
       val hl = state.registers.hl.toInt
@@ -292,7 +292,7 @@ object Instruction {
   case class INC_R16(private val input: Array[UByte]) extends Instruction(input) with HasR16Operand {
     override val cycles: Int = 2
     override val bytes: Int = 1
-    override val start: Int = 5
+    override lazy val start: Int = 5
 
     override def executeImplementation(state: Instruction.State): Unit =
       state.registers.update(operand, state.registers(operand) + 1.toUShort)
@@ -306,7 +306,7 @@ object Instruction {
   case class DEC_R16(private val input: Array[UByte]) extends Instruction(input) with HasR16Operand {
     override val cycles: Int = 2
     override val bytes: Int = 1
-    override val start: Int = 5
+    override lazy val start: Int = 5
 
     override def executeImplementation(state: Instruction.State): Unit =
       state.registers.update(operand, state.registers(operand) - 1.toUShort)

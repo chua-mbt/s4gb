@@ -6,17 +6,13 @@ import org.akaii.s4gb.emulator.cpu.Registers
 import org.akaii.s4gb.emulator.cpu.Registers.R16
 import org.akaii.s4gb.emulator.instructions.{Instruction, OpCode}
 import spire.math.{UByte, UShort}
-import utest.*
 
-object InterruptInstructionsTests extends TestSuite {
-
-  val tests: Tests = Tests {
+class InterruptInstructionsTests extends InstructionsTest {
     test("HALT") {
       val instruction = Instruction.decode(Array(OpCode.HALT.pattern))
-      assert(instruction == Instruction.HALT)
-      assert(instruction.toString == "HALT(0x76)")
+      assertEquals(instruction, Instruction.HALT)
+      assertEquals(instruction.toString, "HALT(0x76)")
 
       // TODO : instruction.execute.apply.tupled(state)
     }
-  }
 }

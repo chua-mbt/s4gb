@@ -7,7 +7,7 @@ lazy val root = (project in file("."))
     libraryDependencies ++= Seq(
       "org.typelevel" %% "spire" % "0.18.0",
       "org.typelevel" %% "spire-macros" % "0.18.0",
-      "com.lihaoyi" %% "utest" % "0.9.4" % Test,
+      "org.scalameta" %% "munit" % "1.2.1" % Test
     ),
     testFrameworks += new TestFramework("utest.runner.Framework")
   )

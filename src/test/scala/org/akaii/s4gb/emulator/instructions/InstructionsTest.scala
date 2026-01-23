@@ -1,15 +1,16 @@
 package org.akaii.s4gb.emulator.instructions
 
-import org.akaii.s4gb.emulator.{TestMap, MemoryMap}
+import munit.*
 import org.akaii.s4gb.emulator.byteops.*
 import org.akaii.s4gb.emulator.cpu.Registers
 import org.akaii.s4gb.emulator.cpu.Registers.R16
 import org.akaii.s4gb.emulator.instructions.{Instruction, OpCode}
+import org.akaii.s4gb.emulator.{MemoryMap, TestMap, copyTo}
 import spire.math.{UByte, UShort}
-import utest.*
-import org.akaii.s4gb.emulator.copyTo
 
-abstract class InstructionsTest extends TestSuite {
+import scala.reflect.ClassTag
+
+abstract class InstructionsTest extends FunSuite {
   def setupTest(
     registerSetup: Registers => Unit = _ => (),
     memorySetup: (Registers, TestMap) => Unit = (_, _) => ()
@@ -50,13 +51,13 @@ abstract class InstructionsTest extends TestSuite {
       exhaustInstruction(instruction, state.copy(elapsed = state.elapsed + 1))
   }
 
-  protected def verifyInstruction[T <: Instruction](
+  protected def verifyInstruction[T <: Instruction : ClassTag](
     opCode: UByte,
     instruction: Instruction
   )(verifications: T => Unit = (_: T) => ()): Unit = {
-    assert(instruction.isInstanceOf[T])
-    assert(instruction.opCode == opCode)
-    assert(instruction.micro.map(_.cycles).sum == instruction.cycles)
+    assert(summon[ClassTag[T]].runtimeClass.isInstance(instruction))
+    assertEquals(instruction.opCode, opCode)
+    assertEquals(instruction.micro.map(_.cycles).sum, instruction.cycles)
     verifications(instruction.asInstanceOf[T])
   }
 
@@ -65,12 +66,12 @@ abstract class InstructionsTest extends TestSuite {
     instruction: Instruction,
     expectedState: Instruction.State
   ): Unit = {
-    assert(finalState.elapsed == instruction.cycles)
-    assert(finalState.elapsed == expectedState.registers.sp.toInt)
-    assert(finalState.registers.sp == instruction.cycles.toUShort)
-    assert(finalState.registers.pc == instruction.bytes.toUShort)
-    assert(finalState.registers == expectedState.registers)
-    assert(finalState.memory.asInstanceOf[TestMap] == expectedState.memory.asInstanceOf[TestMap])
+    assertEquals(finalState.elapsed, instruction.cycles)
+    assertEquals(finalState.elapsed, expectedState.registers.sp.toInt)
+    assertEquals(finalState.registers.sp, instruction.cycles.toUShort)
+    assertEquals(finalState.registers.pc, instruction.bytes.toUShort)
+    assertEquals(finalState.registers, expectedState.registers)
+    assertEquals(finalState.memory.asInstanceOf[TestMap], expectedState.memory.asInstanceOf[TestMap])
   }
 
   protected def testInstruction(
