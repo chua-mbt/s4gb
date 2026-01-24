@@ -17,15 +17,13 @@ class RegistersTests extends FunSuite {
       (R8.D, regs.d_=, () => regs.d),
       (R8.E, regs.e_=, () => regs.e),
       (R8.H, regs.h_=, () => regs.h),
-      (R8.L, regs.l_=, () => regs.l),
-      (R8.F, regs.f_=, () => regs.f)
+      (R8.L, regs.l_=, () => regs.l)
     )
 
     val values = Seq(0x00, 0x12, 0x7F, 0x80, 0xFF).map(UByte(_))
     cases.zip(values).foreach { case ((r8, set, get), value) =>
       set(value)
-      val expected = if (r8 == R8.F) value & UByte(0xF0) else value
-      assertEquals(get(), expected)
+      assertEquals(get(), value)
     }
   }
 
@@ -35,26 +33,17 @@ class RegistersTests extends FunSuite {
     val cases: Seq[(R16, UShort => Unit, () => UShort)] = Seq(
       (R16.BC, regs.bc_=, () => regs.bc),
       (R16.DE, regs.de_=, () => regs.de),
-      (R16.HL, regs.hl_=, () => regs.hl),
-      (R16.AF, regs.af_=, () => regs.af)
+      (R16.HL, regs.hl_=, () => regs.hl)
     )
 
     val values = Seq(0x0000, 0x1234, 0x7FFF, 0x8000, 0xFFFF).map(UShort(_))
 
     cases.zip(values).foreach { case ((r16, set16, get16), value) =>
       set16(value)
+      assertEquals(get16(), value)
 
-      val expected16 =
-        if (r16 == R16.AF) value & UShort(0xFFF0)
-        else value
-
-      assertEquals(get16(), expected16)
-
-      val expectedHi = value.registerHiByte
-      val expectedLo = if (r16 == R16.AF) value.registerLoByte & UByte(0xF0) else value.registerLoByte
-
-      assertEquals(regs(r16.hi), expectedHi)
-      assertEquals(regs(r16.lo), expectedLo)
+      assertEquals(regs(r16.hi), value.registerHiByte)
+      assertEquals(regs(r16.lo), value.registerLoByte)
     }
   }
 

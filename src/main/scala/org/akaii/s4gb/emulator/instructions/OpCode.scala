@@ -1,6 +1,7 @@
 package org.akaii.s4gb.emulator.instructions
 
 import org.akaii.s4gb.emulator.byteops.*
+import org.akaii.s4gb.emulator.cpu.Registers
 import org.akaii.s4gb.emulator.instructions.OpCode.Masks.*
 import spire.math.UByte
 import spire.syntax.literals.*
@@ -38,6 +39,7 @@ enum OpCode(val pattern: UByte, val mask: UByte = 0xFF.toUByte) {
 }
 
 object OpCode {
+
   def decode(byteValue: UByte): OpCode = {
     // mask out opcode parameters, and then compare with pattern
     values.find(op => (byteValue & op.mask) == op.pattern)
@@ -49,6 +51,58 @@ object OpCode {
     val excludeBits54: UByte = 0xCF.toUByte // 11001111
     val excludeBits543: UByte = 0xC7.toUByte // 11000111
     val excludeBits543210: UByte = 0xC0.toUByte // 11000000
+  }
+
+  /**
+   * Groups of OpCode Parameters
+   * @see [[https://gbdev.io/pandocs/CPU_Instruction_Set.html]]
+   */
+  object Parameters {
+    enum R8 {
+      case B, C, D, E, H, L, MEM_HL, A
+
+      def toRegister: Registers.R8 = this match {
+        case B => Registers.R8.B
+        case C => Registers.R8.C
+        case D => Registers.R8.D
+        case E => Registers.R8.E
+        case H => Registers.R8.H
+        case L => Registers.R8.L
+        case MEM_HL => throw new UnsupportedOperationException("No mapping for MEM_HL to R8")
+        case A => Registers.R8.A
+      }
+    }
+
+    object R8 {
+      val nonMemHLValues: Seq[R8] = Seq(B, C, D, E, H, L, A)
+    }
+
+    enum R16 {
+      case BC, DE, HL, SP
+
+      def toRegister: Registers.R16 = this match {
+        case BC => Registers.R16.BC
+        case DE => Registers.R16.DE
+        case HL => Registers.R16.HL
+        case SP => throw new UnsupportedOperationException("No mapping for SP to R16")
+      }
+    }
+
+    object R16 {
+      val nonSPValues: Seq[R16] = Seq(BC, DE, HL)
+    }
+
+    enum R16Stack {
+      case BC, DE, HL, AF
+    }
+
+    enum R16Mem {
+      case BC, DE, HLPlus, HLMinus
+    }
+
+    enum Condition {
+      case NZ, Z, NC, C
+    }
   }
 
   object Extract {

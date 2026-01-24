@@ -1,153 +1,132 @@
 package org.akaii.s4gb.emulator.instructions
 
-import munit.*
-import org.akaii.s4gb.emulator.TestMap
+import org.akaii.s4gb.emulator.{TestMap, setParam}
 import org.akaii.s4gb.emulator.byteops.*
 import org.akaii.s4gb.emulator.cpu.Registers
-import org.akaii.s4gb.emulator.cpu.Registers.R16
 import org.akaii.s4gb.emulator.instructions.{Instruction, OpCode}
-import org.akaii.s4gb.emulator.instructions.OpCode.Extract.range
-import spire.math.{UByte, UShort}
+import spire.math.UByte
 
 class ByteArithmeticInstructionsTests extends InstructionsTest {
-  test("INC_R8".ignore) {
-    forAllR8 { register =>
-      val opcode: UByte = OpCode.INC_R8.pattern | (register.ordinal << 3).toUByte
-      val input: Array[UByte] = Array(opcode)
-      val instruction = Instruction.decode(input)
+
+  test("INC_R8 - normal increment") {
+    forNonMemHLR8OpCodeParams { operandParam =>
+      val opcode: UByte = OpCode.INC_R8.setParam(operandParam -> 3)
+      val instruction = Instruction.decode(Array(opcode))
 
       assertEquals(instruction.toString, f"INC_R8(0x${opcode.toInt}%02X)")
       verifyInstruction[Instruction.INC_R8](opcode, instruction) { inc =>
-        assertEquals(inc.operand, register)
+        assertEquals(inc.operand, operandParam)
       }
+
+      testInstruction(
+        instruction,
+        registerSetup = regs => regs(operandParam.toRegister) = 0x12.toUByte,
+        registerExpect = regs => {
+          regs(operandParam.toRegister) = 0x13.toUByte
+          regs.f = 0x00.toUByte // Z=0, N=0, H=0, C=unchanged
+        }
+      )
     }
   }
 
-  test("INC_R8 increments value and sets flags correctly".ignore) {
-    val register = Registers.R8.C
-    val opcode: UByte = OpCode.INC_R8.pattern | (register.ordinal << 3).toUByte
-    val input: Array[UByte] = Array(opcode)
-    val instruction = Instruction.decode(input)
+  test("INC_R8 - overflow and zero flag set") {
+    forNonMemHLR8OpCodeParams { operandParam =>
+      val opcode: UByte = OpCode.INC_R8.setParam(operandParam -> 3)
+      val instruction = Instruction.decode(Array(opcode))
 
-    println(s"Test instruction: $instruction")
-    println(s"Test micro sequence: ${instruction.micro.length}")
-    println(s"Test micro(0).cycles: ${instruction.micro(0).cycles}")
-
-    val initialValue: UByte = 0x42.toUByte
-    val expectedValue: UByte = 0x43.toUByte
-
-    testInstruction(
-      instruction = instruction,
-      registerSetup = registers => registers(register) = initialValue,
-      registerExpect = registers => {
-        println(s"Expected check: $register = ${registers(register)}, should be $expectedValue")
-        assertEquals(registers(register), expectedValue)
-        assert(!registers.flags.z)
-        assert(!registers.flags.n)
-        assert(!registers.flags.h)
-      }
-    )
+      testInstruction(
+        instruction,
+        registerSetup = regs => regs(operandParam.toRegister) = 0xFF.toUByte,
+        registerExpect = regs => {
+          regs(operandParam.toRegister) = 0x00.toUByte
+          regs.f = 0xA0.toUByte // Z=1, N=0, H=1, C=unchanged
+        }
+      )
+    }
   }
 
-  test("INC_R8 sets Z flag when result is zero".ignore) {
-    val register = Registers.R8.C
-    val opcode: UByte = OpCode.INC_R8.pattern | (register.ordinal << 3).toUByte
-    val input: Array[UByte] = Array(opcode)
-    val instruction = Instruction.decode(input)
+  test("INC_R8 - half-carry set") {
+    forNonMemHLR8OpCodeParams { operandParam =>
+      val opcode: UByte = OpCode.INC_R8.setParam(operandParam -> 3)
+      val instruction = Instruction.decode(Array(opcode))
 
-    testInstruction(
-      instruction = instruction,
-      registerSetup = registers => registers(register) = 0xFF.toUByte,
-      registerExpect = registers => {
-        assertEquals(registers(register), 0.toUByte)
-        assert(registers.flags.z)
-        assert(!registers.flags.n)
-      }
-    )
+      testInstruction(
+        instruction,
+        registerSetup = regs => regs(operandParam.toRegister) = 0x0F.toUByte,
+        registerExpect = regs => {
+          regs(operandParam.toRegister) = 0x10.toUByte
+          regs.f = 0x20.toUByte // Z=0, N=0, H=1, C=unchanged
+        }
+      )
+    }
   }
 
-  test("INC_R8 sets H flag when bottom nibble overflows".ignore) {
-    val register = Registers.R8.C
-    val opcode: UByte = OpCode.INC_R8.pattern | (register.ordinal << 3).toUByte
-    val input: Array[UByte] = Array(opcode)
-    val instruction = Instruction.decode(input)
-
-    testInstruction(
-      instruction = instruction,
-      registerSetup = registers => registers(register) = 0x0F.toUByte,
-      registerExpect = registers => {
-        assertEquals(registers(register), 0x10.toUByte)
-        assert(registers.flags.h)
-        assert(!registers.flags.n)
-      }
-    )
-  }
-
-  test("DEC_R8".ignore) {
-    forAllR8 { register =>
-      val opcode: UByte = OpCode.DEC_R8.pattern | (register.ordinal << 3).toUByte
-      val input: Array[UByte] = Array(opcode)
-      val instruction = Instruction.decode(input)
+  test("DEC_R8 - normal decrement") {
+    forNonMemHLR8OpCodeParams { operandParam =>
+      val opcode: UByte = OpCode.DEC_R8.setParam(operandParam -> 3)
+      val instruction = Instruction.decode(Array(opcode))
 
       assertEquals(instruction.toString, f"DEC_R8(0x${opcode.toInt}%02X)")
       verifyInstruction[Instruction.DEC_R8](opcode, instruction) { dec =>
-        assertEquals(dec.operand, register)
+        assertEquals(dec.operand, operandParam)
       }
+
+      testInstruction(
+        instruction,
+        registerSetup = regs => regs(operandParam.toRegister) = 0x12.toUByte,
+        registerExpect = regs => {
+          regs(operandParam.toRegister) = 0x11.toUByte
+          regs.f = 0x40.toUByte // Z=0, N=1, H=0, C=unchanged
+        }
+      )
     }
   }
 
-  test("DEC_R8 decrements value and sets flags correctly".ignore) {
-    val register = Registers.R8.C
-    val opcode: UByte = OpCode.DEC_R8.pattern | (register.ordinal << 3).toUByte
-    val input: Array[UByte] = Array(opcode)
-    val instruction = Instruction.decode(input)
+  test("DEC_R8 - zero flag set") {
+    forNonMemHLR8OpCodeParams { operandParam =>
+      val opcode: UByte = OpCode.DEC_R8.setParam(operandParam -> 3)
+      val instruction = Instruction.decode(Array(opcode))
 
-    val initialValue: UByte = 0x42.toUByte
-    val expectedValue: UByte = 0x41.toUByte
-
-    testInstruction(
-      instruction = instruction,
-      registerSetup = registers => registers(register) = initialValue,
-      registerExpect = registers => {
-        assertEquals(registers(register), expectedValue)
-        assert(!registers.flags.z)
-        assert(registers.flags.n)
-        assert(!registers.flags.h)
-      }
-    )
+      testInstruction(
+        instruction,
+        registerSetup = regs => regs(operandParam.toRegister) = 0x01.toUByte,
+        registerExpect = regs => {
+          regs(operandParam.toRegister) = 0x00.toUByte
+          regs.f = 0xC0.toUByte // Z=1, N=1, H=1, C=unchanged
+        }
+      )
+    }
   }
 
-  test("DEC_R8 sets Z flag when result is zero".ignore) {
-    val register = Registers.R8.C
-    val opcode: UByte = OpCode.DEC_R8.pattern | (register.ordinal << 3).toUByte
-    val input: Array[UByte] = Array(opcode)
-    val instruction = Instruction.decode(input)
+  test("DEC_R8 - underflow") {
+    forNonMemHLR8OpCodeParams { operandParam =>
+      val opcode: UByte = OpCode.DEC_R8.setParam(operandParam -> 3)
+      val instruction = Instruction.decode(Array(opcode))
 
-    testInstruction(
-      instruction = instruction,
-      registerSetup = registers => registers(register) = 0x01.toUByte,
-      registerExpect = registers => {
-        assertEquals(registers(register), 0.toUByte)
-        assert(registers.flags.z)
-        assert(registers.flags.n)
-      }
-    )
+      testInstruction(
+        instruction,
+        registerSetup = regs => regs(operandParam.toRegister) = 0x00.toUByte,
+        registerExpect = regs => {
+          regs(operandParam.toRegister) = 0xFF.toUByte
+          regs.f = 0x60.toUByte // Z=0, N=1, H=1, C=unchanged
+        }
+      )
+    }
   }
 
-  test("DEC_R8 sets H flag when bottom nibble underflows".ignore) {
-    val register = Registers.R8.C
-    val opcode: UByte = OpCode.DEC_R8.pattern | (register.ordinal << 3).toUByte
-    val input: Array[UByte] = Array(opcode)
-    val instruction = Instruction.decode(input)
+  test("DEC_R8 - half-carry set") {
+    forNonMemHLR8OpCodeParams { operandParam =>
+      val opcode: UByte = OpCode.DEC_R8.setParam(operandParam -> 3)
+      val instruction = Instruction.decode(Array(opcode))
 
-    testInstruction(
-      instruction = instruction,
-      registerSetup = registers => registers(register) = 0x00.toUByte,
-      registerExpect = registers => {
-        assertEquals(registers(register), 0xFF.toUByte)
-        assert(registers.flags.h)
-        assert(registers.flags.n)
-      }
-    )
+      testInstruction(
+        instruction,
+        registerSetup = regs => regs(operandParam.toRegister) = 0x10.toUByte,
+        registerExpect = regs => {
+          regs(operandParam.toRegister) = 0x0F.toUByte
+          regs.f = 0x60.toUByte // Z=0, N=1, H=1, C=unchanged
+        }
+      )
+    }
   }
 }

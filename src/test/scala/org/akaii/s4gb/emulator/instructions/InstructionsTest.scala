@@ -57,7 +57,7 @@ abstract class InstructionsTest extends FunSuite {
   )(verifications: T => Unit = (_: T) => ()): Unit = {
     assert(summon[ClassTag[T]].runtimeClass.isInstance(instruction))
     assertEquals(instruction.opCode, opCode)
-    assertEquals(instruction.micro.map(_.cycles).sum, instruction.cycles)
+    assertEquals(instruction.micro.length, instruction.cycles)
     verifications(instruction.asInstanceOf[T])
   }
 
@@ -87,15 +87,15 @@ abstract class InstructionsTest extends FunSuite {
     verifyFinalState(finalState, instruction, expectedState)
   }
 
-  protected def forAllR16(test: Registers.R16 => Unit): Unit =
-    Registers.R16.values.filterNot(_ == Registers.R16.AF).foreach(test)
+  protected def forNonSPR16OpCodeParams(test: OpCode.Parameters.R16 => Unit): Unit =
+    OpCode.Parameters.R16.nonSPValues.foreach(test)
 
-  protected def forAllR8(test: Registers.R8 => Unit): Unit =
-    Registers.R8.values.filterNot(_ == Registers.R8.F).foreach(test)
+  protected def forNonMemHLR8OpCodeParams(test: OpCode.Parameters.R8 => Unit): Unit =
+    OpCode.Parameters.R8.nonMemHLValues.foreach(test)
 
-  protected def forAllR8Pairs(test: (Registers.R8, Registers.R8) => Unit): Unit =
+  protected def forNonMemHLR8OpCodeParamPairs(test: (OpCode.Parameters.R8, OpCode.Parameters.R8) => Unit): Unit =
     for {
-      source <- Registers.R8.values.filterNot(_ == Registers.R8.F)
-      dest <- Registers.R8.values.filterNot(_ == Registers.R8.F)
+      source <- OpCode.Parameters.R8.nonMemHLValues
+      dest <- OpCode.Parameters.R8.nonMemHLValues
     } test(source, dest)
 }

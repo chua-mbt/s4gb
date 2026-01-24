@@ -13,15 +13,17 @@ import spire.syntax.literals.*
  * @see [[https://gbdev.io/pandocs/CPU_Registers_and_Flags.html CPU Registers and Flags]]
  */
 case class Registers(
-  underlying: Array[UByte] = Array.fill(8)(UByte.MinValue),
+  underlying: Array[UByte] = Array.fill(Registers.RawSize)(UByte.MinValue),
   var sp: UShort = UShort.MinValue,
-  var pc: UShort = UShort.MinValue
+  var pc: UShort = UShort.MinValue,
+  var f: UByte = UByte.MinValue
 ) {
 
   import Registers.*
 
   private val byteMask: UShort = 0xFF.toUShort
   private val flagMask: UByte = 0xF0.toUByte
+  private var flagRegister: UByte = UByte.MinValue
 
   def advance(cycles: Int, bytes: Int): Unit = {
     sp = sp + cycles.toUShort
@@ -36,6 +38,9 @@ case class Registers(
     underlying.update(r.hi.ordinal, v.registerHiByte)
     underlying.update(r.lo.ordinal, v.registerLoByte)
   }
+
+  def updateSPHi(v: UByte): Unit = sp = (v.toUShort << 8) | (sp & byteMask)
+  def updateSPLo(v: UByte): Unit = sp = (sp & (byteMask << 8)) | v.toUShort
 
   /** 8-bit registers (direct) */
   def a: UByte = apply(R8.A)
@@ -59,9 +64,6 @@ case class Registers(
   def l: UByte = apply(R8.L)
   def l_=(v: UByte): Unit = update(R8.L, v)
 
-  def f: UByte = apply(R8.F)
-  def f_=(v: UByte): Unit = update(R8.F, v & flagMask)
-
   /** 16-bit registers (direct) */
   def bc: UShort = apply(R16.BC)
   def bc_=(v: UShort): Unit = update(R16.BC, v)
@@ -71,13 +73,6 @@ case class Registers(
 
   def hl: UShort = apply(R16.HL)
   def hl_=(v: UShort): Unit = update(R16.HL, v)
-
-  def af: UShort = (a.toUShort << 8) | f.toUShort
-
-  def af_=(v: UShort): Unit = {
-    a = v.registerHiByte
-    f = v.registerLoByte & flagMask
-  }
 
   object flags {
     def clear(): Unit = f = UByte(0)
@@ -102,25 +97,27 @@ case class Registers(
     case that: Registers =>
       this.sp == that.sp &&
         this.pc == that.pc &&
+        this.f == that.f &&
         this.underlying.sameElements(that.underlying)
     case _ => false
   }
 
   override def hashCode(): Int =
-    java.util.Arrays.hashCode(underlying.map(_.toInt) :+ sp.toInt :+ pc.toInt)
+    java.util.Arrays.hashCode(underlying.map(_.toInt) :+ sp.toInt :+ pc.toInt :+ f.toInt)
 }
 
 object Registers {
 
+  val RawSize: Int = 8 // 7x R8 registers + F
+
   enum R8 {
-    case B, C, D, E, H, L, F, A
+    case B, C, D, E, H, L, A
   }
 
   enum R16(val hi: R8, val lo: R8) {
     case BC extends R16(R8.B, R8.C)
     case DE extends R16(R8.D, R8.E)
     case HL extends R16(R8.H, R8.L)
-    case AF extends R16(R8.A, R8.F)
   }
 
   enum Flag(val mask: UByte) {

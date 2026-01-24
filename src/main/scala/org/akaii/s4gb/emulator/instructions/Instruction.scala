@@ -25,7 +25,7 @@ sealed abstract class Instruction(protected val value: Array[UByte]) extends Pro
       val microInstruction = micro(state.elapsed)
       microInstruction.execute(state)
       state.registers.advance(
-        cycles = microInstruction.cycles,
+        cycles = 1,
         bytes = if (state.elapsed == 0) bytes else 0
       )
     }
@@ -55,8 +55,8 @@ object Instruction {
       case OpCode.DEC_R8 => DEC_R8(input)
       case OpCode.LD_R8_IMM8 => LD_R8_IMM8(input)
       // Block 1 (0b01) https://gbdev.io/pandocs/CPU_Instruction_Set.html#block-1-8-bit-register-to-register-loads
-      case OpCode.LD_R8_R8 => LD_R8_R8(input)
       case OpCode.HALT => HALT
+      case OpCode.LD_R8_R8 => LD_R8_R8(input)
       // Block 2 (0b10) https://gbdev.io/pandocs/CPU_Instruction_Set.html#block-2-8-bit-arithmetic
       // Block 3 (0b11) https://gbdev.io/pandocs/CPU_Instruction_Set.html#block-3
       // TODO: implement other instructions
@@ -65,11 +65,16 @@ object Instruction {
 
   case class State(registers: Registers, memory: MemoryMap, elapsed: Int = 0)
   private type MicroInstruction = State => Unit
-  final case class Micro private(cycles: Int = 0, execute: MicroInstruction = _ => ())
+
+  /** Each MicroInstruction costs 1 cycle */
+  final case class Micro private(execute: MicroInstruction = _ => ())
+
+  /** Types are distinguished only to understand how the cycle is being spent */
   object Micro {
-    def readMemory(execute: MicroInstruction = _ => ()): Micro = Micro(1, execute)
-    def writeMemory(execute: MicroInstruction = _ => ()): Micro = Micro(1, execute)
+    def readMemory(execute: MicroInstruction = _ => ()): Micro = Micro(execute)
+    def writeMemory(execute: MicroInstruction = _ => ()): Micro = Micro(execute)
     def fetchOpCode(execute: MicroInstruction = _ => ()): Micro = readMemory(execute)
+    def iduOperation(execute: MicroInstruction = _ => ()): Micro = Micro(execute)
   }
 
   trait HasImm8 {
@@ -96,14 +101,60 @@ object Instruction {
 
   trait HasR8Operand {
     self: Instruction =>
-    protected lazy val start: Int
-    lazy val operand: Registers.R8 = Registers.R8.values(opCode.range(start, start - 2))
+    def operand(start: Int): OpCode.Parameters.R8 = OpCode.Parameters.R8.values(opCode.range(start, start - 2))
+
+    protected def operandContents(operandStart: Int, state: State): UByte =
+      operand(operandStart) match {
+        case OpCode.Parameters.R8.MEM_HL =>
+          state.memory(state.registers.hl)
+        case parameter =>
+          state.registers(parameter.toRegister)
+      }
+
+    protected def writeToOperandLocation(operandStart: Int, state: State, value: UByte): Unit =
+      operand(operandStart) match {
+        case OpCode.Parameters.R8.MEM_HL =>
+          state.memory.write(state.registers.hl, value)
+        case parameter =>
+          state.registers.update(parameter.toRegister, value)
+      }
   }
 
   trait HasR16Operand {
     self: Instruction =>
-    protected lazy val start: Int
-    lazy val operand: Registers.R16 = Registers.R16.values(opCode.range(start, start - 1))
+    def operand(start: Int): OpCode.Parameters.R16 = OpCode.Parameters.R16.values(opCode.range(start, start - 1))
+
+    protected def operandContents(operandStart: Int, state: State): UShort =
+      operand(operandStart) match {
+        case OpCode.Parameters.R16.SP =>
+          state.registers.sp
+        case parameter =>
+          state.registers(parameter.toRegister)
+      }
+
+    protected def writeToOperandLocation(operandStart: Int, state: State, value: UShort): Unit =
+      operand(operandStart) match {
+        case OpCode.Parameters.R16.SP =>
+          state.registers.sp = value
+        case parameter =>
+          state.registers.update(parameter.toRegister, value)
+      }
+
+    protected def writeToOperandHiLocation(operandStart: Int, state: State, value: UShort): Unit =
+      operand(operandStart) match {
+        case OpCode.Parameters.R16.SP =>
+          state.registers.updateSPHi(value.registerHiByte)
+        case parameter =>
+          state.registers.update(parameter.toRegister.hi, value.registerHiByte)
+      }
+
+    protected def writeToOperandLoLocation(operandStart: Int, state: State, value: UShort): Unit =
+      operand(operandStart) match {
+        case OpCode.Parameters.R16.SP =>
+          state.registers.updateSPLo(value.registerLoByte)
+        case parameter =>
+          state.registers.update(parameter.toRegister.lo, value.registerLoByte)
+      }
   }
 
   /*
@@ -118,15 +169,16 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD_r16,n16]]
    */
-  case class LD_R16_IMM16(private val input: Array[UByte]) extends Instruction(input) with HasImm16 {
+  case class LD_R16_IMM16(private val input: Array[UByte]) extends Instruction(input) with HasR16Operand with HasImm16 {
     override val cycles: Int = 3
     override val bytes: Int = 3
 
-    lazy val dest: Registers.R16 = Registers.R16.values(opCode.range(5, 4))
+    private val destStart = 5
+    lazy val dest: OpCode.Parameters.R16 = operand(destStart)
 
     override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
-      Micro.readMemory { state => state.registers.update(dest.lo, imm16.registerLoByte) },
-      Micro.readMemory { state => state.registers.update(dest.hi, imm16.registerHiByte) },
+      Micro.readMemory { state => writeToOperandLoLocation(destStart, state, imm16) },
+      Micro.readMemory { state => writeToOperandHiLocation(destStart, state, imm16) },
     )
   }
 
@@ -135,15 +187,15 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD__r16_,A]]
    */
-  case class LD_R16MEM_A(private val input: Array[UByte]) extends Instruction(input) {
+  case class LD_R16MEM_A(private val input: Array[UByte]) extends Instruction(input) with HasR16Operand {
     override val cycles: Int = 2
     override val bytes: Int = 1
 
-    private val rawDestRef: Int = opCode.range(5, 4)
-    lazy val destRef: Registers.R16 = Registers.R16.values(rawDestRef)
+    private val destRefStart = 5
+    lazy val destRef: OpCode.Parameters.R16 = operand(destRefStart)
 
     override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
-      Micro.writeMemory { state => state.memory.write(state.registers(destRef), state.registers.a) }
+      Micro.writeMemory { state => state.memory.write(operandContents(destRefStart, state), state.registers.a) }
     )
   }
 
@@ -152,15 +204,15 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD_A,_r16_]]
    */
-  case class LD_A_R16MEM(private val input: Array[UByte]) extends Instruction(input) {
+  case class LD_A_R16MEM(private val input: Array[UByte]) extends Instruction(input) with HasR16Operand {
     override val cycles: Int = 2
     override val bytes: Int = 1
 
-    private val rawSrcRef: Int = opCode.range(5, 4)
-    lazy val srcRef: Registers.R16 = Registers.R16.values(rawSrcRef)
+    private val srcRefStart = 5
+    lazy val srcRef: OpCode.Parameters.R16 = operand(srcRefStart)
 
     override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
-      Micro.readMemory { state => state.registers.a = state.memory(state.registers(srcRef)) }
+      Micro.readMemory { state => state.registers.a = state.memory(operandContents(srcRefStart, state)) }
     )
   }
 
@@ -169,15 +221,15 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD_r8,n8]]
    */
-  case class LD_R8_IMM8(private val input: Array[UByte]) extends Instruction(input) with HasImm8 {
+  case class LD_R8_IMM8(private val input: Array[UByte]) extends Instruction(input) with HasR8Operand with HasImm8 {
     override val cycles: Int = 2
     override val bytes: Int = 2
 
-    private val rawDest: Int = opCode.range(5, 3)
-    lazy val dest: Registers.R8 = Registers.R8.values(rawDest)
+    private val destStart = 5
+    lazy val dest: OpCode.Parameters.R8 = operand(destStart)
 
     override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
-      Micro.readMemory { state => state.registers.update(dest, imm8) }
+      Micro.readMemory { state => writeToOperandLocation(destStart, state, imm8) }
     )
   }
 
@@ -189,18 +241,18 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD_r8,r8]]
    */
-  case class LD_R8_R8(private val input: Array[UByte]) extends Instruction(input) {
+  case class LD_R8_R8(private val input: Array[UByte]) extends Instruction(input) with HasR8Operand {
     override val cycles: Int = 1
     override val bytes: Int = 1
 
-    private val rawSource: Int = opCode.range(2, 0)
-    lazy val source: Registers.R8 = Registers.R8.values(rawSource)
+    private val srcStart = 2
+    lazy val src: OpCode.Parameters.R8 = operand(srcStart)
 
-    private val rawDest: Int = opCode.range(5, 3)
-    lazy val dest: Registers.R8 = Registers.R8.values(rawDest)
+    private val destStart = 5
+    lazy val dest: OpCode.Parameters.R8 = operand(destStart)
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
-      Micro.fetchOpCode { state => state.registers.update(dest, state.registers(source)) }
+      Micro.fetchOpCode { state => writeToOperandLocation(destStart, state, operandContents(srcStart, state)) }
     )
   }
 
@@ -217,15 +269,15 @@ object Instruction {
   case class INC_R8(private val input: Array[UByte]) extends Instruction(input) with HasR8Operand {
     override val cycles: Int = 1
     override val bytes: Int = 1
-    override lazy val start: Int = 5
+
+    private val operandStart = 5
+    lazy val operand: OpCode.Parameters.R8 = operand(operandStart)
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
       Micro.fetchOpCode { state =>
-        val originalValue = state.registers(operand)
+        val originalValue = operandContents(operandStart, state)
         val result = originalValue + 1.toUByte
-
-        state.registers.update(operand, result)
-
+        writeToOperandLocation(operandStart, state, result)
         state.registers.flags.z = result == 0.toUByte
         state.registers.flags.n = false
         state.registers.flags.h = (originalValue & 0x0F.toUByte) + 1.toUByte > 0x0F.toUByte // Just the bottom nibble
@@ -241,18 +293,18 @@ object Instruction {
   case class DEC_R8(private val input: Array[UByte]) extends Instruction(input) with HasR8Operand {
     override val cycles: Int = 1
     override val bytes: Int = 1
-    override lazy val start: Int = 5
+
+    private val operandStart = 5
+    lazy val operand: OpCode.Parameters.R8 = operand(operandStart)
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
       Micro.fetchOpCode { state =>
-        val originalValue = state.registers(operand)
+        val originalValue = operandContents(operandStart, state)
         val result = originalValue - 1.toUByte
-
-        state.registers.update(operand, result)
-
+        writeToOperandLocation(operandStart, state, result)
         state.registers.flags.z = result == 0.toUByte
         state.registers.flags.n = true
-        state.registers.flags.h = (originalValue & 0x0F.toUByte) == 0.toUByte // Just the bottom nibble
+        state.registers.flags.h = (originalValue & 0x0F.toUByte) < 1.toUByte // Just the bottom nibble
       }
     )
   }
@@ -270,8 +322,8 @@ object Instruction {
   case class ADD_HL_R16(private val input: Array[UByte]) extends Instruction(input) with HasR16Operand {
     override val cycles: Int = 2
     override val bytes: Int = 1
-    override lazy val start: Int = 5
 
+    /*
     override def executeImplementation(state: Instruction.State): Unit = {
       val hl = state.registers.hl.toInt
       val r16 = state.registers(operand).toInt
@@ -282,34 +334,60 @@ object Instruction {
       state.registers.flags.c = result > 0xFFFF
       state.registers.hl = result.toUShort
     }
+    */
   }
 
   /**
    * INC_R16 - Increment the value in register r16 by 1.
    *
+   * The ALU is actually not used at all for this one! This is just IDU magic.
+   * 16bit register is output to IDU, set to either increment or decrement, and a writeback is issued.
+   * Because fetch also uses the IDU to post-increment PC, the beforementioned use of the IDU causes a cycle penalty, a
+   * nd so the instruction takes two cycles to execute, as only one IDU operation can execute per M-cycle.
+   *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#INC_r16]]
+   * @see [[https://gist.github.com/SonoSooS/c0055300670d678b5ae8433e20bea595?utm_source=chatgpt.com#incdec-r16]]
    */
   case class INC_R16(private val input: Array[UByte]) extends Instruction(input) with HasR16Operand {
     override val cycles: Int = 2
     override val bytes: Int = 1
-    override lazy val start: Int = 5
 
-    override def executeImplementation(state: Instruction.State): Unit =
-      state.registers.update(operand, state.registers(operand) + 1.toUShort)
+    private val operandStart = 5
+    lazy val operand: OpCode.Parameters.R16 = operand(operandStart)
+
+    override protected[instructions] def micro: Seq[Micro] = Seq(
+      Micro.iduOperation(), // No effect
+      Micro.iduOperation { state =>
+        val original = operandContents(operandStart, state)
+        val result = original + 1.toUShort
+        writeToOperandLocation(operandStart, state, result)
+      }
+    )
   }
 
   /**
    * DEC_R16 - Decrement the value in register r16 by 1.
    *
+   * See INC_R16 for why this takes 2 cycles.
+   *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#DEC_r16]]
+   * @see [[https://gist.github.com/SonoSooS/c0055300670d678b5ae8433e20bea595?utm_source=chatgpt.com#incdec-r16]]
    */
   case class DEC_R16(private val input: Array[UByte]) extends Instruction(input) with HasR16Operand {
     override val cycles: Int = 2
     override val bytes: Int = 1
-    override lazy val start: Int = 5
 
-    override def executeImplementation(state: Instruction.State): Unit =
-      state.registers.update(operand, state.registers(operand) - 1.toUShort)
+    private val operandStart = 5
+    lazy val operand: OpCode.Parameters.R16 = operand(operandStart)
+
+    override protected[instructions] def micro: Seq[Micro] = Seq(
+      Micro.iduOperation(), // No effect
+      Micro.iduOperation{ state =>
+        val original = operandContents(operandStart, state)
+        val result = original - 1.toUShort
+        writeToOperandLocation(operandStart, state, result)
+      }
+    )
   }
 
   /*
@@ -351,11 +429,13 @@ object Instruction {
     override val cycles: Int = 5
     override val bytes: Int = 3
 
+    /*
     override def executeImplementation(state: Instruction.State): Unit = {
       val sp = state.registers.sp
       state.memory.write(imm16, sp.registerLoByte)
       state.memory.write(imm16 + 1.toUShort, sp.registerHiByte)
     }
+    */
   }
 
   /*
