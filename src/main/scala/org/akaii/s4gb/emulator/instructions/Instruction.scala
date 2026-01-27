@@ -34,6 +34,7 @@ sealed abstract class Instruction(protected val value: Array[UByte]) extends Pro
   }
 
   protected[instructions] def micro: Seq[Instruction.Micro] = Seq(Instruction.Micro.fetchOpCode())
+
   protected def executeImplementation(state: Instruction.State): Unit = ???
 
   override def toString: String = f"$productPrefix(0x${opCode.toInt}%02X)"
@@ -64,16 +65,26 @@ object Instruction {
   }
 
   case class State(registers: Registers, memory: MemoryMap, elapsed: Int = 0)
+
   private type MicroInstruction = State => Unit
 
   /** Each MicroInstruction costs 1 cycle */
   final case class Micro private(execute: MicroInstruction = _ => ())
 
-  /** Types are distinguished only to understand how the cycle is being spent */
+  /**
+   * Types are distinguished only to understand how the cycle is being spent
+   *
+   * Fetch is always the last part of the instruction.
+   *
+   * @see [[https://gist.github.com/SonoSooS/c0055300670d678b5ae8433e20bea595?utm_source=chatgpt.com#fetch-and-stuff]]
+   * */
   object Micro {
     def readMemory(execute: MicroInstruction = _ => ()): Micro = Micro(execute)
+
     def writeMemory(execute: MicroInstruction = _ => ()): Micro = Micro(execute)
+
     def fetchOpCode(execute: MicroInstruction = _ => ()): Micro = readMemory(execute)
+
     def iduOperation(execute: MicroInstruction = _ => ()): Micro = Micro(execute)
   }
 
@@ -176,10 +187,10 @@ object Instruction {
     private val destStart = 5
     lazy val dest: OpCode.Parameters.R16 = operand(destStart)
 
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] def micro: Seq[Micro] = Seq(
       Micro.readMemory { state => writeToOperandLoLocation(destStart, state, imm16) },
       Micro.readMemory { state => writeToOperandHiLocation(destStart, state, imm16) },
-    )
+    ) ++ super.micro
   }
 
   /**
@@ -194,9 +205,9 @@ object Instruction {
     private val destRefStart = 5
     lazy val destRef: OpCode.Parameters.R16 = operand(destRefStart)
 
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] def micro: Seq[Micro] = Seq(
       Micro.writeMemory { state => state.memory.write(operandContents(destRefStart, state), state.registers.a) }
-    )
+    ) ++ super.micro
   }
 
   /**
@@ -211,9 +222,9 @@ object Instruction {
     private val srcRefStart = 5
     lazy val srcRef: OpCode.Parameters.R16 = operand(srcRefStart)
 
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] def micro: Seq[Micro] = Seq(
       Micro.readMemory { state => state.registers.a = state.memory(operandContents(srcRefStart, state)) }
-    )
+    ) ++ super.micro
   }
 
   /**
@@ -228,9 +239,9 @@ object Instruction {
     private val destStart = 5
     lazy val dest: OpCode.Parameters.R8 = operand(destStart)
 
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] def micro: Seq[Micro] = Seq(
       Micro.readMemory { state => writeToOperandLocation(destStart, state, imm8) }
-    )
+    ) ++ super.micro
   }
 
   /**
@@ -317,24 +328,40 @@ object Instruction {
   /**
    * ADD_HL_R16 - Add the value in r16 to HL.
    *
+   * Because the ALU is 8bit, it needs two 8bit adds to add the two 16bit numbers together.
+   * First cycle is low 8bit add, 2nd cycle is high 8bit add with fetch happening in parallel.
+   *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#ADD_HL,r16]]
+   * @see [[https://gist.github.com/SonoSooS/c0055300670d678b5ae8433e20bea595?utm_source=chatgpt.com#add-hl-r16]]
    */
   case class ADD_HL_R16(private val input: Array[UByte]) extends Instruction(input) with HasR16Operand {
     override val cycles: Int = 2
     override val bytes: Int = 1
 
-    /*
-    override def executeImplementation(state: Instruction.State): Unit = {
-      val hl = state.registers.hl.toInt
-      val r16 = state.registers(operand).toInt
-      val result = hl + r16
+    private val operandStart = 5
+    lazy val operand: OpCode.Parameters.R16 = operand(operandStart)
 
-      state.registers.flags.clear()
-      state.registers.flags.h = ((hl & 0x0FFF) + (r16 & 0x0FFF)) > 0x0FFF // Just the bottom 3 nibbles
-      state.registers.flags.c = result > 0xFFFF
-      state.registers.hl = result.toUShort
-    }
-    */
+    private var carryFromLow: UByte = UByte.MinValue
+    override protected[instructions] def micro: Seq[Micro] = Seq(
+        Micro.iduOperation { state =>
+          val hl = state.registers.hl
+          val op = operandContents(operandStart, state)
+          val lSum = hl.registerLoByte.toInt + op.registerLoByte.toInt
+          carryFromLow = if(lSum > UByte.MaxValue.toInt) 1.toUByte else 0.toUByte
+          val halfCarryMask = 0x0FFF.toUShort
+          state.registers.l = lSum.toUByte
+          state.registers.flags.h = ((hl & halfCarryMask) + (op & halfCarryMask)) > halfCarryMask
+        },
+      Micro.iduOperation { state =>
+        val hSum = state.registers.hl.registerHiByte.toInt +
+          operandContents(operandStart, state).registerHiByte.toInt +
+          carryFromLow.toInt
+
+        state.registers.h = hSum.toUByte
+        state.registers.flags.c = hSum > UByte.MaxValue.toInt
+        state.registers.flags.n = false
+      }
+    )
   }
 
   /**
@@ -342,8 +369,8 @@ object Instruction {
    *
    * The ALU is actually not used at all for this one! This is just IDU magic.
    * 16bit register is output to IDU, set to either increment or decrement, and a writeback is issued.
-   * Because fetch also uses the IDU to post-increment PC, the beforementioned use of the IDU causes a cycle penalty, a
-   * nd so the instruction takes two cycles to execute, as only one IDU operation can execute per M-cycle.
+   * Because fetch also uses the IDU to post-increment PC, the beforementioned use of the IDU causes a cycle penalty,
+   * and so the instruction takes two cycles to execute, as only one IDU operation can execute per M-cycle.
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#INC_r16]]
    * @see [[https://gist.github.com/SonoSooS/c0055300670d678b5ae8433e20bea595?utm_source=chatgpt.com#incdec-r16]]
@@ -356,13 +383,12 @@ object Instruction {
     lazy val operand: OpCode.Parameters.R16 = operand(operandStart)
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
-      Micro.iduOperation(), // No effect
       Micro.iduOperation { state =>
         val original = operandContents(operandStart, state)
         val result = original + 1.toUShort
         writeToOperandLocation(operandStart, state, result)
       }
-    )
+    ) ++ super.micro
   }
 
   /**
@@ -381,13 +407,12 @@ object Instruction {
     lazy val operand: OpCode.Parameters.R16 = operand(operandStart)
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
-      Micro.iduOperation(), // No effect
-      Micro.iduOperation{ state =>
+      Micro.iduOperation { state =>
         val original = operandContents(operandStart, state)
         val result = original - 1.toUShort
         writeToOperandLocation(operandStart, state, result)
       }
-    )
+    ) ++ super.micro
   }
 
   /*
