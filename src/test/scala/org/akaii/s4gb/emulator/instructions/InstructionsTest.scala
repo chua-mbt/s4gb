@@ -11,6 +11,7 @@ import spire.math.{UByte, UShort}
 import scala.reflect.ClassTag
 
 abstract class InstructionsTest extends FunSuite {
+
   def setupTest(
     registerSetup: Registers => Unit = _ => (),
     memorySetup: (Registers, TestMap) => Unit = (_, _) => ()
@@ -71,7 +72,7 @@ abstract class InstructionsTest extends FunSuite {
     assertEquals(finalState.registers.sp, instruction.cycles.toUShort)
     assertEquals(finalState.registers.pc, instruction.bytes.toUShort)
     assertEquals(finalState.registers, expectedState.registers)
-    assertEquals(finalState.memory.asInstanceOf[TestMap], expectedState.memory.asInstanceOf[TestMap])
+    assertEquals(finalState.memory, expectedState.memory)
   }
 
   protected def testInstruction(

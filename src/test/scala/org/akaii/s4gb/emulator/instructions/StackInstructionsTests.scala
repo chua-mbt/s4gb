@@ -10,13 +10,7 @@ import spire.math.{UByte, UShort}
 class StackInstructionsTests extends InstructionsTest {
 
   test("LD_MEM_IMM16_SP") {
-    val testMemoryLocations = Seq(
-      0xC000.toUShort, // typical WRAM start
-      0xD000.toUShort, // middle of WRAM
-      0xE000.toUShort, // high WRAM
-      0x0000.toUShort, // start of address space
-      0xFFFE.toUShort  // near end of address space
-    )
+    val testMemoryLocations = Seq(0xC000.toUShort, 0xD000.toUShort, 0xE000.toUShort, 0x0000.toUShort, 0xFFFE.toUShort)
 
     testMemoryLocations.foreach { memoryLocation =>
       val imm16 = memoryLocation

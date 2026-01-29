@@ -20,4 +20,16 @@ case class TestMap() extends MemoryMap {
   }
 
   override def hashCode(): Int = java.util.Arrays.hashCode(underlying.map(_.toInt))
+  
+  override def toString: String = {
+    val populatedEntries = underlying.zipWithIndex
+      .filter { (byte, addr) => byte != UByte.MinValue }
+      .map { (byte, addr) => f"0x$addr%04X: 0x${byte.toInt}%02X" }
+    
+    if (populatedEntries.isEmpty) {
+      "TestMap()"
+    } else {
+      s"TestMap(${populatedEntries.mkString(", ")})"
+    }
+  }
 }

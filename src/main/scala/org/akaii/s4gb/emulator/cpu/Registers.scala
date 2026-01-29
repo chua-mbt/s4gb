@@ -104,11 +104,40 @@ case class Registers(
 
   override def hashCode(): Int =
     java.util.Arrays.hashCode(underlying.map(_.toInt) :+ sp.toInt :+ pc.toInt :+ f.toInt)
+  
+  override def toString: String = {
+    val regs8 = Seq(
+      f"A=0x${a.toInt}%02X",
+      f"B=0x${b.toInt}%02X", 
+      f"C=0x${c.toInt}%02X",
+      f"D=0x${d.toInt}%02X",
+      f"E=0x${e.toInt}%02X",
+      f"H=0x${h.toInt}%02X",
+      f"L=0x${l.toInt}%02X"
+    ).mkString(", ")
+    
+    val af = (a.toUShort << 8) | f.toUShort
+    val regs16 = Seq(
+      f"AF=0x${af.toInt}%04X",
+      f"BC=0x${bc.toInt}%04X",
+      f"DE=0x${de.toInt}%04X", 
+      f"HL=0x${hl.toInt}%04X"
+    ).mkString(", ")
+    
+    val flags = Seq(
+      if (this.flags.z) "Z" else "-",
+      if (this.flags.n) "N" else "-", 
+      if (this.flags.h) "H" else "-",
+      if (this.flags.c) "C" else "-"
+    ).mkString("")
+    
+    f"Registers($regs8 | $regs16 | Flags=[$flags] | PC=0x${pc.toInt}%04X | SP=0x${sp.toInt}%04X)"
+  }
 }
 
 object Registers {
 
-  val RawSize: Int = 8 // 7x R8 registers + F
+  private val RawSize: Int = 8 // 7x R8 registers + F
 
   enum R8 {
     case B, C, D, E, H, L, A
