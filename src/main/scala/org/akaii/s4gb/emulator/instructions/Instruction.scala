@@ -55,6 +55,8 @@ object Instruction {
       case OpCode.INC_R8 => INC_R8(input)
       case OpCode.DEC_R8 => DEC_R8(input)
       case OpCode.LD_R8_IMM8 => LD_R8_IMM8(input)
+      case OpCode.RLCA => RLCA(input)
+      case OpCode.RRCA => RRCA(input)
       // Block 1 (0b01) https://gbdev.io/pandocs/CPU_Instruction_Set.html#block-1-8-bit-register-to-register-loads
       case OpCode.HALT => HALT
       case OpCode.LD_R8_R8 => LD_R8_R8(input)
@@ -427,6 +429,52 @@ object Instruction {
    * Bit shift instructions
    * https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#Bit_shift_instructions
    **/
+
+  /**
+   * RLCA - Rotate register A left.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#RLCA]]
+   */
+  case class RLCA(private val input: Array[UByte]) extends Instruction(input) {
+    override val cycles: Int = 1
+    override val bytes: Int = 1
+
+    override protected[instructions] def micro: Seq[Micro] = Seq(
+      Micro.fetchOpCode { state =>
+        val a = state.registers.a
+        val carry = (a & 0x80.toUByte) >> 7
+        val result = (a << 1) | carry
+        state.registers.a = result
+        state.registers.flags.z = false
+        state.registers.flags.n = false
+        state.registers.flags.h = false
+        state.registers.flags.c = carry == 1.toUByte
+      }
+    )
+  }
+
+  /**
+   * RRCA - Rotate register A right.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#RRCA]]
+   */
+  case class RRCA(private val input: Array[UByte]) extends Instruction(input) {
+    override val cycles: Int = 1
+    override val bytes: Int = 1
+
+    override protected[instructions] def micro: Seq[Micro] = Seq(
+      Micro.fetchOpCode { state =>
+        val a = state.registers.a
+        val carry = a & 0x01.toUByte
+        val result = (a >> 1) | (carry << 7)
+        state.registers.a = result
+        state.registers.flags.z = false
+        state.registers.flags.n = false
+        state.registers.flags.h = false
+        state.registers.flags.c = carry == 1.toUByte
+      }
+    )
+  }
 
   /*
    * Jumps and subroutine instructions

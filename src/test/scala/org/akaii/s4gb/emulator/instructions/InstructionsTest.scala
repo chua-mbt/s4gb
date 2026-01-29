@@ -62,6 +62,11 @@ abstract class InstructionsTest extends FunSuite {
     verifications(instruction.asInstanceOf[T])
   }
 
+  protected def verifyInstructionOpCode[T <: Instruction : ClassTag](
+    opCode: UByte,
+    instruction: Instruction
+  ): Unit = verifyInstruction[T](opCode, instruction)()
+
   protected def verifyFinalState(
     finalState: Instruction.State,
     instruction: Instruction,

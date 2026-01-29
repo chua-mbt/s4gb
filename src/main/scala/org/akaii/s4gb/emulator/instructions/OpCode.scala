@@ -29,6 +29,9 @@ enum OpCode(val pattern: UByte, val mask: UByte = 0xFF.toUByte) {
 
   case LD_R8_IMM8 extends OpCode(0x06.toUByte, excludeBits543) // 00OOO110
 
+  case RLCA extends OpCode(0x07.toUByte) // 00000111
+  case RRCA extends OpCode(0x0F.toUByte) // 00001111
+
   // Block 1: https://gbdev.io/pandocs/CPU_Instruction_Set.html#block-1-8-bit-register-to-register-loads
   case HALT extends OpCode(0x76.toUByte, excludeNone) // 01110110
   case LD_R8_R8 extends OpCode(0x40.toUByte, excludeBits543210) // 01DDDSSS
