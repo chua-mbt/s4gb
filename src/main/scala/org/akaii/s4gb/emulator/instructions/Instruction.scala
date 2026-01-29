@@ -74,8 +74,6 @@ object Instruction {
   /**
    * Types are distinguished only to understand how the cycle is being spent
    *
-   * Fetch is always the last part of the instruction.
-   *
    * @see [[https://gist.github.com/SonoSooS/c0055300670d678b5ae8433e20bea595?utm_source=chatgpt.com#fetch-and-stuff]]
    * */
   object Micro {
@@ -187,10 +185,10 @@ object Instruction {
     private val destStart = 5
     lazy val dest: OpCode.Parameters.R16 = operand(destStart)
 
-    override protected[instructions] def micro: Seq[Micro] = Seq(
-      Micro.readMemory { state => writeToOperandLoLocation(destStart, state, imm16) },
-      Micro.readMemory { state => writeToOperandHiLocation(destStart, state, imm16) },
-    ) ++ super.micro
+    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+      Micro.fetchOpCode { state => writeToOperandLoLocation(destStart, state, imm16) },
+      Micro.fetchOpCode { state => writeToOperandHiLocation(destStart, state, imm16) },
+    )
   }
 
   /**
@@ -205,9 +203,9 @@ object Instruction {
     private val destRefStart = 5
     lazy val destRef: OpCode.Parameters.R16 = operand(destRefStart)
 
-    override protected[instructions] def micro: Seq[Micro] = Seq(
+    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
       Micro.writeMemory { state => state.memory.write(operandContents(destRefStart, state), state.registers.a) }
-    ) ++ super.micro
+    )
   }
 
   /**
@@ -222,9 +220,9 @@ object Instruction {
     private val srcRefStart = 5
     lazy val srcRef: OpCode.Parameters.R16 = operand(srcRefStart)
 
-    override protected[instructions] def micro: Seq[Micro] = Seq(
+    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
       Micro.readMemory { state => state.registers.a = state.memory(operandContents(srcRefStart, state)) }
-    ) ++ super.micro
+    )
   }
 
   /**
@@ -239,9 +237,9 @@ object Instruction {
     private val destStart = 5
     lazy val dest: OpCode.Parameters.R8 = operand(destStart)
 
-    override protected[instructions] def micro: Seq[Micro] = Seq(
+    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
       Micro.readMemory { state => writeToOperandLocation(destStart, state, imm8) }
-    ) ++ super.micro
+    )
   }
 
   /**
@@ -382,13 +380,13 @@ object Instruction {
     private val operandStart = 5
     lazy val operand: OpCode.Parameters.R16 = operand(operandStart)
 
-    override protected[instructions] def micro: Seq[Micro] = Seq(
+    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
       Micro.iduOperation { state =>
         val original = operandContents(operandStart, state)
         val result = original + 1.toUShort
         writeToOperandLocation(operandStart, state, result)
       }
-    ) ++ super.micro
+    )
   }
 
   /**
@@ -406,13 +404,13 @@ object Instruction {
     private val operandStart = 5
     lazy val operand: OpCode.Parameters.R16 = operand(operandStart)
 
-    override protected[instructions] def micro: Seq[Micro] = Seq(
+    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
       Micro.iduOperation { state =>
         val original = operandContents(operandStart, state)
         val result = original - 1.toUShort
         writeToOperandLocation(operandStart, state, result)
       }
-    ) ++ super.micro
+    )
   }
 
   /*
@@ -454,13 +452,14 @@ object Instruction {
     override val cycles: Int = 5
     override val bytes: Int = 3
 
-    /*
-    override def executeImplementation(state: Instruction.State): Unit = {
-      val sp = state.registers.sp
-      state.memory.write(imm16, sp.registerLoByte)
-      state.memory.write(imm16 + 1.toUShort, sp.registerHiByte)
-    }
-    */
+    private var originalSP: UShort = UShort.MinValue
+    override protected[instructions] def micro: Seq[Micro] = Seq(
+      Micro.fetchOpCode { state => originalSP = state.registers.sp },
+      Micro.fetchOpCode(),
+      Micro.fetchOpCode(),
+      Micro.writeMemory { state => state.memory.write(imm16, originalSP.registerLoByte) },
+      Micro.writeMemory { state => state.memory.write(imm16 + 1.toUShort, originalSP.registerHiByte) }
+    )
   }
 
   /*

@@ -25,8 +25,8 @@ abstract class InstructionsTest extends FunSuite {
   def setupExpected(
     initialState: Instruction.State,
     instruction: Instruction,
-    registerExpect: Registers => Unit = _ => {},
-    memoryExpect: TestMap => Unit = _ => {}
+    registerExpect: Registers => Unit = _ => (),
+    memoryExpect: TestMap => Unit = _ => ()
   ): Instruction.State = {
     val expectedRegisters = Registers()
     val expectedMemory = TestMap()
