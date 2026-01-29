@@ -57,6 +57,8 @@ object Instruction {
       case OpCode.LD_R8_IMM8 => LD_R8_IMM8(input)
       case OpCode.RLCA => RLCA(input)
       case OpCode.RRCA => RRCA(input)
+      case OpCode.RLA => RLA(input)
+      case OpCode.RRA => RRA(input)
       // Block 1 (0b01) https://gbdev.io/pandocs/CPU_Instruction_Set.html#block-1-8-bit-register-to-register-loads
       case OpCode.HALT => HALT
       case OpCode.LD_R8_R8 => LD_R8_R8(input)
@@ -472,6 +474,54 @@ object Instruction {
         state.registers.flags.n = false
         state.registers.flags.h = false
         state.registers.flags.c = carry == 1.toUByte
+      }
+    )
+  }
+
+  /**
+   * RLA - Rotate register A left, through the carry flag.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#RLA]]
+   */
+  case class RLA(private val input: Array[UByte]) extends Instruction(input) {
+    override val cycles: Int = 1
+    override val bytes: Int = 1
+
+    override protected[instructions] def micro: Seq[Micro] = Seq(
+      Micro.fetchOpCode { state =>
+        val a = state.registers.a
+        val carryIn = if (state.registers.flags.c) 1.toUByte else 0.toUByte
+        val carryOut = (a & 0x80.toUByte) >> 7
+        val result = (a << 1) | carryIn
+        state.registers.a = result
+        state.registers.flags.z = false
+        state.registers.flags.n = false
+        state.registers.flags.h = false
+        state.registers.flags.c = carryOut == 1.toUByte
+      }
+    )
+  }
+
+  /**
+   * RRA - Rotate register A right, through the carry flag.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#RRA]]
+   */
+  case class RRA(private val input: Array[UByte]) extends Instruction(input) {
+    override val cycles: Int = 1
+    override val bytes: Int = 1
+
+    override protected[instructions] def micro: Seq[Micro] = Seq(
+      Micro.fetchOpCode { state =>
+        val a = state.registers.a
+        val carryIn = if (state.registers.flags.c) 0x80.toUByte else 0.toUByte
+        val carryOut = a & 0x01.toUByte
+        val result = (a >> 1) | carryIn
+        state.registers.a = result
+        state.registers.flags.z = false
+        state.registers.flags.n = false
+        state.registers.flags.h = false
+        state.registers.flags.c = carryOut == 1.toUByte
       }
     )
   }
