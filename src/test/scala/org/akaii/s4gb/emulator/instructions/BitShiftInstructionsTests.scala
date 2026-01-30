@@ -13,7 +13,7 @@ class BitShiftInstructionsTests extends InstructionsTest {
     val instruction = Instruction.decode(Array(opcode))
 
     assertEquals(instruction.toString, f"RLCA(0x${opcode.toInt}%02X)")
-    verifyInstructionOpCode[Instruction.RLCA](opcode, instruction)
+    verifyInstructionOpCode[Instruction.RLCA.type](opcode, instruction)
 
     testInstruction(
       instruction,
@@ -44,7 +44,7 @@ class BitShiftInstructionsTests extends InstructionsTest {
     val instruction = Instruction.decode(Array(opcode))
 
     assertEquals(instruction.toString, f"RRCA(0x${opcode.toInt}%02X)")
-    verifyInstructionOpCode[Instruction.RRCA](opcode, instruction)
+    verifyInstructionOpCode[Instruction.RRCA.type](opcode, instruction)
 
     testInstruction(
       instruction,
@@ -75,7 +75,7 @@ class BitShiftInstructionsTests extends InstructionsTest {
     val instruction = Instruction.decode(Array(opcode))
 
     assertEquals(instruction.toString, f"RLA(0x${opcode.toInt}%02X)")
-    verifyInstructionOpCode[Instruction.RLA](opcode, instruction)
+    verifyInstructionOpCode[Instruction.RLA.type](opcode, instruction)
 
     testInstruction(
       instruction,
@@ -112,7 +112,7 @@ class BitShiftInstructionsTests extends InstructionsTest {
     val instruction = Instruction.decode(Array(opcode))
 
     assertEquals(instruction.toString, f"RRA(0x${opcode.toInt}%02X)")
-    verifyInstructionOpCode[Instruction.RRA](opcode, instruction)
+    verifyInstructionOpCode[Instruction.RRA.type](opcode, instruction)
 
     testInstruction(
       instruction,

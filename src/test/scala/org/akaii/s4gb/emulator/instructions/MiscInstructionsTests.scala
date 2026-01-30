@@ -9,11 +9,117 @@ import org.akaii.s4gb.emulator.instructions.{Instruction, OpCode}
 import spire.math.{UByte, UShort}
 
 class MiscInstructionsTests extends InstructionsTest {
-    test("NOP") {
-      val instruction = Instruction.decode(Array(OpCode.NOP.pattern))
-      assertEquals(instruction.toString, "NOP(0x00)")
-      verifyInstruction[Instruction.NOP.type](OpCode.NOP.pattern, instruction)
+  test("NOP") {
+    val instruction = Instruction.decode(Array(OpCode.NOP.pattern))
+    assertEquals(instruction.toString, "NOP(0x00)")
+    verifyInstruction[Instruction.NOP.type](OpCode.NOP.pattern, instruction)
 
-      testInstruction(instruction = instruction)
-    }
+    testInstruction(instruction = instruction)
+  }
+
+  test("DAA - flags[N]") {
+    val baseA: UByte = 0x15.toUByte
+    val instruction = Instruction.decode(Array(OpCode.DAA.pattern))
+    testInstruction(
+      instruction,
+      registerSetup = regs => {
+        regs.a = baseA
+        regs.flags.n = true
+      },
+      registerExpect = regs => {
+        regs.a = baseA
+        regs.flags.h = false
+      }
+    )
+  }
+
+  test("DAA - flags[NH]") {
+    val baseA: UByte = 0x15.toUByte
+    val instruction = Instruction.decode(Array(OpCode.DAA.pattern))
+    testInstruction(
+      instruction,
+      registerSetup = regs => {
+        regs.a = baseA
+        regs.flags.n = true
+        regs.flags.h = true
+      },
+      registerExpect = regs => {
+        regs.a = 0x0F.toUByte
+        regs.flags.h = false
+      }
+    )
+  }
+
+  test("DAA - flags[NHC]") {
+    val baseA: UByte = 0x15.toUByte
+    val instruction = Instruction.decode(Array(OpCode.DAA.pattern))
+    testInstruction(
+      instruction,
+      registerSetup = regs => {
+        regs.a = baseA
+        regs.flags.n = true
+        regs.flags.h = true
+        regs.flags.c = true
+      },
+      registerExpect = regs => {
+        regs.a = 0xAF.toUByte
+        regs.flags.h = false
+      }
+    )
+  }
+
+  test("DAA - flags[H]") {
+    val baseA: UByte = 0x15.toUByte
+    val instruction = Instruction.decode(Array(OpCode.DAA.pattern))
+    testInstruction(
+      instruction,
+      registerSetup = regs => {
+        regs.a = baseA
+        regs.flags.h = true
+      },
+      registerExpect = regs => {
+        regs.a = 0x1B.toUByte
+        regs.flags.h = false
+      }
+    )
+  }
+
+
+  test("DAA - flags[HC]") {
+    val baseA: UByte = 0x15.toUByte
+    val instruction = Instruction.decode(Array(OpCode.DAA.pattern))
+    testInstruction(
+      instruction,
+      registerSetup = regs => {
+        regs.a = baseA
+        regs.flags.h = true
+        regs.flags.c = true
+      },
+      registerExpect = regs => {
+        regs.a = 0x7B.toUByte
+        regs.flags.h = false
+        regs.flags.c = true
+      }
+    )
+  }
+
+  test("DAA - flags[NH] zero result") {
+    val baseA: UByte = 0x06.toUByte
+    val instruction = Instruction.decode(Array(OpCode.DAA.pattern))
+    testInstruction(
+      instruction,
+      registerSetup = regs => {
+        regs.a = baseA
+        regs.flags.n = true
+        regs.flags.h = true
+        regs.flags.z = false
+      },
+      registerExpect = regs => {
+        regs.a = 0x00.toUByte
+        regs.flags.h = false
+        regs.flags.z = true
+      }
+    )
+  }
+
 }

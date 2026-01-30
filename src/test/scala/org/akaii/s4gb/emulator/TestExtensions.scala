@@ -10,6 +10,7 @@ extension (registers: Registers) {
     System.arraycopy(registers.underlying, 0, target.underlying, 0, registers.underlying.length)
     target.sp = registers.sp
     target.pc = registers.pc
+    target.f = registers.f
   }
 }
 

@@ -55,7 +55,7 @@ abstract class InstructionsTest extends FunSuite {
   protected def verifyInstruction[T <: Instruction : ClassTag](
     opCode: UByte,
     instruction: Instruction
-  )(verifications: T => Unit = (_: T) => ()): Unit = {
+  )(verifications: T => Unit = (_: T) => ())(implicit loc: Location): Unit = {
     assert(summon[ClassTag[T]].runtimeClass.isInstance(instruction))
     assertEquals(instruction.opCode, opCode)
     assertEquals(instruction.micro.length, instruction.cycles)
@@ -65,13 +65,13 @@ abstract class InstructionsTest extends FunSuite {
   protected def verifyInstructionOpCode[T <: Instruction : ClassTag](
     opCode: UByte,
     instruction: Instruction
-  ): Unit = verifyInstruction[T](opCode, instruction)()
+  )(implicit loc: Location): Unit = verifyInstruction[T](opCode, instruction)()
 
   protected def verifyFinalState(
     finalState: Instruction.State,
     instruction: Instruction,
     expectedState: Instruction.State
-  ): Unit = {
+  )(implicit loc: Location): Unit = {
     assertEquals(finalState.elapsed, instruction.cycles)
     assertEquals(finalState.elapsed, expectedState.registers.sp.toInt)
     assertEquals(finalState.registers.sp, instruction.cycles.toUShort)

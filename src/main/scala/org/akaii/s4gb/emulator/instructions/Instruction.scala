@@ -55,10 +55,11 @@ object Instruction {
       case OpCode.INC_R8 => INC_R8(input)
       case OpCode.DEC_R8 => DEC_R8(input)
       case OpCode.LD_R8_IMM8 => LD_R8_IMM8(input)
-      case OpCode.RLCA => RLCA(input)
-      case OpCode.RRCA => RRCA(input)
-      case OpCode.RLA => RLA(input)
-      case OpCode.RRA => RRA(input)
+      case OpCode.RLCA => RLCA
+      case OpCode.RRCA => RRCA
+      case OpCode.RLA => RLA
+      case OpCode.RRA => RRA
+      case OpCode.DAA => DAA
       // Block 1 (0b01) https://gbdev.io/pandocs/CPU_Instruction_Set.html#block-1-8-bit-register-to-register-loads
       case OpCode.HALT => HALT
       case OpCode.LD_R8_R8 => LD_R8_R8(input)
@@ -437,7 +438,7 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#RLCA]]
    */
-  case class RLCA(private val input: Array[UByte]) extends Instruction(input) {
+  case object RLCA extends Instruction(Array(OpCode.RLCA.pattern)) {
     override val cycles: Int = 1
     override val bytes: Int = 1
 
@@ -460,7 +461,7 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#RRCA]]
    */
-  case class RRCA(private val input: Array[UByte]) extends Instruction(input) {
+  case object RRCA extends Instruction(Array(OpCode.RRCA.pattern)) {
     override val cycles: Int = 1
     override val bytes: Int = 1
 
@@ -483,7 +484,7 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#RLA]]
    */
-  case class RLA(private val input: Array[UByte]) extends Instruction(input) {
+  case object RLA extends Instruction(Array(OpCode.RLA.pattern)) {
     override val cycles: Int = 1
     override val bytes: Int = 1
 
@@ -507,7 +508,7 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#RRA]]
    */
-  case class RRA(private val input: Array[UByte]) extends Instruction(input) {
+  case object RRA extends Instruction(Array(OpCode.RRA.pattern)) {
     override val cycles: Int = 1
     override val bytes: Int = 1
 
@@ -609,6 +610,40 @@ object Instruction {
     override def executeImplementation(state: Instruction.State): Unit = {}
   }
 
+  /**
+   * DAA - Decimal Adjust Accumulator.
+   *
+   * Designed to be used after performing an arithmetic instruction (ADD, ADC, SUB, SBC) whose inputs were in
+   * Binary-Coded Decimal (BCD), adjusting the result to likewise be in BCD.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#DAA]]
+   */
+  case object DAA extends Instruction(Array(OpCode.DAA.pattern)) {
+    override val cycles: Int = 1
+    override val bytes: Int = 1
+
+    override protected[instructions] def micro: Seq[Micro] = Seq(
+      Micro.fetchOpCode { state =>
+        var adjustment = 0
+        if(state.registers.flags.n) {
+          if(state.registers.flags.h) adjustment += 0x06
+          if(state.registers.flags.c) adjustment += 0x60
+          adjustment *= -1
+        } else {
+          if(state.registers.flags.h || (state.registers.a & 0x0F.toUByte) > 0x09.toUByte) adjustment += 0x06
+          if(state.registers.flags.c || state.registers.a > 0x99.toUByte) {
+            adjustment += 0x60
+            state.registers.flags.c = true
+          }
+        }
+
+        val adjustedA = (state.registers.a.toInt + adjustment).toUByte
+        state.registers.a = adjustedA
+        state.registers.flags.z = adjustedA == 0.toUByte
+        state.registers.flags.h = false
+      }
+    )
+  }
 }
 
 
