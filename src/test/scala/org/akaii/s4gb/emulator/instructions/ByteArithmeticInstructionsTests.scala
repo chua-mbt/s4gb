@@ -1,9 +1,9 @@
 package org.akaii.s4gb.emulator.instructions
 
-import org.akaii.s4gb.emulator.{TestMap, setParam}
 import org.akaii.s4gb.emulator.byteops.*
 import org.akaii.s4gb.emulator.cpu.Registers
 import org.akaii.s4gb.emulator.instructions.{Instruction, OpCode}
+import org.akaii.s4gb.emulator.{TestMap, setParam}
 import spire.math.UByte
 
 class ByteArithmeticInstructionsTests extends InstructionsTest {

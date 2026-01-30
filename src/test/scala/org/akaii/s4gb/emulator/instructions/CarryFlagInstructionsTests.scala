@@ -1,0 +1,76 @@
+package org.akaii.s4gb.emulator.instructions
+
+import munit.*
+import org.akaii.s4gb.emulator.TestMap
+import org.akaii.s4gb.emulator.byteops.*
+import org.akaii.s4gb.emulator.cpu.Registers
+import org.akaii.s4gb.emulator.cpu.Registers.R16
+import org.akaii.s4gb.emulator.instructions.{Instruction, OpCode}
+import spire.math.{UByte, UShort}
+
+class CarryFlagInstructionsTests extends InstructionsTest {
+  test("SCF") {
+    val instruction = Instruction.decode(Array(OpCode.SCF.pattern))
+    verifyInstruction[Instruction.SCF.type](OpCode.SCF.pattern, instruction)
+
+    testInstruction(
+      instruction,
+      registerSetup = regs => {
+        regs.flags.c = false
+        regs.flags.n = true
+        regs.flags.h = true
+        regs.flags.z = true
+      },
+      registerExpect = regs => {
+        regs.flags.c = true
+        regs.flags.n = false
+        regs.flags.h = false
+        regs.flags.z = true
+      }
+    )
+
+    testInstruction(
+      instruction,
+      registerSetup = regs => regs.flags.c = true,
+      registerExpect = regs => {
+        regs.flags.c = true
+        regs.flags.n = false
+        regs.flags.h = false
+        regs.flags.z = false
+      }
+    )
+  }
+
+  test("CCF") {
+    val instruction = Instruction.decode(Array(OpCode.CCF.pattern))
+    verifyInstruction[Instruction.CCF.type](OpCode.CCF.pattern, instruction)
+
+    testInstruction(
+      instruction,
+      registerSetup = regs => {
+        regs.flags.c = false
+        regs.flags.n = true
+        regs.flags.h = true
+        regs.flags.z = true
+      },
+      registerExpect = regs => {
+        regs.flags.c = true
+        regs.flags.n = false
+        regs.flags.h = false
+        regs.flags.z = true
+      }
+    )
+
+    testInstruction(
+      instruction,
+      registerSetup = regs => regs.flags.c = true,
+      registerExpect = regs => {
+        regs.flags.c = false
+        regs.flags.n = false
+        regs.flags.h = false
+        regs.flags.z = false
+      }
+    )
+  }
+}
+

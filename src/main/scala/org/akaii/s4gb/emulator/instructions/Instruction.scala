@@ -60,6 +60,9 @@ object Instruction {
       case OpCode.RLA => RLA
       case OpCode.RRA => RRA
       case OpCode.DAA => DAA
+      case OpCode.CPL => CPL
+      case OpCode.SCF => SCF
+      case OpCode.CCF => CCF
       // Block 1 (0b01) https://gbdev.io/pandocs/CPU_Instruction_Set.html#block-1-8-bit-register-to-register-loads
       case OpCode.HALT => HALT
       case OpCode.LD_R8_R8 => LD_R8_R8(input)
@@ -422,6 +425,23 @@ object Instruction {
    * Bitwise logic instructions
    * https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#Bitwise_logic_instructions
    **/
+  /**
+   * CPL - ComPLement accumulator (A = ~A); also called bitwise NOT.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#CPL]]
+   */
+  case object CPL extends Instruction(Array(OpCode.CPL.pattern)) {
+    override val cycles: Int = 1
+    override val bytes: Int = 1
+
+    override protected[instructions] def micro: Seq[Micro] = Seq(
+      Micro.fetchOpCode { state =>
+        state.registers.a = ~state.registers.a
+        state.registers.flags.n = true
+        state.registers.flags.h = true
+      }
+    )
+  }
 
   /*
    * Bit flag instructions
@@ -536,6 +556,36 @@ object Instruction {
    * Carry flag instructions
    * https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#Carry_flag_instructions
    **/
+  /**
+   * SCF - Set Carry Flag.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#SCF]]
+   */
+  case object SCF extends Instruction(Array(OpCode.SCF.pattern)) {
+    override val cycles: Int = 1
+    override val bytes: Int = 1
+
+    override protected[instructions] def micro: Seq[Micro] = Seq(
+      Micro.fetchOpCode { state =>
+        state.registers.flags.n = false
+        state.registers.flags.h = false
+        state.registers.flags.c = true
+      }
+    )
+  }
+
+  case object CCF extends Instruction(Array(OpCode.CCF.pattern)) {
+    override val cycles: Int = 1
+    override val bytes: Int = 1
+
+    override protected[instructions] def micro: Seq[Micro] = Seq(
+      Micro.fetchOpCode { state =>
+        state.registers.flags.n = false
+        state.registers.flags.h = false
+        state.registers.flags.c = !state.registers.flags.c
+      }
+    )
+  }
 
   /*
    * Stack manipulation instructions
