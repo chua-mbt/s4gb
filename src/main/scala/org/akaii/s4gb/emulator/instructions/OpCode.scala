@@ -38,6 +38,10 @@ enum OpCode(val pattern: UByte, val mask: UByte = 0xFF.toUByte) {
   case SCF extends OpCode(0x37.toUByte) // 00110111
   case CCF extends OpCode(0x3F.toUByte) // 00111111
 
+  // JR_IMM8
+  // JR_COND_IMM8
+  // STOP
+
   // Block 1: https://gbdev.io/pandocs/CPU_Instruction_Set.html#block-1-8-bit-register-to-register-loads
   case HALT extends OpCode(0x76.toUByte, excludeNone) // 01110110
   case LD_R8_R8 extends OpCode(0x40.toUByte, excludeBits543210) // 01DDDSSS
@@ -45,6 +49,14 @@ enum OpCode(val pattern: UByte, val mask: UByte = 0xFF.toUByte) {
   // Block 2: https://gbdev.io/pandocs/CPU_Instruction_Set.html#block-2-8-bit-arithmetic
 
   // Block 3: https://gbdev.io/pandocs/CPU_Instruction_Set.html#block-3
+  case ADD_A_IMM8 extends OpCode(0xC6.toUByte) // 11000110
+  case ADC_A_IMM8 extends OpCode(0xCE.toUByte) // 11001110
+  case SUB_IMM8 extends OpCode(0xD6.toUByte) // 11010110
+  case SBC_A_IMM8 extends OpCode(0xDE.toUByte) // 11011110
+  case AND_IMM8 extends OpCode(0xE6.toUByte) // 11100110
+  case XOR_IMM8 extends OpCode(0xEE.toUByte) // 11101110
+  case OR_IMM8 extends OpCode(0xF6.toUByte) // 11110110
+  case CP_IMM8 extends OpCode(0xFE.toUByte) // 11111110
 }
 
 object OpCode {

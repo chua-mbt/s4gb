@@ -16,7 +16,6 @@ case class Registers(
   underlying: Array[UByte] = Array.fill(Registers.RawSize)(UByte.MinValue),
   var sp: UShort = UShort.MinValue,
   var pc: UShort = UShort.MinValue,
-  var f: UByte = UByte.MinValue
 ) {
 
   import Registers.*
@@ -64,6 +63,9 @@ case class Registers(
   def l: UByte = apply(R8.L)
   def l_=(v: UByte): Unit = update(R8.L, v)
 
+  def f: UByte = flagRegister & flagMask
+  def f_=(v: UByte): Unit = flagRegister = v & flagMask
+
   /** 16-bit registers (direct) */
   def bc: UShort = apply(R16.BC)
   def bc_=(v: UShort): Unit = update(R16.BC, v)
@@ -78,7 +80,7 @@ case class Registers(
     def clear(): Unit = f = UByte(0)
     def apply(flag: Flag): Boolean = (f & flag.mask) != UByte(0)
     def update(flag: Flag, value: Boolean): Unit =
-      f = (f & ~flag.mask) | (if value then flag.mask else UByte(0))
+      f = ((f & ~flag.mask) | (if value then flag.mask else UByte(0))) & flagMask
 
     @inline def z: Boolean = apply(Flag.Z)
     @inline def z_=(v: Boolean): Unit = update(Flag.Z, v)

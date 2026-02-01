@@ -47,6 +47,19 @@ class RegistersTests extends FunSuite {
     }
   }
 
+  test("CPU flag keeps lower nibble clear") {
+    val regs = Registers()
+
+    regs.f = 0xFF.toUByte
+    assertEquals(regs.f, 0xF0.toUByte)
+
+    regs.f = 0x0F.toUByte
+    assertEquals(regs.f, 0x00.toUByte)
+
+    regs.f = 0xAA.toUByte
+    assertEquals(regs.f, 0xA0.toUByte)
+  }
+
   test("CPU flags round-trip using enum with mask") {
     val regs = Registers()
 
