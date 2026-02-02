@@ -42,44 +42,44 @@ case class Registers(
   def updateSPLo(v: UByte): Unit = sp = (sp & (byteMask << 8)) | v.toUShort
 
   /** 8-bit registers (direct) */
-  def a: UByte = apply(R8.A)
-  def a_=(v: UByte): Unit = update(R8.A, v)
+  @inline def a: UByte = apply(R8.A)
+  @inline def a_=(v: UByte): Unit = update(R8.A, v)
 
-  def b: UByte = apply(R8.B)
-  def b_=(v: UByte): Unit = update(R8.B, v)
+  @inline def b: UByte = apply(R8.B)
+  @inline def b_=(v: UByte): Unit = update(R8.B, v)
 
-  def c: UByte = apply(R8.C)
-  def c_=(v: UByte): Unit = update(R8.C, v)
+  @inline def c: UByte = apply(R8.C)
+  @inline def c_=(v: UByte): Unit = update(R8.C, v)
 
-  def d: UByte = apply(R8.D)
-  def d_=(v: UByte): Unit = update(R8.D, v)
+  @inline def d: UByte = apply(R8.D)
+  @inline def d_=(v: UByte): Unit = update(R8.D, v)
 
-  def e: UByte = apply(R8.E)
-  def e_=(v: UByte): Unit = update(R8.E, v)
+  @inline def e: UByte = apply(R8.E)
+  @inline def e_=(v: UByte): Unit = update(R8.E, v)
 
-  def h: UByte = apply(R8.H)
-  def h_=(v: UByte): Unit = update(R8.H, v)
+  @inline def h: UByte = apply(R8.H)
+  @inline def h_=(v: UByte): Unit = update(R8.H, v)
 
-  def l: UByte = apply(R8.L)
-  def l_=(v: UByte): Unit = update(R8.L, v)
+  @inline def l: UByte = apply(R8.L)
+  @inline def l_=(v: UByte): Unit = update(R8.L, v)
 
   def f: UByte = flagRegister & flagMask
   def f_=(v: UByte): Unit = flagRegister = v & flagMask
 
   /** 16-bit registers (direct) */
-  def bc: UShort = apply(R16.BC)
-  def bc_=(v: UShort): Unit = update(R16.BC, v)
+  @inline def bc: UShort = apply(R16.BC)
+  @inline def bc_=(v: UShort): Unit = update(R16.BC, v)
 
-  def de: UShort = apply(R16.DE)
-  def de_=(v: UShort): Unit = update(R16.DE, v)
+  @inline def de: UShort = apply(R16.DE)
+  @inline def de_=(v: UShort): Unit = update(R16.DE, v)
 
-  def hl: UShort = apply(R16.HL)
-  def hl_=(v: UShort): Unit = update(R16.HL, v)
+  @inline def hl: UShort = apply(R16.HL)
+  @inline def hl_=(v: UShort): Unit = update(R16.HL, v)
 
   object flags {
-    def clear(): Unit = f = UByte(0)
-    def apply(flag: Flag): Boolean = (f & flag.mask) != UByte(0)
-    def update(flag: Flag, value: Boolean): Unit =
+    @inline def clear(): Unit = f = UByte(0)
+    @inline def apply(flag: Flag): Boolean = (f & flag.mask) != UByte(0)
+    @inline def update(flag: Flag, value: Boolean): Unit =
       f = ((f & ~flag.mask) | (if value then flag.mask else UByte(0))) & flagMask
 
     @inline def z: Boolean = apply(Flag.Z)

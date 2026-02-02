@@ -47,16 +47,24 @@ enum OpCode(val pattern: UByte, val mask: UByte = 0xFF.toUByte) {
   case LD_R8_R8 extends OpCode(0x40.toUByte, excludeBits543210) // 01DDDSSS
 
   // Block 2: https://gbdev.io/pandocs/CPU_Instruction_Set.html#block-2-8-bit-arithmetic
+  case ADD_A_R8 extends OpCode(0x80.toUByte, excludeBits210) // 10000SSS
+  case ADC_A_R8 extends OpCode(0x88.toUByte, excludeBits210) // 10001SSS
+  case SUB_A_R8 extends OpCode(0x90.toUByte, excludeBits210) // 10010SSS
+  case SBC_A_R8 extends OpCode(0x98.toUByte, excludeBits210) // 10011SSS
+  case AND_A_R8 extends OpCode(0xA0.toUByte, excludeBits210) // 10100SSS
+  case XOR_A_R8 extends OpCode(0xA8.toUByte, excludeBits210) // 10101SSS
+  case OR_A_R8 extends OpCode(0xB0.toUByte, excludeBits210) // 10110SSS
+  case CP_A_R8 extends OpCode(0xB8.toUByte, excludeBits210) // 10111SSS
 
   // Block 3: https://gbdev.io/pandocs/CPU_Instruction_Set.html#block-3
   case ADD_A_IMM8 extends OpCode(0xC6.toUByte) // 11000110
   case ADC_A_IMM8 extends OpCode(0xCE.toUByte) // 11001110
-  case SUB_IMM8 extends OpCode(0xD6.toUByte) // 11010110
+  case SUB_A_IMM8 extends OpCode(0xD6.toUByte) // 11010110
   case SBC_A_IMM8 extends OpCode(0xDE.toUByte) // 11011110
-  case AND_IMM8 extends OpCode(0xE6.toUByte) // 11100110
-  case XOR_IMM8 extends OpCode(0xEE.toUByte) // 11101110
-  case OR_IMM8 extends OpCode(0xF6.toUByte) // 11110110
-  case CP_IMM8 extends OpCode(0xFE.toUByte) // 11111110
+  case AND_A_IMM8 extends OpCode(0xE6.toUByte) // 11100110
+  case XOR_A_IMM8 extends OpCode(0xEE.toUByte) // 11101110
+  case OR_A_IMM8 extends OpCode(0xF6.toUByte) // 11110110
+  case CP_A_IMM8 extends OpCode(0xFE.toUByte) // 11111110
 }
 
 object OpCode {
@@ -71,6 +79,7 @@ object OpCode {
     val excludeNone: UByte = 0xFF.toUByte // 11111111
     val excludeBits54: UByte = 0xCF.toUByte // 11001111
     val excludeBits543: UByte = 0xC7.toUByte // 11000111
+    val excludeBits210: UByte = 0xF8.toUByte // 11111000
     val excludeBits543210: UByte = 0xC0.toUByte // 11000000
   }
 

@@ -130,8 +130,584 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
     }
   }
 
+  test("ADD_A_R8 - normal addition") {
+    forNonMemHLR8OpCodeParams { operandParam =>
+      val opcode: UByte = OpCode.ADD_A_R8.setParam(operandParam -> 0)
+      val instruction = Instruction.decode(Array(opcode))
+
+      assertEquals(instruction.toString, f"ADD_A_R8(0x${opcode.toInt}%02X)")
+      verifyInstruction[Instruction.ADD_A_R8](opcode, instruction) { add =>
+        assertEquals(add.operand, operandParam)
+      }
+
+      testInstruction(
+        instruction,
+        registerSetup = regs => {
+          regs.a = 0x12.toUByte
+          regs(operandParam.toRegister) = if (operandParam == OpCode.Parameters.R8.A) 0x12.toUByte else 0x23.toUByte
+          regs.f = 0xF0.toUByte
+        },
+        registerExpect = regs => {
+          regs.a = if (operandParam == OpCode.Parameters.R8.A) 0x24.toUByte else 0x35.toUByte
+          regs.f = 0x00.toUByte // Z=0, N=0, H=0, C=0
+        }
+      )
+    }
+  }
+
+  test("ADD_A_R8 - zero result (non-zero operands)") {
+    forNonMemHLR8OpCodeParams { operandParam =>
+      val opcode: UByte = OpCode.ADD_A_R8.setParam(operandParam -> 0)
+      val instruction = Instruction.decode(Array(opcode))
+
+      testInstruction(
+        instruction,
+        registerSetup = regs => {
+          if (operandParam == OpCode.Parameters.R8.A) {
+            regs.a = 0x80.toUByte
+          } else {
+            regs.a = 0xFF.toUByte
+            regs(operandParam.toRegister) = 0x01.toUByte
+          }
+          regs.f = 0x00.toUByte
+        },
+        registerExpect = regs => {
+          regs.a = 0x00.toUByte
+          regs.f =
+            if (operandParam == OpCode.Parameters.R8.A)
+              0x90.toUByte // Z=1, N=0, H=0, C=1
+            else
+              0xB0.toUByte // Z=1, N=0, H=1, C=1
+        }
+      )
+    }
+  }
+
+  test("ADD_A_R8 - overflow/carry") {
+    forNonMemHLR8OpCodeParams { operandParam =>
+      val opcode: UByte = OpCode.ADD_A_R8.setParam(operandParam -> 0)
+      val instruction = Instruction.decode(Array(opcode))
+
+      testInstruction(
+        instruction,
+        registerSetup = regs => {
+          if (operandParam == OpCode.Parameters.R8.A) {
+            regs.a = 0x80.toUByte
+          } else {
+            regs.a = 0xF0.toUByte
+            regs(operandParam.toRegister) = 0x20.toUByte
+          }
+          regs.f = 0x00.toUByte
+        },
+        registerExpect = regs => {
+          regs.a =
+            if (operandParam == OpCode.Parameters.R8.A) 0x00.toUByte
+            else 0x10.toUByte
+
+          regs.f =
+            if (operandParam == OpCode.Parameters.R8.A) 0x90.toUByte // Z=1, C=1
+            else 0x10.toUByte // Z=0, C=1
+        }
+      )
+    }
+  }
+
+  test("ADD_A_R8 - half-carry only") {
+    forNonMemHLR8OpCodeParams { operandParam =>
+      val opcode: UByte = OpCode.ADD_A_R8.setParam(operandParam -> 0)
+      val instruction = Instruction.decode(Array(opcode))
+
+      testInstruction(
+        instruction,
+        registerSetup = regs => {
+          if (operandParam == OpCode.Parameters.R8.A) {
+            regs.a = 0x08.toUByte
+          } else {
+            regs.a = 0x0F.toUByte
+            regs(operandParam.toRegister) = 0x01.toUByte
+          }
+          regs.f = 0x00.toUByte
+        },
+        registerExpect = regs => {
+          regs.a = 0x10.toUByte
+          regs.f = 0x20.toUByte // Z=0, N=0, H=1, C=0
+        }
+      )
+    }
+  }
+
+  test("ADC_A_R8 - normal addition, carry clear") {
+    forNonMemHLR8OpCodeParams { operandParam =>
+      val opcode: UByte = OpCode.ADC_A_R8.setParam(operandParam -> 0)
+      val instruction = Instruction.decode(Array(opcode))
+
+      assertEquals(instruction.toString, f"ADC_A_R8(0x${opcode.toInt}%02X)")
+      verifyInstruction[Instruction.ADC_A_R8](opcode, instruction) { adc =>
+        assertEquals(adc.operand, operandParam)
+      }
+
+      testInstruction(
+        instruction,
+        registerSetup = regs => {
+          regs.a = 0x12.toUByte
+          regs(operandParam.toRegister) =
+            if (operandParam == OpCode.Parameters.R8.A) 0x12.toUByte else 0x23.toUByte
+          regs.f = 0x00.toUByte // carry clear
+        },
+        registerExpect = regs => {
+          regs.a =
+            if (operandParam == OpCode.Parameters.R8.A) 0x24.toUByte else 0x35.toUByte
+          regs.f = 0x00.toUByte
+        }
+      )
+    }
+  }
+
+  test("ADC_A_R8 - addition with initial carry") {
+    forNonMemHLR8OpCodeParams { operandParam =>
+      val opcode: UByte = OpCode.ADC_A_R8.setParam(operandParam -> 0)
+      val instruction = Instruction.decode(Array(opcode))
+
+      testInstruction(
+        instruction,
+        registerSetup = regs => {
+          regs.a = 0x12.toUByte
+          regs(operandParam.toRegister) =
+            if (operandParam == OpCode.Parameters.R8.A) 0x12.toUByte else 0x23.toUByte
+          regs.f = 0x10.toUByte
+        },
+        registerExpect = regs => {
+          regs.a =
+            if (operandParam == OpCode.Parameters.R8.A) 0x25.toUByte else 0x36.toUByte
+          regs.f = 0x00.toUByte
+        }
+      )
+    }
+  }
+
+  test("ADC_A_R8 - zero result") {
+    forNonMemHLR8OpCodeParams { operandParam =>
+      val opcode: UByte = OpCode.ADC_A_R8.setParam(operandParam -> 0)
+      val instruction = Instruction.decode(Array(opcode))
+
+      testInstruction(
+        instruction,
+        registerSetup = regs => {
+          if (operandParam == OpCode.Parameters.R8.A) regs.a = 0x80.toUByte
+          else {
+            regs.a = 0xFF.toUByte
+            regs(operandParam.toRegister) = 0x01.toUByte
+          }
+          regs.f = 0x00.toUByte
+        },
+        registerExpect = regs => {
+          regs.a = 0x00.toUByte
+          regs.f = // A: Z=1, N=0, H=0, C=1 ; Other: Z=1, N=0, H=1, C=1
+            if (operandParam == OpCode.Parameters.R8.A) 0x90.toUByte else 0xB0.toUByte
+        }
+      )
+    }
+  }
+
+  test("ADC_A_R8 overflow/carry") {
+    forNonMemHLR8OpCodeParams { operandParam =>
+      val opcode: UByte = OpCode.ADC_A_R8.setParam(operandParam -> 0)
+      val instruction = Instruction.decode(Array(opcode))
+
+      testInstruction(
+        instruction,
+        registerSetup = regs => {
+          if (operandParam == OpCode.Parameters.R8.A) regs.a = 0x80.toUByte
+          else {
+            regs.a = 0xF0.toUByte
+            regs(operandParam.toRegister) = 0x20.toUByte
+          }
+          regs.f = 0x00.toUByte
+        },
+        registerExpect = regs => {
+          regs.a = if (operandParam == OpCode.Parameters.R8.A) 0x00.toUByte else 0x10.toUByte
+          // A: Z=1, N=0, H=0, C=1 ; Other: Z=0, N=0, H=0, C=1
+          regs.f = if (operandParam == OpCode.Parameters.R8.A) 0x90.toUByte else 0x10.toUByte
+        }
+      )
+    }
+  }
+
+  test("ADC_A_R8 - overflow with initial carry") {
+    forNonMemHLR8OpCodeParams { operandParam =>
+      val opcode: UByte = OpCode.ADC_A_R8.setParam(operandParam -> 0)
+      val instruction = Instruction.decode(Array(opcode))
+
+      testInstruction(
+        instruction,
+        registerSetup = regs => {
+          if (operandParam == OpCode.Parameters.R8.A) regs.a = 0x80.toUByte
+          else {
+            regs.a = 0x7F.toUByte
+            regs(operandParam.toRegister) = 0x80.toUByte
+          }
+          regs.f = 0x10.toUByte
+        },
+        registerExpect = regs => {
+          regs.a = if (operandParam == OpCode.Parameters.R8.A) 0x01.toUByte else 0x00.toUByte
+          // A: Z=0, N=0, H=0, C=1 ; Other: Z=1, N=0, H=1, C=1
+          regs.f = if (operandParam == OpCode.Parameters.R8.A) 0x10.toUByte else 0xB0.toUByte
+        }
+      )
+    }
+  }
+
+  test("ADC_A_R8 - half-carry only with initial carry") {
+    forNonMemHLR8OpCodeParams { operandParam =>
+      val opcode: UByte = OpCode.ADC_A_R8.setParam(operandParam -> 0)
+      val instruction = Instruction.decode(Array(opcode))
+
+      testInstruction(
+        instruction,
+        registerSetup = regs => {
+          regs.a = 0x0F.toUByte
+          regs(operandParam.toRegister) =
+            if (operandParam == OpCode.Parameters.R8.A) 0x0F.toUByte else 0x01.toUByte
+          regs.f = 0x10.toUByte
+        },
+        registerExpect = regs => {
+          regs.a = if (operandParam == OpCode.Parameters.R8.A) 0x1F.toUByte else 0x11.toUByte
+          regs.f = 0x20.toUByte
+        }
+      )
+    }
+  }
+
+  test("SUB_A_R8 - normal subtraction") {
+    forNonMemHLR8OpCodeParams { operandParam =>
+      val opcode: UByte = OpCode.SUB_A_R8.setParam(operandParam -> 0)
+      val instruction = Instruction.decode(Array(opcode))
+
+      assertEquals(instruction.toString, f"SUB_A_R8(0x${opcode.toInt}%02X)")
+      verifyInstruction[Instruction.SUB_A_R8](opcode, instruction) { sbc =>
+        assertEquals(sbc.operand, operandParam)
+      }
+
+      testInstruction(
+        instruction,
+        registerSetup = regs => {
+          regs.a = 0x23.toUByte
+          if (operandParam != OpCode.Parameters.R8.A) regs(operandParam.toRegister) = 0x12.toUByte
+          regs.f = 0xF0.toUByte
+        },
+        registerExpect = regs => {
+          regs.a = if (operandParam == OpCode.Parameters.R8.A) 0x00.toUByte else 0x11.toUByte
+          // A: Z=1, N=1, H=0, C=0; Other: Z=0, N=1, H=0, C=0
+          regs.f = if (operandParam == OpCode.Parameters.R8.A) 0xC0.toUByte else 0x40.toUByte
+        }
+      )
+    }
+  }
+
+  test("SUB_A_R8 - zero result") {
+    forNonMemHLR8OpCodeParams { operandParam =>
+      val opcode: UByte = OpCode.SUB_A_R8.setParam(operandParam -> 0)
+      val instruction = Instruction.decode(Array(opcode))
+
+      testInstruction(
+        instruction,
+        registerSetup = regs => {
+          regs.a = 0x23.toUByte
+          if (operandParam != OpCode.Parameters.R8.A) regs(operandParam.toRegister) = 0x23.toUByte
+          regs.f = 0x00.toUByte
+        },
+        registerExpect = regs => {
+          regs.a = 0x00.toUByte
+          regs.f = 0xC0.toUByte // Z=1, N=1, H=0, C=0
+        }
+      )
+    }
+  }
+
+  test("SUB_A_R8 - borrow/carry") {
+    forNonMemHLR8OpCodeParamsExcept(OpCode.Parameters.R8.A) { operandParam =>
+      val opcode: UByte = OpCode.SUB_A_R8.setParam(operandParam -> 0)
+      val instruction = Instruction.decode(Array(opcode))
+
+      assertEquals(instruction.toString, f"SUB_A_R8(0x${opcode.toInt}%02X)")
+      verifyInstruction[Instruction.SUB_A_R8](opcode, instruction) { sub =>
+        assertEquals(sub.operand, operandParam)
+      }
+
+      testInstruction(
+        instruction,
+        registerSetup = regs => {
+          regs.a = 0x10.toUByte
+          regs(operandParam.toRegister) = 0x50.toUByte
+          regs.f = 0x00.toUByte
+        },
+        registerExpect = regs => {
+          regs.a = 0xC0.toUByte // 0x10 - 0x50 wraps around
+          regs.f = 0x50.toUByte // Z=0, N=1, H=0, C=1
+        }
+      )
+    }
+  }
+
+  test("SUB_A_R8 - half-borrow only") {
+    forNonMemHLR8OpCodeParamsExcept(OpCode.Parameters.R8.A) { operandParam =>
+      val opcode: UByte = OpCode.SUB_A_R8.setParam(operandParam -> 0)
+      val instruction = Instruction.decode(Array(opcode))
+
+      assertEquals(instruction.toString, f"SUB_A_R8(0x${opcode.toInt}%02X)")
+      verifyInstruction[Instruction.SUB_A_R8](opcode, instruction) { sub =>
+        assertEquals(sub.operand, operandParam)
+      }
+
+      testInstruction(
+        instruction,
+        registerSetup = regs => {
+          regs.a = 0x10.toUByte
+          regs(operandParam.toRegister) = 0x01.toUByte
+          regs.f = 0x00.toUByte
+        },
+        registerExpect = regs => {
+          regs.a = 0x0F.toUByte
+          regs.f = 0x60.toUByte // Z=0, N=1, H=1, C=0
+        }
+      )
+    }
+  }
+
+  test("SBC_A_R8 - normal subtraction, carry clear") {
+    forNonMemHLR8OpCodeParams { operandParam =>
+      val opcode: UByte = OpCode.SBC_A_R8.setParam(operandParam -> 0)
+      val instruction = Instruction.decode(Array(opcode))
+
+      assertEquals(instruction.toString, f"SBC_A_R8(0x${opcode.toInt}%02X)")
+      verifyInstruction[Instruction.SBC_A_R8](opcode, instruction) { sbc =>
+        assertEquals(sbc.operand, operandParam)
+      }
+
+      testInstruction(
+        instruction,
+        registerSetup = regs => {
+          regs.a = 0x23.toUByte
+          if (operandParam != OpCode.Parameters.R8.A) regs(operandParam.toRegister) = 0x12.toUByte
+          regs.f = 0x00.toUByte
+        },
+        registerExpect = regs => {
+          regs.a = if (operandParam == OpCode.Parameters.R8.A) 0x00.toUByte else 0x11.toUByte
+          // A: Z=1, N=1, H=0, C=0 ; Other: Z=0, N=1, H=0, C=0
+          regs.f = if (operandParam == OpCode.Parameters.R8.A) 0xC0.toUByte else 0x40.toUByte
+        }
+      )
+    }
+  }
+
+  test("SBC_A_R8 - subtraction with initial carry") {
+    forNonMemHLR8OpCodeParams { operandParam =>
+      val opcode: UByte = OpCode.SBC_A_R8.setParam(operandParam -> 0)
+      val instruction = Instruction.decode(Array(opcode))
+
+      assertEquals(instruction.toString, f"SBC_A_R8(0x${opcode.toInt}%02X)")
+      verifyInstruction[Instruction.SBC_A_R8](opcode, instruction) { sbc =>
+        assertEquals(sbc.operand, operandParam)
+      }
+
+      testInstruction(
+        instruction,
+        registerSetup = regs => {
+          regs.a = 0x23.toUByte
+          if (operandParam != OpCode.Parameters.R8.A) regs(operandParam.toRegister) = 0x12.toUByte
+          regs.f = 0x10.toUByte // C=1 initially
+        },
+        registerExpect = regs => {
+          regs.a = if (operandParam == OpCode.Parameters.R8.A) 0xFF.toUByte else 0x10.toUByte
+          // A: Z=0, N=1, H=1, C=1 ; Other: Z=0, N=1, H=0, C=0
+          regs.f = if (operandParam == OpCode.Parameters.R8.A) 0x70.toUByte else 0x40.toUByte
+        }
+      )
+    }
+  }
+
+  test("SBC_A_R8 - zero result") {
+    forNonMemHLR8OpCodeParamsExcept(OpCode.Parameters.R8.A) { operandParam =>
+      val opcode: UByte = OpCode.SBC_A_R8.setParam(operandParam -> 0)
+      val instruction = Instruction.decode(Array(opcode))
+
+      testInstruction(
+        instruction,
+        registerSetup = regs => {
+          regs.a = 0x23.toUByte
+          regs(operandParam.toRegister) = 0x22.toUByte
+          regs.f = 0x10.toUByte
+        },
+        registerExpect = regs => {
+          regs.a = 0x00.toUByte // 0x23 - 0x22 - 1 = 0
+          regs.f = 0xC0.toUByte
+        }
+      )
+    }
+  }
+
+  test("SBC_A_R8 - borrow/carry") {
+    forNonMemHLR8OpCodeParamsExcept(OpCode.Parameters.R8.A) { operandParam =>
+      val opcode: UByte = OpCode.SBC_A_R8.setParam(operandParam -> 0)
+      val instruction = Instruction.decode(Array(opcode))
+
+      testInstruction(
+        instruction,
+        registerSetup = regs => {
+          regs.a = 0x10.toUByte
+          regs(operandParam.toRegister) = 0x50.toUByte
+          regs.f = 0x00.toUByte
+        },
+        registerExpect = regs => {
+          regs.a = 0xC0.toUByte
+          regs.f = 0x50.toUByte // Z=0, N=1, H=0, C=1
+        }
+      )
+    }
+  }
+
+  test("SBC_A_R8 - borrow with initial carry") {
+    forNonMemHLR8OpCodeParamsExcept(OpCode.Parameters.R8.A) { operandParam =>
+      val opcode: UByte = OpCode.SBC_A_R8.setParam(operandParam -> 0)
+      val instruction = Instruction.decode(Array(opcode))
+
+      testInstruction(
+        instruction,
+        registerSetup = regs => {
+          regs.a = 0x10.toUByte
+          regs(operandParam.toRegister) = 0x50.toUByte
+          regs.f = 0x10.toUByte
+        },
+        registerExpect = regs => {
+          regs.a = 0xBF.toUByte
+          regs.f = 0x70.toUByte // Z=0, N=1, H=1, C=1
+        }
+      )
+    }
+  }
+
+  test("SBC_A_R8 - half-borrow with initial carry") {
+    forNonMemHLR8OpCodeParamsExcept(OpCode.Parameters.R8.A) { operandParam =>
+      val opcode: UByte = OpCode.SBC_A_R8.setParam(operandParam -> 0)
+      val instruction = Instruction.decode(Array(opcode))
+
+      testInstruction(
+        instruction,
+        registerSetup = regs => {
+          regs.a = 0x10.toUByte
+          regs(operandParam.toRegister) = 0x01.toUByte
+          regs.f = 0x10.toUByte
+        },
+        registerExpect = regs => {
+          regs.a = 0x0E.toUByte
+          regs.f = 0x60.toUByte // Z=0, N=1, H=1, C=0
+        }
+      )
+    }
+  }
+
+  test("CP_A_R8 - normal compare") {
+    forNonMemHLR8OpCodeParams { operandParam =>
+      val opcode: UByte = OpCode.CP_A_R8.setParam(operandParam -> 0)
+      val instruction = Instruction.decode(Array(opcode))
+
+      assertEquals(instruction.toString, f"CP_A_R8(0x${opcode.toInt}%02X)")
+      verifyInstruction[Instruction.CP_A_R8](opcode, instruction) { cp =>
+        assertEquals(cp.operand, operandParam)
+      }
+
+      testInstruction(
+        instruction,
+        registerSetup = regs => {
+          regs.a = 0x23.toUByte
+          if (operandParam != OpCode.Parameters.R8.A) regs(operandParam.toRegister) = 0x12.toUByte
+          regs.f = 0x00.toUByte
+        },
+        registerExpect = regs => {
+          // A: Z=1, N=1, H=0, C=0 ; Other: Z=0, N=1, H=0, C=0
+          regs.f = if (operandParam == OpCode.Parameters.R8.A) 0xC0.toUByte else 0x40.toUByte
+        }
+      )
+    }
+  }
+
+  test("CP_A_R8 - zero result") {
+    forNonMemHLR8OpCodeParams { operandParam =>
+      val opcode: UByte = OpCode.CP_A_R8.setParam(operandParam -> 0)
+      val instruction = Instruction.decode(Array(opcode))
+
+      verifyInstruction[Instruction.CP_A_R8](opcode, instruction) { cp =>
+        assertEquals(cp.operand, operandParam)
+      }
+
+      testInstruction(
+        instruction,
+        registerSetup = regs => {
+          regs.a = 0x55.toUByte
+          if (operandParam != OpCode.Parameters.R8.A) regs(operandParam.toRegister) = 0x55.toUByte
+          regs.f = 0x00.toUByte
+        },
+        registerExpect = regs => {
+          regs.a = 0x55.toUByte
+          regs.f = 0xC0.toUByte // Z=1, N=1, H=0, C=0
+        }
+      )
+    }
+  }
+
+  test("CP_A_R8 - borrow/carry") {
+    forNonMemHLR8OpCodeParamsExcept(OpCode.Parameters.R8.A) { operandParam =>
+      val opcode: UByte = OpCode.CP_A_R8.setParam(operandParam -> 0)
+      val instruction = Instruction.decode(Array(opcode))
+
+      assertEquals(instruction.toString, f"CP_A_R8(0x${opcode.toInt}%02X)")
+      verifyInstruction[Instruction.CP_A_R8](opcode, instruction) { cp =>
+        assertEquals(cp.operand, operandParam)
+      }
+
+      testInstruction(
+        instruction,
+        registerSetup = regs => {
+          regs.a = 0x10.toUByte
+          regs(operandParam.toRegister) = 0x50.toUByte
+          regs.f = 0x00.toUByte
+        },
+        registerExpect = regs => {
+          regs.a = 0x10.toUByte // A unchanged
+          regs.f = 0x50.toUByte // Z=0, N=1, H=0, C=1
+        }
+      )
+    }
+  }
+
+  test("CP_A_R8 - half-borrow only") {
+    forNonMemHLR8OpCodeParamsExcept(OpCode.Parameters.R8.A) { operandParam =>
+      val opcode: UByte = OpCode.CP_A_R8.setParam(operandParam -> 0)
+      val instruction = Instruction.decode(Array(opcode))
+
+      assertEquals(instruction.toString, f"CP_A_R8(0x${opcode.toInt}%02X)")
+      verifyInstruction[Instruction.CP_A_R8](opcode, instruction) { cp =>
+        assertEquals(cp.operand, operandParam)
+      }
+
+      testInstruction(
+        instruction,
+        registerSetup = regs => {
+          regs.a = 0x10.toUByte
+          regs(operandParam.toRegister) = 0x01.toUByte
+          regs.f = 0x00.toUByte
+        },
+        registerExpect = regs => {
+          regs.a = 0x10.toUByte // A unchanged
+          regs.f = 0x60.toUByte // Z=0, N=1, H=1, C=0
+        }
+      )
+    }
+  }
+
   test("ADD_A_IMM8 - normal addition") {
     val instruction = Instruction.decode(Array(OpCode.ADD_A_IMM8.pattern, 0x23.toUByte))
+    assertEquals(instruction.toString, "ADD_A_IMM8(0xC623)")
     verifyInstruction[Instruction.ADD_A_IMM8](OpCode.ADD_A_IMM8.pattern, instruction) { add =>
       assertEquals(add.imm8, 0x23.toUByte)
     }
@@ -199,6 +775,7 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
 
   test("ADC_A_IMM8 - normal addition, carry clear") {
     val instruction = Instruction.decode(Array(OpCode.ADC_A_IMM8.pattern, 0x23.toUByte))
+    assertEquals(instruction.toString, "ADC_A_IMM8(0xCE23)")
     verifyInstruction[Instruction.ADC_A_IMM8](OpCode.ADC_A_IMM8.pattern, instruction) { adc =>
       assertEquals(adc.imm8, 0x23.toUByte)
     }
@@ -296,9 +873,10 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
     )
   }
 
-  test("SUB_IMM8 - normal subtraction") {
-    val instruction = Instruction.decode(Array(OpCode.SUB_IMM8.pattern, 0x12.toUByte))
-    verifyInstruction[Instruction.SUB_IMM8](OpCode.SUB_IMM8.pattern, instruction) { sub =>
+  test("SUB_A_IMM8 - normal subtraction") {
+    val instruction = Instruction.decode(Array(OpCode.SUB_A_IMM8.pattern, 0x12.toUByte))
+    assertEquals(instruction.toString, "SUB_A_IMM8(0xD612)")
+    verifyInstruction[Instruction.SUB_A_IMM8](OpCode.SUB_A_IMM8.pattern, instruction) { sub =>
       assertEquals(sub.imm8, 0x12.toUByte)
     }
 
@@ -315,8 +893,8 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
     )
   }
 
-  test("SUB_IMM8 - zero result") {
-    val instruction = Instruction.decode(Array(OpCode.SUB_IMM8.pattern, 0x23.toUByte))
+  test("SUB_A_IMM8 - zero result") {
+    val instruction = Instruction.decode(Array(OpCode.SUB_A_IMM8.pattern, 0x23.toUByte))
 
     testInstruction(
       instruction,
@@ -331,8 +909,8 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
     )
   }
 
-  test("SUB_IMM8 - borrow/carry") {
-    val instruction = Instruction.decode(Array(OpCode.SUB_IMM8.pattern, 0x50.toUByte))
+  test("SUB_A_IMM8 - borrow/carry") {
+    val instruction = Instruction.decode(Array(OpCode.SUB_A_IMM8.pattern, 0x50.toUByte))
 
     testInstruction(
       instruction,
@@ -347,8 +925,8 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
     )
   }
 
-  test("SUB_IMM8 - half-borrow only") {
-    val instruction = Instruction.decode(Array(OpCode.SUB_IMM8.pattern, 0x01.toUByte))
+  test("SUB_A_IMM8 - half-borrow only") {
+    val instruction = Instruction.decode(Array(OpCode.SUB_A_IMM8.pattern, 0x01.toUByte))
 
     testInstruction(
       instruction,
@@ -365,6 +943,7 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
 
   test("SBC_A_IMM8 - normal subtraction with carry clear") {
     val instruction = Instruction.decode(Array(OpCode.SBC_A_IMM8.pattern, 0x12.toUByte))
+    assertEquals(instruction.toString, "SBC_A_IMM8(0xDE12)")
     verifyInstruction[Instruction.SBC_A_IMM8](OpCode.SBC_A_IMM8.pattern, instruction) { sbc =>
       assertEquals(sbc.imm8, 0x12.toUByte)
     }
@@ -462,9 +1041,10 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
     )
   }
 
-  test("CP_IMM8 - normal compare") {
-    val instruction = Instruction.decode(Array(OpCode.CP_IMM8.pattern, 0x12.toUByte))
-    verifyInstruction[Instruction.CP_IMM8](OpCode.CP_IMM8.pattern, instruction) { cp =>
+  test("CP_A_IMM8 - normal compare") {
+    val instruction = Instruction.decode(Array(OpCode.CP_A_IMM8.pattern, 0x12.toUByte))
+    assertEquals(instruction.toString, "CP_A_IMM8(0xFE12)")
+    verifyInstruction[Instruction.CP_A_IMM8](OpCode.CP_A_IMM8.pattern, instruction) { cp =>
       assertEquals(cp.imm8, 0x12.toUByte)
     }
 
@@ -481,8 +1061,8 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
     )
   }
 
-  test("CP_IMM8 - zero result") {
-    val instruction = Instruction.decode(Array(OpCode.CP_IMM8.pattern, 0x55.toUByte))
+  test("CP_A_IMM8 - zero result") {
+    val instruction = Instruction.decode(Array(OpCode.CP_A_IMM8.pattern, 0x55.toUByte))
 
     testInstruction(
       instruction,
@@ -497,8 +1077,8 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
     )
   }
 
-  test("CP_IMM8 - borrow/carry") {
-    val instruction = Instruction.decode(Array(OpCode.CP_IMM8.pattern, 0x50.toUByte))
+  test("CP_A_IMM8 - borrow/carry") {
+    val instruction = Instruction.decode(Array(OpCode.CP_A_IMM8.pattern, 0x50.toUByte))
 
     testInstruction(
       instruction,
@@ -513,8 +1093,8 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
     )
   }
 
-  test("CP_IMM8 - half-borrow only") {
-    val instruction = Instruction.decode(Array(OpCode.CP_IMM8.pattern, 0x01.toUByte))
+  test("CP_A_IMM8 - half-borrow only") {
+    val instruction = Instruction.decode(Array(OpCode.CP_A_IMM8.pattern, 0x01.toUByte))
 
     testInstruction(
       instruction,

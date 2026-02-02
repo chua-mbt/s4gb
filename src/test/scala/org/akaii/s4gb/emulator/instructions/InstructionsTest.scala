@@ -99,6 +99,9 @@ abstract class InstructionsTest extends FunSuite {
   protected def forNonMemHLR8OpCodeParams(test: OpCode.Parameters.R8 => Unit): Unit =
     OpCode.Parameters.R8.nonMemHLValues.foreach(test)
 
+  protected def forNonMemHLR8OpCodeParamsExcept(r8: OpCode.Parameters.R8*)(test: OpCode.Parameters.R8 => Unit): Unit =
+    OpCode.Parameters.R8.nonMemHLValues.filterNot(r8.contains).foreach(test)
+
   protected def forNonMemHLR8OpCodeParamPairs(test: (OpCode.Parameters.R8, OpCode.Parameters.R8) => Unit): Unit =
     for {
       source <- OpCode.Parameters.R8.nonMemHLValues

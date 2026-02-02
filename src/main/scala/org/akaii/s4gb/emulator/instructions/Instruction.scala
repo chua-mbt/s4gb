@@ -67,15 +67,23 @@ object Instruction {
       case OpCode.HALT => HALT
       case OpCode.LD_R8_R8 => LD_R8_R8(input)
       // Block 2 (0b10) https://gbdev.io/pandocs/CPU_Instruction_Set.html#block-2-8-bit-arithmetic
+      case OpCode.ADD_A_R8 => ADD_A_R8(input)
+      case OpCode.ADC_A_R8 => ADC_A_R8(input)
+      case OpCode.SUB_A_R8 => SUB_A_R8(input)
+      case OpCode.SBC_A_R8 => SBC_A_R8(input)
+      case OpCode.AND_A_R8 => AND_A_R8(input)
+      case OpCode.XOR_A_R8 => XOR_A_R8(input)
+      case OpCode.OR_A_R8 => OR_A_R8(input)
+      case OpCode.CP_A_R8 => CP_A_R8(input)
       // Block 3 (0b11) https://gbdev.io/pandocs/CPU_Instruction_Set.html#block-3
       case OpCode.ADD_A_IMM8 => ADD_A_IMM8(input)
       case OpCode.ADC_A_IMM8 => ADC_A_IMM8(input)
-      case OpCode.SUB_IMM8 => SUB_IMM8(input)
+      case OpCode.SUB_A_IMM8 => SUB_A_IMM8(input)
       case OpCode.SBC_A_IMM8 => SBC_A_IMM8(input)
-      case OpCode.AND_IMM8 => AND_IMM8(input)
-      case OpCode.XOR_IMM8 => XOR_IMM8(input)
-      case OpCode.OR_IMM8 => OR_IMM8(input)
-      case OpCode.CP_IMM8 => CP_IMM8(input)
+      case OpCode.AND_A_IMM8 => AND_A_IMM8(input)
+      case OpCode.XOR_A_IMM8 => XOR_A_IMM8(input)
+      case OpCode.OR_A_IMM8 => OR_A_IMM8(input)
+      case OpCode.CP_A_IMM8 => CP_A_IMM8(input)
       // TODO: implement other instructions
     }
   }
@@ -180,6 +188,52 @@ object Instruction {
         case parameter =>
           state.registers.update(parameter.toRegister.lo, value.registerLoByte)
       }
+  }
+
+  trait AddOperation {
+    self: Instruction =>
+    def resolve(state: State, op1: UByte, op2: UByte, carryIn: UByte = 0.toUByte, storeInA: Boolean = false): Unit = {
+      val sum = op1.toInt + op2.toInt + carryIn.toInt
+      if(storeInA) state.registers.a = sum.toUByte
+      state.registers.flags.z = sum.toUByte == 0.toUByte
+      state.registers.flags.n = false
+      state.registers.flags.h = op1.overflowFromBit3(op2, carryIn)
+      state.registers.flags.c = op1.overflowFromBit7(op2, carryIn)
+    }
+  }
+
+  trait SubOperation {
+    self: Instruction =>
+    def resolve(state: State, op1: UByte, op2: UByte, carryIn: UByte = 0.toUByte, storeInA: Boolean = false): Unit = {
+      val diff = op1.toInt - op2.toInt - carryIn.toInt
+      if(storeInA) state.registers.a = diff.toUByte
+      state.registers.flags.z = diff.toUByte == 0.toUByte
+      state.registers.flags.n = true
+      state.registers.flags.h = op1.borrowFromBit4(op2, carryIn)
+      state.registers.flags.c = op1.borrowFrom(op2, carryIn)
+    }
+  }
+
+  trait OrOperation {
+    self: Instruction =>
+    def resolve(state: State, result: UByte): Unit = {
+      state.registers.a = result
+      state.registers.flags.z = result == 0.toUByte
+      state.registers.flags.n = false
+      state.registers.flags.h = false
+      state.registers.flags.c = false
+    }
+  }
+
+  trait AndOperation {
+    self: Instruction =>
+    def resolve(state: State, result: UByte): Unit = {
+      state.registers.a = result
+      state.registers.flags.z = result == 0.toUByte
+      state.registers.flags.n = false
+      state.registers.flags.h = true
+      state.registers.flags.c = false
+    }
   }
 
   /*
@@ -335,11 +389,120 @@ object Instruction {
   }
 
   /**
+   * ADD_A_R8 - Add the value in r8 to A.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#ADD_A,r8]]
+   */
+  case class ADD_A_R8(private val input: Array[UByte]) extends Instruction(input) with HasR8Operand with AddOperation {
+    override val cycles: Int = 1
+    override val bytes: Int = 1
+
+    private val operandStart = 2
+    lazy val operand: OpCode.Parameters.R8 = operand(operandStart)
+
+    override protected[instructions] def micro: Seq[Micro] = Seq(
+      Micro.fetchOpCode { state =>
+        val a = state.registers.a
+        val valueToAdd = operandContents(operandStart, state)
+        resolve(state, a, valueToAdd, storeInA = true)
+      }
+    )
+  }
+
+  /**
+   * ADC_A_R8 - Add the value in r8 plus the carry flag to A.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#ADC_A,r8]]
+   */
+  case class ADC_A_R8(private val input: Array[UByte]) extends Instruction(input) with HasR8Operand with AddOperation {
+    override val cycles: Int = 1
+    override val bytes: Int = 1
+
+    private val operandStart = 2
+    lazy val operand: OpCode.Parameters.R8 = operand(operandStart)
+
+    override protected[instructions] def micro: Seq[Micro] = Seq(
+      Micro.fetchOpCode { state =>
+        val a = state.registers.a
+        val valueToAdd = operandContents(operandStart, state)
+        val carryIn = if (state.registers.flags.c) 1.toUByte else 0.toUByte
+        resolve(state, a, valueToAdd, carryIn, storeInA = true)
+      }
+    )
+  }
+
+  /**
+   * SUB_A_R8 - Subtract the value in r8 from A.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#SUB_A,r8]]
+   */
+  case class SUB_A_R8(private val input: Array[UByte]) extends Instruction(input) with HasR8Operand with SubOperation {
+    override val cycles: Int = 1
+    override val bytes: Int = 1
+
+    private val operandStart = 2
+    lazy val operand: OpCode.Parameters.R8 = operand(operandStart)
+
+    override protected[instructions] def micro: Seq[Micro] = Seq(
+      Micro.fetchOpCode { state =>
+        val a = state.registers.a
+        val valueToSub = operandContents(operandStart, state)
+        resolve(state, a, valueToSub, storeInA = true)
+      }
+    )
+  }
+
+  /**
+   * SBC_A_R8 - Subtract the value in r8 and the carry flag from A.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#SBC_A,r8]]
+   */
+  case class SBC_A_R8(private val input: Array[UByte]) extends Instruction(input) with HasR8Operand with SubOperation {
+    override val cycles: Int = 1
+    override val bytes: Int = 1
+
+    private val operandStart = 2
+    lazy val operand: OpCode.Parameters.R8 = operand(operandStart)
+
+    override protected[instructions] def micro: Seq[Micro] = Seq(
+      Micro.fetchOpCode { state =>
+        val a = state.registers.a
+        val valueToSub = operandContents(operandStart, state)
+        val carryIn = if (state.registers.flags.c) 1.toUByte else 0.toUByte
+        resolve(state, a, valueToSub, carryIn, storeInA = true)
+      }
+    )
+  }
+
+  /**
+   * CP_A_R8 - ComPare the value in A with the value in r8.
+   *
+   * This subtracts the value in r8 from A and sets flags accordingly, but discards the result.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#CP_A,r8]]
+   */
+  case class CP_A_R8(private val input: Array[UByte]) extends Instruction(input) with HasR8Operand with SubOperation {
+    override val cycles: Int = 1
+    override val bytes: Int = 1
+
+    private val operandStart = 2
+    lazy val operand: OpCode.Parameters.R8 = operand(operandStart)
+
+    override protected[instructions] def micro: Seq[Micro] = Seq(
+      Micro.fetchOpCode { state =>
+        val a = state.registers.a
+        val valueToSub = operandContents(operandStart, state)
+        resolve(state, a, valueToSub)
+      }
+    )
+  }
+
+  /**
    * ADD_A_IMM8 - Add the value imm8 (n8) to A.
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#ADD_A,n8]]
    */
-  case class ADD_A_IMM8(private val input: Array[UByte]) extends Instruction(input) with HasImm8 {
+  case class ADD_A_IMM8(private val input: Array[UByte]) extends Instruction(input) with HasImm8 with AddOperation {
     override val cycles: Int = 2
     override val bytes: Int = 2
 
@@ -348,13 +511,7 @@ object Instruction {
       Micro.readMemory { state =>
         val a = state.registers.a
         val valueToAdd = imm8
-        val sum = a.toInt + valueToAdd.toInt
-
-        state.registers.a = sum.toUByte
-        state.registers.flags.z = state.registers.a == 0.toUByte
-        state.registers.flags.n = false
-        state.registers.flags.h = a.overflowFromBit3(valueToAdd)
-        state.registers.flags.c = a.overflowFromBit7(valueToAdd)
+        resolve(state, a, valueToAdd, storeInA = true)
       }
     )
   }
@@ -364,7 +521,7 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#ADC_A,n8]]
    */
-  case class ADC_A_IMM8(private val input: Array[UByte]) extends Instruction(input) with HasImm8 {
+  case class ADC_A_IMM8(private val input: Array[UByte]) extends Instruction(input) with HasImm8 with AddOperation {
     override val cycles: Int = 2
     override val bytes: Int = 2
 
@@ -374,23 +531,17 @@ object Instruction {
         val a = state.registers.a
         val valueToAdd = imm8
         val carryIn = if (state.registers.flags.c) 1.toUByte else 0.toUByte
-        val sum = a.toInt + valueToAdd.toInt + carryIn.toInt
-
-        state.registers.a = sum.toUByte
-        state.registers.flags.z = state.registers.a == 0.toUByte
-        state.registers.flags.n = false
-        state.registers.flags.h = a.overflowFromBit3(valueToAdd, carryIn)
-        state.registers.flags.c = a.overflowFromBit7(valueToAdd, carryIn)
+        resolve(state, a, valueToAdd, carryIn, storeInA = true)
       }
     )
   }
 
   /**
-   * SUB_IMM8 - Subtract the value imm8 (n8) from A.
+   * SUB_A_IMM8 - Subtract the value imm8 (n8) from A.
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#SUB_A,n8]]
    */
-  case class SUB_IMM8(private val input: Array[UByte]) extends Instruction(input) with HasImm8 {
+  case class SUB_A_IMM8(private val input: Array[UByte]) extends Instruction(input) with HasImm8 with SubOperation {
     override val cycles: Int = 2
     override val bytes: Int = 2
 
@@ -399,13 +550,7 @@ object Instruction {
       Micro.readMemory { state =>
         val a = state.registers.a
         val valueToSub = imm8
-        val diff = a.toInt - valueToSub.toInt
-
-        state.registers.a = diff.toUByte
-        state.registers.flags.z = state.registers.a == 0.toUByte
-        state.registers.flags.n = true
-        state.registers.flags.h = a.borrowFromBit4(valueToSub)
-        state.registers.flags.c = a.borrowFrom(valueToSub)
+        resolve(state, a, valueToSub, storeInA = true)
       }
     )
   }
@@ -415,7 +560,7 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#SBC_A,n8]]
    */
-  case class SBC_A_IMM8(private val input: Array[UByte]) extends Instruction(input) with HasImm8 {
+  case class SBC_A_IMM8(private val input: Array[UByte]) extends Instruction(input) with HasImm8 with SubOperation {
     override val cycles: Int = 2
     override val bytes: Int = 2
 
@@ -425,23 +570,19 @@ object Instruction {
         val a = state.registers.a
         val valueToSub = imm8
         val carryIn = if (state.registers.flags.c) 1.toUByte else 0.toUByte
-        val diff = a.toInt - valueToSub.toInt - carryIn.toInt
-
-        state.registers.a = diff.toUByte
-        state.registers.flags.z = state.registers.a == 0.toUByte
-        state.registers.flags.n = true
-        state.registers.flags.h = a.borrowFromBit4(valueToSub, carryIn)
-        state.registers.flags.c = a.borrowFrom(valueToSub, carryIn)
+        resolve(state, a, valueToSub, carryIn, storeInA = true)
       }
     )
   }
 
   /**
-   * CP_IMM8 - ComPare the value in A with the value imm8 (n8).
+   * CP_A_IMM8 - ComPare the value in A with the value imm8 (n8).
+   *
+   * This subtracts the value imm8 (n8) from A and sets flags accordingly, but discards the result.
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#CP_A,n8]]
    */
-  case class CP_IMM8(private val input: Array[UByte]) extends Instruction(input) with HasImm8 {
+  case class CP_A_IMM8(private val input: Array[UByte]) extends Instruction(input) with HasImm8 with SubOperation {
     override val cycles: Int = 2
     override val bytes: Int = 2
 
@@ -449,13 +590,8 @@ object Instruction {
       Micro.fetchOpCode(),
       Micro.readMemory { state =>
         val a = state.registers.a
-        val valueToCompare = imm8
-        val diff = a.toInt - valueToCompare.toInt
-
-        state.registers.flags.z = diff.toUByte == 0.toUByte
-        state.registers.flags.n = true
-        state.registers.flags.h = a.borrowFromBit4(valueToCompare)
-        state.registers.flags.c = a.borrowFrom(valueToCompare)
+        val valueToSub = imm8
+        resolve(state, a, valueToSub)
       }
     )
   }
@@ -482,15 +618,16 @@ object Instruction {
     lazy val operand: OpCode.Parameters.R16 = operand(operandStart)
 
     private var carryFromLow: UByte = 0.toUByte
+
     override protected[instructions] def micro: Seq[Micro] = Seq(
-        Micro.iduOperation { state =>
-          val hl = state.registers.hl
-          val op = operandContents(operandStart, state)
-          val lSum = hl.registerLoByte.toInt + op.registerLoByte.toInt
-          carryFromLow = if(lSum > UByte.MaxValue.toInt) 1.toUByte else 0.toUByte
-          state.registers.l = lSum.toUByte
-          state.registers.flags.h = hl.overflowFromBit11(op)
-        },
+      Micro.iduOperation { state =>
+        val hl = state.registers.hl
+        val op = operandContents(operandStart, state)
+        val lSum = hl.registerLoByte.toInt + op.registerLoByte.toInt
+        carryFromLow = if (lSum > UByte.MaxValue.toInt) 1.toUByte else 0.toUByte
+        state.registers.l = lSum.toUByte
+        state.registers.flags.h = hl.overflowFromBit11(op)
+      },
       Micro.iduOperation { state =>
         val hSum = state.registers.hl.registerHiByte.toInt +
           operandContents(operandStart, state).registerHiByte.toInt +
@@ -558,6 +695,7 @@ object Instruction {
    * Bitwise logic instructions
    * https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#Bitwise_logic_instructions
    **/
+
   /**
    * CPL - ComPLement accumulator (A = ~A); also called bitwise NOT.
    *
@@ -577,11 +715,80 @@ object Instruction {
   }
 
   /**
-   * AND_IMM8 - Set A to the bitwise AND between the value imm8 (n8) and A.
+   * AND_A_R8 - Set A to the bitwise AND between the value in r8 and A.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#AND_A,r8]]
+   */
+  case class AND_A_R8(private val input: Array[UByte]) extends Instruction(input) with HasR8Operand with AndOperation {
+    override val cycles: Int = 1
+    override val bytes: Int = 1
+
+    private val operandStart = 2
+    lazy val operand: OpCode.Parameters.R8 = operand(operandStart)
+
+    override protected[instructions] def micro: Seq[Micro] = Seq(
+      Micro.fetchOpCode { state =>
+        val a = state.registers.a
+        val valueToAnd = operandContents(operandStart, state)
+        val result = a & valueToAnd
+
+        resolve(state, result)
+      }
+    )
+  }
+
+  /**
+   * XOR_A_R8 - Set A to the bitwise XOR between the value in r8 and A.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#XOR_A,r8]]
+   */
+  case class XOR_A_R8(private val input: Array[UByte]) extends Instruction(input) with HasR8Operand with OrOperation {
+    override val cycles: Int = 1
+    override val bytes: Int = 1
+
+    private val operandStart = 2
+    lazy val operand: OpCode.Parameters.R8 = operand(operandStart)
+
+    override protected[instructions] def micro: Seq[Micro] = Seq(
+      Micro.fetchOpCode { state =>
+        val a = state.registers.a
+        val valueToXor = operandContents(operandStart, state)
+        val result = a ^ valueToXor
+
+        resolve(state, result)
+      }
+    )
+  }
+
+  /**
+   * OR_A_R8 - Set A to the bitwise OR between the value in r8 and A.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#OR_A,r8]]
+   */
+  case class OR_A_R8(private val input: Array[UByte]) extends Instruction(input) with HasR8Operand with OrOperation {
+    override val cycles: Int = 1
+    override val bytes: Int = 1
+
+    private val operandStart = 2
+    lazy val operand: OpCode.Parameters.R8 = operand(operandStart)
+
+    override protected[instructions] def micro: Seq[Micro] = Seq(
+      Micro.fetchOpCode { state =>
+        val a = state.registers.a
+        val valueToOr = operandContents(operandStart, state)
+        val result = a | valueToOr
+
+        resolve(state, result)
+      }
+    )
+  }
+
+  /**
+   * AND_A_IMM8 - Set A to the bitwise AND between the value imm8 (n8) and A.
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#AND_A,n8]]
    */
-  case class AND_IMM8(private val input: Array[UByte]) extends Instruction(input) with HasImm8 {
+  case class AND_A_IMM8(private val input: Array[UByte]) extends Instruction(input) with HasImm8 with AndOperation {
     override val cycles: Int = 2
     override val bytes: Int = 2
 
@@ -592,21 +799,17 @@ object Instruction {
         val valueToAnd = imm8
         val result = a & valueToAnd
 
-        state.registers.a = result
-        state.registers.flags.z = result == 0.toUByte
-        state.registers.flags.n = false
-        state.registers.flags.h = true
-        state.registers.flags.c = false
+        resolve(state, result)
       }
     )
   }
 
   /**
-   * XOR_IMM8 - Set A to the bitwise XOR between the value imm8 (n8) and A.
+   * XOR_A_IMM8 - Set A to the bitwise XOR between the value imm8 (n8) and A.
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#XOR_A,n8]]
    */
-  case class XOR_IMM8(private val input: Array[UByte]) extends Instruction(input) with HasImm8 {
+  case class XOR_A_IMM8(private val input: Array[UByte]) extends Instruction(input) with HasImm8 with OrOperation {
     override val cycles: Int = 2
     override val bytes: Int = 2
 
@@ -617,21 +820,17 @@ object Instruction {
         val valueToXor = imm8
         val result = a ^ valueToXor
 
-        state.registers.a = result
-        state.registers.flags.z = result == 0.toUByte
-        state.registers.flags.n = false
-        state.registers.flags.h = false
-        state.registers.flags.c = false
+        resolve(state, result)
       }
     )
   }
 
   /**
-   * OR_IMM8 - Set A to the bitwise OR between the value imm8 (n8) and A.
+   * OR_A_IMM8 - Set A to the bitwise OR between the value imm8 (n8) and A.
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#OR_A,n8]]
    */
-  case class OR_IMM8(private val input: Array[UByte]) extends Instruction(input) with HasImm8 {
+  case class OR_A_IMM8(private val input: Array[UByte]) extends Instruction(input) with HasImm8 with OrOperation {
     override val cycles: Int = 2
     override val bytes: Int = 2
 
@@ -642,11 +841,7 @@ object Instruction {
         val valueToOr = imm8
         val result = a | valueToOr
 
-        state.registers.a = result
-        state.registers.flags.z = result == 0.toUByte
-        state.registers.flags.n = false
-        state.registers.flags.h = false
-        state.registers.flags.c = false
+        resolve(state, result)
       }
     )
   }
@@ -764,6 +959,7 @@ object Instruction {
    * Carry flag instructions
    * https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#Carry_flag_instructions
    **/
+
   /**
    * SCF - Set Carry Flag.
    *
@@ -810,6 +1006,7 @@ object Instruction {
     override val bytes: Int = 3
 
     private var originalSP: UShort = UShort.MinValue
+
     override protected[instructions] def micro: Seq[Micro] = Seq(
       Micro.fetchOpCode { state => originalSP = state.registers.sp },
       Micro.fetchOpCode(),
@@ -883,13 +1080,13 @@ object Instruction {
     override protected[instructions] def micro: Seq[Micro] = Seq(
       Micro.fetchOpCode { state =>
         var adjustment = 0
-        if(state.registers.flags.n) {
-          if(state.registers.flags.h) adjustment += 0x06
-          if(state.registers.flags.c) adjustment += 0x60
+        if (state.registers.flags.n) {
+          if (state.registers.flags.h) adjustment += 0x06
+          if (state.registers.flags.c) adjustment += 0x60
           adjustment *= -1
         } else {
-          if(state.registers.flags.h || (state.registers.a & 0x0F.toUByte) > 0x09.toUByte) adjustment += 0x06
-          if(state.registers.flags.c || state.registers.a > 0x99.toUByte) {
+          if (state.registers.flags.h || (state.registers.a & 0x0F.toUByte) > 0x09.toUByte) adjustment += 0x06
+          if (state.registers.flags.c || state.registers.a > 0x99.toUByte) {
             adjustment += 0x60
             state.registers.flags.c = true
           }
