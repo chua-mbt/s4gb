@@ -1,8 +1,8 @@
-package org.akaii.s4gb.emulator.instructions
+package org.akaii.s4gb.emulator.cpu.instructions
 
 import org.akaii.s4gb.emulator.byteops.*
 import org.akaii.s4gb.emulator.cpu.Registers
-import org.akaii.s4gb.emulator.instructions.{Instruction, OpCode}
+import org.akaii.s4gb.emulator.cpu.instructions.{Instruction, OpCode}
 import org.akaii.s4gb.emulator.{TestMap, setParam}
 import spire.math.UByte
 
@@ -17,8 +17,8 @@ class BitShiftInstructionsTests extends InstructionsTest {
 
     testInstruction(
       instruction,
-      registerSetup = regs => regs.a = 0x85.toUByte, // 10000101
-      registerExpect = regs => {
+      setupRegister = regs => regs.a = 0x85.toUByte, // 10000101
+      expectedRegister = regs => {
         regs.a = 0x0B.toUByte // 00001011
         regs.f = 0x10.toUByte // Z=0, N=0, H=0, C=1
       }
@@ -31,8 +31,8 @@ class BitShiftInstructionsTests extends InstructionsTest {
 
     testInstruction(
       instruction,
-      registerSetup = regs => regs.a = 0x42.toUByte, // 01000010
-      registerExpect = regs => {
+      setupRegister = regs => regs.a = 0x42.toUByte, // 01000010
+      expectedRegister = regs => {
         regs.a = 0x84.toUByte // 10000100
         regs.f = 0x00.toUByte // Z=0, N=0, H=0, C=0
       }
@@ -48,8 +48,8 @@ class BitShiftInstructionsTests extends InstructionsTest {
 
     testInstruction(
       instruction,
-      registerSetup = regs => regs.a = 0x01.toUByte, // 00000001
-      registerExpect = regs => {
+      setupRegister = regs => regs.a = 0x01.toUByte, // 00000001
+      expectedRegister = regs => {
         regs.a = 0x80.toUByte // 10000000
         regs.f = 0x10.toUByte // Z=0, N=0, H=0, C=1
       }
@@ -62,8 +62,8 @@ class BitShiftInstructionsTests extends InstructionsTest {
 
     testInstruction(
       instruction,
-      registerSetup = regs => regs.a = 0x84.toUByte, // 10000100
-      registerExpect = regs => {
+      setupRegister = regs => regs.a = 0x84.toUByte, // 10000100
+      expectedRegister = regs => {
         regs.a = 0x42.toUByte // 01000010
         regs.f = 0x00.toUByte // Z=0, N=0, H=0, C=0
       }
@@ -79,11 +79,11 @@ class BitShiftInstructionsTests extends InstructionsTest {
 
     testInstruction(
       instruction,
-      registerSetup = regs => {
+      setupRegister = regs => {
         regs.a = 0x85.toUByte // 10000101
         regs.f = 0x10.toUByte // C=1
       },
-      registerExpect = regs => {
+      expectedRegister = regs => {
         regs.a = 0x0B.toUByte // 00001011
         regs.f = 0x10.toUByte // Z=0, N=0, H=0, C=1
       }
@@ -96,11 +96,11 @@ class BitShiftInstructionsTests extends InstructionsTest {
 
     testInstruction(
       instruction,
-      registerSetup = regs => {
+      setupRegister = regs => {
         regs.a = 0x42.toUByte // 01000010
         regs.f = 0x00.toUByte // C=0
       },
-      registerExpect = regs => {
+      expectedRegister = regs => {
         regs.a = 0x84.toUByte // 10000100
         regs.f = 0x00.toUByte // Z=0, N=0, H=0, C=0
       }
@@ -116,11 +116,11 @@ class BitShiftInstructionsTests extends InstructionsTest {
 
     testInstruction(
       instruction,
-      registerSetup = regs => {
+      setupRegister = regs => {
         regs.a = 0x01.toUByte // 00000001
         regs.f = 0x10.toUByte // C=1
       },
-      registerExpect = regs => {
+      expectedRegister = regs => {
         regs.a = 0x80.toUByte // 10000000
         regs.f = 0x10.toUByte // Z=0, N=0, H=0, C=1
       }
@@ -133,11 +133,11 @@ class BitShiftInstructionsTests extends InstructionsTest {
 
     testInstruction(
       instruction,
-      registerSetup = regs => {
+      setupRegister = regs => {
         regs.a = 0x84.toUByte // 10000100
         regs.f = 0x00.toUByte // C=0
       },
-      registerExpect = regs => {
+      expectedRegister = regs => {
         regs.a = 0x42.toUByte // 01000010
         regs.f = 0x00.toUByte // Z=0, N=0, H=0, C=0
       }

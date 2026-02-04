@@ -1,9 +1,9 @@
-package org.akaii.s4gb.emulator.instructions
+package org.akaii.s4gb.emulator.cpu.instructions
 
 import org.akaii.s4gb.emulator.MemoryMap
 import org.akaii.s4gb.emulator.byteops.*
-import org.akaii.s4gb.emulator.cpu.Registers
-import org.akaii.s4gb.emulator.instructions.OpCode.Extract.*
+import org.akaii.s4gb.emulator.cpu.{Cpu, Registers}
+import OpCode.Extract.*
 import spire.math.{UByte, UShort}
 
 /**
@@ -20,22 +20,22 @@ sealed abstract class Instruction(protected val value: Array[UByte]) extends Pro
   val cycles: Int
   val bytes: Int
 
-  def execute(state: Instruction.State): Boolean = {
-    if (state.elapsed < micro.length) {
-      val microInstruction = micro(state.elapsed)
+  def execute(state: Cpu.State): Boolean = {
+    if (state.getElapsed < micro.length) {
+      val microInstruction = micro(state.getElapsed)
       microInstruction.execute(state)
       state.registers.advance(
         cycles = 1,
-        bytes = if (state.elapsed == 0) bytes else 0
+        bytes = if (state.getElapsed == 0) bytes else 0
       )
     }
 
-    state.elapsed + 1 > micro.length
+    state.getElapsed + 1 > micro.length
   }
 
   protected[instructions] def micro: Seq[Instruction.Micro] = Seq(Instruction.Micro.fetchOpCode())
 
-  protected def executeImplementation(state: Instruction.State): Unit = ???
+  protected def executeImplementation(state: Cpu.State): Unit = ???
 
   override def toString: String = f"$productPrefix(0x${opCode.toInt}%02X)"
 }
@@ -84,13 +84,13 @@ object Instruction {
       case OpCode.XOR_A_IMM8 => XOR_A_IMM8(input)
       case OpCode.OR_A_IMM8 => OR_A_IMM8(input)
       case OpCode.CP_A_IMM8 => CP_A_IMM8(input)
+      case OpCode.DI => DI
+      case OpCode.EI => EI
       // TODO: implement other instructions
     }
   }
 
-  case class State(registers: Registers, memory: MemoryMap, elapsed: Int = 0)
-
-  private type MicroInstruction = State => Unit
+  private type MicroInstruction = Cpu.State => Unit
 
   /** Each MicroInstruction costs 1 cycle */
   final case class Micro private(execute: MicroInstruction = _ => ())
@@ -136,7 +136,7 @@ object Instruction {
     self: Instruction =>
     def operand(start: Int): OpCode.Parameters.R8 = OpCode.Parameters.R8.values(opCode.range(start, start - 2))
 
-    protected def operandContents(operandStart: Int, state: State): UByte =
+    protected def operandContents(operandStart: Int, state: Cpu.State): UByte =
       operand(operandStart) match {
         case OpCode.Parameters.R8.MEM_HL =>
           state.memory(state.registers.hl)
@@ -144,7 +144,7 @@ object Instruction {
           state.registers(parameter.toRegister)
       }
 
-    protected def writeToOperandLocation(operandStart: Int, state: State, value: UByte): Unit =
+    protected def writeToOperandLocation(operandStart: Int, state: Cpu.State, value: UByte): Unit =
       operand(operandStart) match {
         case OpCode.Parameters.R8.MEM_HL =>
           state.memory.write(state.registers.hl, value)
@@ -157,7 +157,7 @@ object Instruction {
     self: Instruction =>
     def operand(start: Int): OpCode.Parameters.R16 = OpCode.Parameters.R16.values(opCode.range(start, start - 1))
 
-    protected def operandContents(operandStart: Int, state: State): UShort =
+    protected def operandContents(operandStart: Int, state: Cpu.State): UShort =
       operand(operandStart) match {
         case OpCode.Parameters.R16.SP =>
           state.registers.sp
@@ -165,7 +165,7 @@ object Instruction {
           state.registers(parameter.toRegister)
       }
 
-    protected def writeToOperandLocation(operandStart: Int, state: State, value: UShort): Unit =
+    protected def writeToOperandLocation(operandStart: Int, state: Cpu.State, value: UShort): Unit =
       operand(operandStart) match {
         case OpCode.Parameters.R16.SP =>
           state.registers.sp = value
@@ -173,7 +173,7 @@ object Instruction {
           state.registers.update(parameter.toRegister, value)
       }
 
-    protected def writeToOperandHiLocation(operandStart: Int, state: State, value: UShort): Unit =
+    protected def writeToOperandHiLocation(operandStart: Int, state: Cpu.State, value: UShort): Unit =
       operand(operandStart) match {
         case OpCode.Parameters.R16.SP =>
           state.registers.updateSPHi(value.registerHiByte)
@@ -181,7 +181,7 @@ object Instruction {
           state.registers.update(parameter.toRegister.hi, value.registerHiByte)
       }
 
-    protected def writeToOperandLoLocation(operandStart: Int, state: State, value: UShort): Unit =
+    protected def writeToOperandLoLocation(operandStart: Int, state: Cpu.State, value: UShort): Unit =
       operand(operandStart) match {
         case OpCode.Parameters.R16.SP =>
           state.registers.updateSPLo(value.registerLoByte)
@@ -192,7 +192,7 @@ object Instruction {
 
   trait AddOperation {
     self: Instruction =>
-    def resolve(state: State, op1: UByte, op2: UByte, carryIn: UByte = 0.toUByte, storeInA: Boolean = false): Unit = {
+    def resolve(state: Cpu.State, op1: UByte, op2: UByte, carryIn: UByte = 0.toUByte, storeInA: Boolean = false): Unit = {
       val sum = op1.toInt + op2.toInt + carryIn.toInt
       if(storeInA) state.registers.a = sum.toUByte
       state.registers.flags.z = sum.toUByte == 0.toUByte
@@ -204,7 +204,7 @@ object Instruction {
 
   trait SubOperation {
     self: Instruction =>
-    def resolve(state: State, op1: UByte, op2: UByte, carryIn: UByte = 0.toUByte, storeInA: Boolean = false): Unit = {
+    def resolve(state: Cpu.State, op1: UByte, op2: UByte, carryIn: UByte = 0.toUByte, storeInA: Boolean = false): Unit = {
       val diff = op1.toInt - op2.toInt - carryIn.toInt
       if(storeInA) state.registers.a = diff.toUByte
       state.registers.flags.z = diff.toUByte == 0.toUByte
@@ -216,7 +216,7 @@ object Instruction {
 
   trait OrOperation {
     self: Instruction =>
-    def resolve(state: State, result: UByte): Unit = {
+    def resolve(state: Cpu.State, result: UByte): Unit = {
       state.registers.a = result
       state.registers.flags.z = result == 0.toUByte
       state.registers.flags.n = false
@@ -227,7 +227,7 @@ object Instruction {
 
   trait AndOperation {
     self: Instruction =>
-    def resolve(state: State, result: UByte): Unit = {
+    def resolve(state: Cpu.State, result: UByte): Unit = {
       state.registers.a = result
       state.registers.flags.z = result == 0.toUByte
       state.registers.flags.n = false
@@ -1022,6 +1022,36 @@ object Instruction {
    **/
 
   /**
+   * DI - Disable Interrupts by clearing the IME flag.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#DI]]
+   */
+  case object DI extends Instruction(Array(OpCode.DI.pattern)) {
+    override val cycles: Int = 1
+    override val bytes: Int = 1
+
+    override protected[instructions] def micro: Seq[Micro] = Seq(
+      Micro.fetchOpCode { state => state.setIME(false) },
+    )
+  }
+
+  /**
+   * EI - Enable Interrupts by setting the IME flag.
+   *
+   * The flag is only set after the instruction following EI.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#EI]]
+   */
+  case object EI extends Instruction(Array(OpCode.EI.pattern)) {
+    override val cycles: Int = 1
+    override val bytes: Int = 1
+
+    override protected[instructions] def micro: Seq[Micro] = Seq(
+      Micro.fetchOpCode { state => state.setIME(true) },
+    )
+  }
+
+  /**
    * Halt - Enter CPU low-power consumption mode until an interrupt occurs.
    *
    * The exact behavior of this instruction depends on the state of the IME flag, and whether interrupts are
@@ -1042,10 +1072,12 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#HALT]]
    */
   case object HALT extends Instruction(Array(OpCode.HALT.pattern)) {
-    override val cycles: Int = 1 // TODO
-    override val bytes: Int = 1 // TODO
+    override val cycles: Int = 1
+    override val bytes: Int = 1
 
-    override def executeImplementation(state: Instruction.State): Unit = ??? // TODO
+    override protected[instructions] def micro: Seq[Micro] = Seq(
+      Micro.fetchOpCode { state => ??? } // TODO
+    )
   }
 
   /*
@@ -1062,7 +1094,7 @@ object Instruction {
     override val cycles: Int = 1
     override val bytes: Int = 1
 
-    override def executeImplementation(state: Instruction.State): Unit = {}
+    override def executeImplementation(state: Cpu.State): Unit = {}
   }
 
   /**

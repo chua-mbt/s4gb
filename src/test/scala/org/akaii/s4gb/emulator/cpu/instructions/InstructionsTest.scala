@@ -1,10 +1,11 @@
-package org.akaii.s4gb.emulator.instructions
+package org.akaii.s4gb.emulator.cpu.instructions
 
 import munit.*
 import org.akaii.s4gb.emulator.byteops.*
-import org.akaii.s4gb.emulator.cpu.Registers
+import org.akaii.s4gb.emulator.cpu.Cpu.{IMEEnabled, IMEFlag}
+import org.akaii.s4gb.emulator.cpu.{Cpu, Registers}
 import org.akaii.s4gb.emulator.cpu.Registers.R16
-import org.akaii.s4gb.emulator.instructions.{Instruction, OpCode}
+import org.akaii.s4gb.emulator.cpu.instructions.{Instruction, OpCode}
 import org.akaii.s4gb.emulator.{MemoryMap, TestMap, copyTo}
 import spire.math.{UByte, UShort}
 
@@ -13,44 +14,47 @@ import scala.reflect.ClassTag
 abstract class InstructionsTest extends FunSuite {
 
   def setupTest(
-    registerSetup: Registers => Unit = _ => (),
-    memorySetup: (Registers, TestMap) => Unit = (_, _) => ()
-  ): Instruction.State = {
+    setupRegister: Registers => Unit = _ => (),
+    setupMemory: (Registers, TestMap) => Unit = (_, _) => (),
+    initialIME: IMEFlag = IMEEnabled
+  ): Cpu.State = {
     val registers = Registers()
     val memory = TestMap()
-    registerSetup(registers)
-    memorySetup(registers, memory)
-    Instruction.State(registers, memory)
+    setupRegister(registers)
+    setupMemory(registers, memory)
+    Cpu.State(registers, memory, initialIME)
   }
 
   def setupExpected(
-    initialState: Instruction.State,
+    initialState: Cpu.State,
     instruction: Instruction,
-    registerExpect: Registers => Unit = _ => (),
-    memoryExpect: TestMap => Unit = _ => ()
-  ): Instruction.State = {
-    val expectedRegisters = Registers()
-    val expectedMemory = TestMap()
+    expectedRegisters: Registers => Unit = _ => (),
+    expectedMemory: TestMap => Unit = _ => (),
+    expectedIME: IMEFlag = IMEEnabled
+  ): Cpu.State = {
+    val registers = Registers()
+    val memory = TestMap()
 
-    initialState.registers.copyTo(expectedRegisters)
-    initialState.memory.asInstanceOf[TestMap].copyTo(expectedMemory)
+    initialState.registers.copyTo(registers)
+    initialState.memory.asInstanceOf[TestMap].copyTo(memory)
 
-    expectedRegisters.pc = instruction.bytes.toUShort
-    expectedRegisters.sp = instruction.cycles.toUShort
+    registers.pc = instruction.bytes.toUShort
+    registers.sp = instruction.cycles.toUShort
 
-    registerExpect(expectedRegisters)
-    memoryExpect(expectedMemory)
+    expectedRegisters(registers)
+    expectedMemory(memory)
 
-    Instruction.State(expectedRegisters, expectedMemory)
+    Cpu.State(registers, memory, expectedIME)
   }
 
   @annotation.tailrec
-  final def exhaustInstruction(instruction: Instruction, state: Instruction.State): Instruction.State = {
-    if (instruction.execute(state))
+  final def exhaustInstruction(instruction: Instruction, state: Cpu.State): Cpu.State =
+    if (instruction.execute(state)) {
       state
-    else
-      exhaustInstruction(instruction, state.copy(elapsed = state.elapsed + 1))
-  }
+    } else {
+      state.setElapsed(state.getElapsed + 1)
+      exhaustInstruction(instruction, state)
+    }
 
   protected def verifyInstruction[T <: Instruction : ClassTag](
     opCode: UByte,
@@ -68,12 +72,12 @@ abstract class InstructionsTest extends FunSuite {
   )(implicit loc: Location): Unit = verifyInstruction[T](opCode, instruction)()
 
   protected def verifyFinalState(
-    finalState: Instruction.State,
+    finalState: Cpu.State,
     instruction: Instruction,
-    expectedState: Instruction.State
+    expectedState: Cpu.State
   )(implicit loc: Location): Unit = {
-    assertEquals(finalState.elapsed, instruction.cycles)
-    assertEquals(finalState.elapsed, expectedState.registers.sp.toInt)
+    assertEquals(finalState.getElapsed, instruction.cycles)
+    assertEquals(finalState.getElapsed, expectedState.registers.sp.toInt)
     assertEquals(finalState.registers.sp, instruction.cycles.toUShort)
     assertEquals(finalState.registers.pc, instruction.bytes.toUShort)
     assertEquals(finalState.registers, expectedState.registers)
@@ -82,13 +86,15 @@ abstract class InstructionsTest extends FunSuite {
 
   protected def testInstruction(
     instruction: Instruction,
-    registerSetup: Registers => Unit = _ => (),
-    memorySetup: (Registers, TestMap) => Unit = (_, _) => (),
-    registerExpect: Registers => Unit = _ => (),
-    memoryExpect: TestMap => Unit = _ => ()
+    setupRegister: Registers => Unit = _ => (),
+    setupMemory: (Registers, TestMap) => Unit = (_, _) => (),
+    setupIME: IMEFlag = IMEEnabled,
+    expectedRegister: Registers => Unit = _ => (),
+    expectedMemory: TestMap => Unit = _ => (),
+    expectedIME: IMEFlag = IMEEnabled
   ): Unit = {
-    val initialState = setupTest(registerSetup, memorySetup)
-    val expectedState = setupExpected(initialState, instruction, registerExpect, memoryExpect)
+    val initialState = setupTest(setupRegister, setupMemory, setupIME)
+    val expectedState = setupExpected(initialState, instruction, expectedRegister, expectedMemory, expectedIME)
     val finalState = exhaustInstruction(instruction, initialState)
     verifyFinalState(finalState, instruction, expectedState)
   }

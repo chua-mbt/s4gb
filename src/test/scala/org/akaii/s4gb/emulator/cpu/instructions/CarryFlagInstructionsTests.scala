@@ -1,11 +1,11 @@
-package org.akaii.s4gb.emulator.instructions
+package org.akaii.s4gb.emulator.cpu.instructions
 
 import munit.*
 import org.akaii.s4gb.emulator.TestMap
 import org.akaii.s4gb.emulator.byteops.*
 import org.akaii.s4gb.emulator.cpu.Registers
 import org.akaii.s4gb.emulator.cpu.Registers.R16
-import org.akaii.s4gb.emulator.instructions.{Instruction, OpCode}
+import org.akaii.s4gb.emulator.cpu.instructions.{Instruction, OpCode}
 import spire.math.{UByte, UShort}
 
 class CarryFlagInstructionsTests extends InstructionsTest {
@@ -16,13 +16,13 @@ class CarryFlagInstructionsTests extends InstructionsTest {
 
     testInstruction(
       instruction,
-      registerSetup = regs => {
+      setupRegister = regs => {
         regs.flags.c = false
         regs.flags.n = true
         regs.flags.h = true
         regs.flags.z = true
       },
-      registerExpect = regs => {
+      expectedRegister = regs => {
         regs.flags.c = true
         regs.flags.n = false
         regs.flags.h = false
@@ -32,8 +32,8 @@ class CarryFlagInstructionsTests extends InstructionsTest {
 
     testInstruction(
       instruction,
-      registerSetup = regs => regs.flags.c = true,
-      registerExpect = regs => {
+      setupRegister = regs => regs.flags.c = true,
+      expectedRegister = regs => {
         regs.flags.c = true
         regs.flags.n = false
         regs.flags.h = false
@@ -49,13 +49,13 @@ class CarryFlagInstructionsTests extends InstructionsTest {
 
     testInstruction(
       instruction,
-      registerSetup = regs => {
+      setupRegister = regs => {
         regs.flags.c = false
         regs.flags.n = true
         regs.flags.h = true
         regs.flags.z = true
       },
-      registerExpect = regs => {
+      expectedRegister = regs => {
         regs.flags.c = true
         regs.flags.n = false
         regs.flags.h = false
@@ -65,8 +65,8 @@ class CarryFlagInstructionsTests extends InstructionsTest {
 
     testInstruction(
       instruction,
-      registerSetup = regs => regs.flags.c = true,
-      registerExpect = regs => {
+      setupRegister = regs => regs.flags.c = true,
+      expectedRegister = regs => {
         regs.flags.c = false
         regs.flags.n = false
         regs.flags.h = false

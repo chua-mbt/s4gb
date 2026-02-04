@@ -1,9 +1,9 @@
-package org.akaii.s4gb.emulator.instructions
+package org.akaii.s4gb.emulator.cpu.instructions
 
 import org.akaii.s4gb.emulator.byteops.*
 import org.akaii.s4gb.emulator.cpu.Registers
 import org.akaii.s4gb.emulator.cpu.Registers.R16
-import org.akaii.s4gb.emulator.instructions.{Instruction, OpCode}
+import org.akaii.s4gb.emulator.cpu.instructions.{Instruction, OpCode}
 import org.akaii.s4gb.emulator.{TestMap, setParam}
 import spire.math.{UByte, UShort}
 
@@ -32,7 +32,7 @@ class StackInstructionsTests extends InstructionsTest {
 
       testInstruction(
         instruction = instruction,
-        memoryExpect = memory => {
+        expectedMemory = memory => {
           memory.write(imm16, UByte(0x00))
           memory.write(imm16 + 1.toUShort, UByte(0x00))
         }

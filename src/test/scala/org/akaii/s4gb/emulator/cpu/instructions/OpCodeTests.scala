@@ -1,8 +1,8 @@
-package org.akaii.s4gb.emulator.instructions
+package org.akaii.s4gb.emulator.cpu.instructions
 
 import munit.*
 import org.akaii.s4gb.emulator.byteops.*
-import org.akaii.s4gb.emulator.instructions.OpCode.Extract.*
+import org.akaii.s4gb.emulator.cpu.instructions.OpCode.Extract.*
 import spire.math.UByte
 
 class OpCodeTests extends FunSuite {

@@ -1,8 +1,8 @@
-package org.akaii.s4gb.emulator.instructions
+package org.akaii.s4gb.emulator.cpu.instructions
 
 import org.akaii.s4gb.emulator.byteops.*
 import org.akaii.s4gb.emulator.cpu.Registers
-import org.akaii.s4gb.emulator.instructions.{Instruction, OpCode}
+import org.akaii.s4gb.emulator.cpu.instructions.{Instruction, OpCode}
 import org.akaii.s4gb.emulator.{TestMap, setParam}
 import spire.math.UByte
 
@@ -20,8 +20,8 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
 
       testInstruction(
         instruction,
-        registerSetup = regs => regs(operandParam.toRegister) = 0x12.toUByte,
-        registerExpect = regs => {
+        setupRegister = regs => regs(operandParam.toRegister) = 0x12.toUByte,
+        expectedRegister = regs => {
           regs(operandParam.toRegister) = 0x13.toUByte
           regs.f = 0x00.toUByte // Z=0, N=0, H=0, C=unchanged
         }
@@ -36,8 +36,8 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
 
       testInstruction(
         instruction,
-        registerSetup = regs => regs(operandParam.toRegister) = 0xFF.toUByte,
-        registerExpect = regs => {
+        setupRegister = regs => regs(operandParam.toRegister) = 0xFF.toUByte,
+        expectedRegister = regs => {
           regs(operandParam.toRegister) = 0x00.toUByte
           regs.f = 0xA0.toUByte // Z=1, N=0, H=1, C=unchanged
         }
@@ -52,8 +52,8 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
 
       testInstruction(
         instruction,
-        registerSetup = regs => regs(operandParam.toRegister) = 0x0F.toUByte,
-        registerExpect = regs => {
+        setupRegister = regs => regs(operandParam.toRegister) = 0x0F.toUByte,
+        expectedRegister = regs => {
           regs(operandParam.toRegister) = 0x10.toUByte
           regs.f = 0x20.toUByte // Z=0, N=0, H=1, C=unchanged
         }
@@ -73,8 +73,8 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
 
       testInstruction(
         instruction,
-        registerSetup = regs => regs(operandParam.toRegister) = 0x12.toUByte,
-        registerExpect = regs => {
+        setupRegister = regs => regs(operandParam.toRegister) = 0x12.toUByte,
+        expectedRegister = regs => {
           regs(operandParam.toRegister) = 0x11.toUByte
           regs.f = 0x40.toUByte // Z=0, N=1, H=0, C=unchanged
         }
@@ -89,8 +89,8 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
 
       testInstruction(
         instruction,
-        registerSetup = regs => regs(operandParam.toRegister) = 0x01.toUByte,
-        registerExpect = regs => {
+        setupRegister = regs => regs(operandParam.toRegister) = 0x01.toUByte,
+        expectedRegister = regs => {
           regs(operandParam.toRegister) = 0x00.toUByte
           regs.f = 0xC0.toUByte // Z=1, N=1, H=1, C=unchanged
         }
@@ -105,8 +105,8 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
 
       testInstruction(
         instruction,
-        registerSetup = regs => regs(operandParam.toRegister) = 0x00.toUByte,
-        registerExpect = regs => {
+        setupRegister = regs => regs(operandParam.toRegister) = 0x00.toUByte,
+        expectedRegister = regs => {
           regs(operandParam.toRegister) = 0xFF.toUByte
           regs.f = 0x60.toUByte // Z=0, N=1, H=1, C=unchanged
         }
@@ -121,8 +121,8 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
 
       testInstruction(
         instruction,
-        registerSetup = regs => regs(operandParam.toRegister) = 0x10.toUByte,
-        registerExpect = regs => {
+        setupRegister = regs => regs(operandParam.toRegister) = 0x10.toUByte,
+        expectedRegister = regs => {
           regs(operandParam.toRegister) = 0x0F.toUByte
           regs.f = 0x60.toUByte // Z=0, N=1, H=1, C=unchanged
         }
@@ -142,12 +142,12 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
 
       testInstruction(
         instruction,
-        registerSetup = regs => {
+        setupRegister = regs => {
           regs.a = 0x12.toUByte
           regs(operandParam.toRegister) = if (operandParam == OpCode.Parameters.R8.A) 0x12.toUByte else 0x23.toUByte
           regs.f = 0xF0.toUByte
         },
-        registerExpect = regs => {
+        expectedRegister = regs => {
           regs.a = if (operandParam == OpCode.Parameters.R8.A) 0x24.toUByte else 0x35.toUByte
           regs.f = 0x00.toUByte // Z=0, N=0, H=0, C=0
         }
@@ -162,7 +162,7 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
 
       testInstruction(
         instruction,
-        registerSetup = regs => {
+        setupRegister = regs => {
           if (operandParam == OpCode.Parameters.R8.A) {
             regs.a = 0x80.toUByte
           } else {
@@ -171,7 +171,7 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
           }
           regs.f = 0x00.toUByte
         },
-        registerExpect = regs => {
+        expectedRegister = regs => {
           regs.a = 0x00.toUByte
           regs.f =
             if (operandParam == OpCode.Parameters.R8.A)
@@ -190,7 +190,7 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
 
       testInstruction(
         instruction,
-        registerSetup = regs => {
+        setupRegister = regs => {
           if (operandParam == OpCode.Parameters.R8.A) {
             regs.a = 0x80.toUByte
           } else {
@@ -199,7 +199,7 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
           }
           regs.f = 0x00.toUByte
         },
-        registerExpect = regs => {
+        expectedRegister = regs => {
           regs.a =
             if (operandParam == OpCode.Parameters.R8.A) 0x00.toUByte
             else 0x10.toUByte
@@ -219,7 +219,7 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
 
       testInstruction(
         instruction,
-        registerSetup = regs => {
+        setupRegister = regs => {
           if (operandParam == OpCode.Parameters.R8.A) {
             regs.a = 0x08.toUByte
           } else {
@@ -228,7 +228,7 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
           }
           regs.f = 0x00.toUByte
         },
-        registerExpect = regs => {
+        expectedRegister = regs => {
           regs.a = 0x10.toUByte
           regs.f = 0x20.toUByte // Z=0, N=0, H=1, C=0
         }
@@ -248,13 +248,13 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
 
       testInstruction(
         instruction,
-        registerSetup = regs => {
+        setupRegister = regs => {
           regs.a = 0x12.toUByte
           regs(operandParam.toRegister) =
             if (operandParam == OpCode.Parameters.R8.A) 0x12.toUByte else 0x23.toUByte
           regs.f = 0x00.toUByte // carry clear
         },
-        registerExpect = regs => {
+        expectedRegister = regs => {
           regs.a =
             if (operandParam == OpCode.Parameters.R8.A) 0x24.toUByte else 0x35.toUByte
           regs.f = 0x00.toUByte
@@ -270,13 +270,13 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
 
       testInstruction(
         instruction,
-        registerSetup = regs => {
+        setupRegister = regs => {
           regs.a = 0x12.toUByte
           regs(operandParam.toRegister) =
             if (operandParam == OpCode.Parameters.R8.A) 0x12.toUByte else 0x23.toUByte
           regs.f = 0x10.toUByte
         },
-        registerExpect = regs => {
+        expectedRegister = regs => {
           regs.a =
             if (operandParam == OpCode.Parameters.R8.A) 0x25.toUByte else 0x36.toUByte
           regs.f = 0x00.toUByte
@@ -292,7 +292,7 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
 
       testInstruction(
         instruction,
-        registerSetup = regs => {
+        setupRegister = regs => {
           if (operandParam == OpCode.Parameters.R8.A) regs.a = 0x80.toUByte
           else {
             regs.a = 0xFF.toUByte
@@ -300,7 +300,7 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
           }
           regs.f = 0x00.toUByte
         },
-        registerExpect = regs => {
+        expectedRegister = regs => {
           regs.a = 0x00.toUByte
           regs.f = // A: Z=1, N=0, H=0, C=1 ; Other: Z=1, N=0, H=1, C=1
             if (operandParam == OpCode.Parameters.R8.A) 0x90.toUByte else 0xB0.toUByte
@@ -316,7 +316,7 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
 
       testInstruction(
         instruction,
-        registerSetup = regs => {
+        setupRegister = regs => {
           if (operandParam == OpCode.Parameters.R8.A) regs.a = 0x80.toUByte
           else {
             regs.a = 0xF0.toUByte
@@ -324,7 +324,7 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
           }
           regs.f = 0x00.toUByte
         },
-        registerExpect = regs => {
+        expectedRegister = regs => {
           regs.a = if (operandParam == OpCode.Parameters.R8.A) 0x00.toUByte else 0x10.toUByte
           // A: Z=1, N=0, H=0, C=1 ; Other: Z=0, N=0, H=0, C=1
           regs.f = if (operandParam == OpCode.Parameters.R8.A) 0x90.toUByte else 0x10.toUByte
@@ -340,7 +340,7 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
 
       testInstruction(
         instruction,
-        registerSetup = regs => {
+        setupRegister = regs => {
           if (operandParam == OpCode.Parameters.R8.A) regs.a = 0x80.toUByte
           else {
             regs.a = 0x7F.toUByte
@@ -348,7 +348,7 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
           }
           regs.f = 0x10.toUByte
         },
-        registerExpect = regs => {
+        expectedRegister = regs => {
           regs.a = if (operandParam == OpCode.Parameters.R8.A) 0x01.toUByte else 0x00.toUByte
           // A: Z=0, N=0, H=0, C=1 ; Other: Z=1, N=0, H=1, C=1
           regs.f = if (operandParam == OpCode.Parameters.R8.A) 0x10.toUByte else 0xB0.toUByte
@@ -364,13 +364,13 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
 
       testInstruction(
         instruction,
-        registerSetup = regs => {
+        setupRegister = regs => {
           regs.a = 0x0F.toUByte
           regs(operandParam.toRegister) =
             if (operandParam == OpCode.Parameters.R8.A) 0x0F.toUByte else 0x01.toUByte
           regs.f = 0x10.toUByte
         },
-        registerExpect = regs => {
+        expectedRegister = regs => {
           regs.a = if (operandParam == OpCode.Parameters.R8.A) 0x1F.toUByte else 0x11.toUByte
           regs.f = 0x20.toUByte
         }
@@ -390,12 +390,12 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
 
       testInstruction(
         instruction,
-        registerSetup = regs => {
+        setupRegister = regs => {
           regs.a = 0x23.toUByte
           if (operandParam != OpCode.Parameters.R8.A) regs(operandParam.toRegister) = 0x12.toUByte
           regs.f = 0xF0.toUByte
         },
-        registerExpect = regs => {
+        expectedRegister = regs => {
           regs.a = if (operandParam == OpCode.Parameters.R8.A) 0x00.toUByte else 0x11.toUByte
           // A: Z=1, N=1, H=0, C=0; Other: Z=0, N=1, H=0, C=0
           regs.f = if (operandParam == OpCode.Parameters.R8.A) 0xC0.toUByte else 0x40.toUByte
@@ -411,12 +411,12 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
 
       testInstruction(
         instruction,
-        registerSetup = regs => {
+        setupRegister = regs => {
           regs.a = 0x23.toUByte
           if (operandParam != OpCode.Parameters.R8.A) regs(operandParam.toRegister) = 0x23.toUByte
           regs.f = 0x00.toUByte
         },
-        registerExpect = regs => {
+        expectedRegister = regs => {
           regs.a = 0x00.toUByte
           regs.f = 0xC0.toUByte // Z=1, N=1, H=0, C=0
         }
@@ -436,12 +436,12 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
 
       testInstruction(
         instruction,
-        registerSetup = regs => {
+        setupRegister = regs => {
           regs.a = 0x10.toUByte
           regs(operandParam.toRegister) = 0x50.toUByte
           regs.f = 0x00.toUByte
         },
-        registerExpect = regs => {
+        expectedRegister = regs => {
           regs.a = 0xC0.toUByte // 0x10 - 0x50 wraps around
           regs.f = 0x50.toUByte // Z=0, N=1, H=0, C=1
         }
@@ -461,12 +461,12 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
 
       testInstruction(
         instruction,
-        registerSetup = regs => {
+        setupRegister = regs => {
           regs.a = 0x10.toUByte
           regs(operandParam.toRegister) = 0x01.toUByte
           regs.f = 0x00.toUByte
         },
-        registerExpect = regs => {
+        expectedRegister = regs => {
           regs.a = 0x0F.toUByte
           regs.f = 0x60.toUByte // Z=0, N=1, H=1, C=0
         }
@@ -486,12 +486,12 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
 
       testInstruction(
         instruction,
-        registerSetup = regs => {
+        setupRegister = regs => {
           regs.a = 0x23.toUByte
           if (operandParam != OpCode.Parameters.R8.A) regs(operandParam.toRegister) = 0x12.toUByte
           regs.f = 0x00.toUByte
         },
-        registerExpect = regs => {
+        expectedRegister = regs => {
           regs.a = if (operandParam == OpCode.Parameters.R8.A) 0x00.toUByte else 0x11.toUByte
           // A: Z=1, N=1, H=0, C=0 ; Other: Z=0, N=1, H=0, C=0
           regs.f = if (operandParam == OpCode.Parameters.R8.A) 0xC0.toUByte else 0x40.toUByte
@@ -512,12 +512,12 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
 
       testInstruction(
         instruction,
-        registerSetup = regs => {
+        setupRegister = regs => {
           regs.a = 0x23.toUByte
           if (operandParam != OpCode.Parameters.R8.A) regs(operandParam.toRegister) = 0x12.toUByte
           regs.f = 0x10.toUByte // C=1 initially
         },
-        registerExpect = regs => {
+        expectedRegister = regs => {
           regs.a = if (operandParam == OpCode.Parameters.R8.A) 0xFF.toUByte else 0x10.toUByte
           // A: Z=0, N=1, H=1, C=1 ; Other: Z=0, N=1, H=0, C=0
           regs.f = if (operandParam == OpCode.Parameters.R8.A) 0x70.toUByte else 0x40.toUByte
@@ -533,12 +533,12 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
 
       testInstruction(
         instruction,
-        registerSetup = regs => {
+        setupRegister = regs => {
           regs.a = 0x23.toUByte
           regs(operandParam.toRegister) = 0x22.toUByte
           regs.f = 0x10.toUByte
         },
-        registerExpect = regs => {
+        expectedRegister = regs => {
           regs.a = 0x00.toUByte // 0x23 - 0x22 - 1 = 0
           regs.f = 0xC0.toUByte
         }
@@ -553,12 +553,12 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
 
       testInstruction(
         instruction,
-        registerSetup = regs => {
+        setupRegister = regs => {
           regs.a = 0x10.toUByte
           regs(operandParam.toRegister) = 0x50.toUByte
           regs.f = 0x00.toUByte
         },
-        registerExpect = regs => {
+        expectedRegister = regs => {
           regs.a = 0xC0.toUByte
           regs.f = 0x50.toUByte // Z=0, N=1, H=0, C=1
         }
@@ -573,12 +573,12 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
 
       testInstruction(
         instruction,
-        registerSetup = regs => {
+        setupRegister = regs => {
           regs.a = 0x10.toUByte
           regs(operandParam.toRegister) = 0x50.toUByte
           regs.f = 0x10.toUByte
         },
-        registerExpect = regs => {
+        expectedRegister = regs => {
           regs.a = 0xBF.toUByte
           regs.f = 0x70.toUByte // Z=0, N=1, H=1, C=1
         }
@@ -593,12 +593,12 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
 
       testInstruction(
         instruction,
-        registerSetup = regs => {
+        setupRegister = regs => {
           regs.a = 0x10.toUByte
           regs(operandParam.toRegister) = 0x01.toUByte
           regs.f = 0x10.toUByte
         },
-        registerExpect = regs => {
+        expectedRegister = regs => {
           regs.a = 0x0E.toUByte
           regs.f = 0x60.toUByte // Z=0, N=1, H=1, C=0
         }
@@ -618,12 +618,12 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
 
       testInstruction(
         instruction,
-        registerSetup = regs => {
+        setupRegister = regs => {
           regs.a = 0x23.toUByte
           if (operandParam != OpCode.Parameters.R8.A) regs(operandParam.toRegister) = 0x12.toUByte
           regs.f = 0x00.toUByte
         },
-        registerExpect = regs => {
+        expectedRegister = regs => {
           // A: Z=1, N=1, H=0, C=0 ; Other: Z=0, N=1, H=0, C=0
           regs.f = if (operandParam == OpCode.Parameters.R8.A) 0xC0.toUByte else 0x40.toUByte
         }
@@ -642,12 +642,12 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
 
       testInstruction(
         instruction,
-        registerSetup = regs => {
+        setupRegister = regs => {
           regs.a = 0x55.toUByte
           if (operandParam != OpCode.Parameters.R8.A) regs(operandParam.toRegister) = 0x55.toUByte
           regs.f = 0x00.toUByte
         },
-        registerExpect = regs => {
+        expectedRegister = regs => {
           regs.a = 0x55.toUByte
           regs.f = 0xC0.toUByte // Z=1, N=1, H=0, C=0
         }
@@ -667,12 +667,12 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
 
       testInstruction(
         instruction,
-        registerSetup = regs => {
+        setupRegister = regs => {
           regs.a = 0x10.toUByte
           regs(operandParam.toRegister) = 0x50.toUByte
           regs.f = 0x00.toUByte
         },
-        registerExpect = regs => {
+        expectedRegister = regs => {
           regs.a = 0x10.toUByte // A unchanged
           regs.f = 0x50.toUByte // Z=0, N=1, H=0, C=1
         }
@@ -692,12 +692,12 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
 
       testInstruction(
         instruction,
-        registerSetup = regs => {
+        setupRegister = regs => {
           regs.a = 0x10.toUByte
           regs(operandParam.toRegister) = 0x01.toUByte
           regs.f = 0x00.toUByte
         },
-        registerExpect = regs => {
+        expectedRegister = regs => {
           regs.a = 0x10.toUByte // A unchanged
           regs.f = 0x60.toUByte // Z=0, N=1, H=1, C=0
         }
@@ -714,11 +714,11 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
 
     testInstruction(
       instruction,
-      registerSetup = regs => {
+      setupRegister = regs => {
         regs.a = 0x12.toUByte
         regs.f = 0xF0.toUByte
       },
-      registerExpect = regs => {
+      expectedRegister = regs => {
         regs.a = 0x35.toUByte // = 0x35
         regs.f = 0x00.toUByte // Z=0, N=0, H=0, C=0
       }
@@ -730,11 +730,11 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
 
     testInstruction(
       instruction,
-      registerSetup = regs => {
+      setupRegister = regs => {
         regs.a = 0x00.toUByte
         regs.f = 0x70.toUByte // N=1, H=1, C=1, Z=0;
       },
-      registerExpect = regs => {
+      expectedRegister = regs => {
         regs.a = 0x00.toUByte // 0 + 0 = 0
         regs.f = 0x80.toUByte // Z=1, N=0, H=0, C=0
       }
@@ -746,11 +746,11 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
 
     testInstruction(
       instruction,
-      registerSetup = regs => {
+      setupRegister = regs => {
         regs.a = 0xF0.toUByte
         regs.f = 0x00.toUByte // clear all flags initially
       },
-      registerExpect = regs => {
+      expectedRegister = regs => {
         regs.a = 0x10.toUByte // 0xF0 + 0x20 wraps to 0x10
         regs.f = 0x10.toUByte // Z=0, N=0, H=0, C=1
       }
@@ -762,11 +762,11 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
 
     testInstruction(
       instruction,
-      registerSetup = regs => {
+      setupRegister = regs => {
         regs.a = 0x0F.toUByte // 00001111
         regs.f = 0x00.toUByte // Z=0, N=0, H=0, C=0
       },
-      registerExpect = regs => {
+      expectedRegister = regs => {
         regs.a = 0x10.toUByte // 0x0F + 0x01 = 0x10
         regs.f = 0x20.toUByte // Z=0, N=0, H=1, C=0
       }
@@ -782,11 +782,11 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
 
     testInstruction(
       instruction,
-      registerSetup = regs => {
+      setupRegister = regs => {
         regs.a = 0x12.toUByte
         regs.f = 0x00.toUByte // Z=0, N=0, H=0, C=0
       },
-      registerExpect = regs => {
+      expectedRegister = regs => {
         regs.a = 0x35.toUByte // 0x12 + 0x23 + 0
         regs.f = 0x00.toUByte // Z=0, N=0, H=0, C=0
       }
@@ -798,11 +798,11 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
 
     testInstruction(
       instruction,
-      registerSetup = regs => {
+      setupRegister = regs => {
         regs.a = 0x12.toUByte
         regs.f = 0x10.toUByte // C=1, other flags cleared
       },
-      registerExpect = regs => {
+      expectedRegister = regs => {
         regs.a = 0x36.toUByte // 0x12 + 0x23 + 1
         regs.f = 0x00.toUByte // Z=0, N=0, H=0, C=0
       }
@@ -814,11 +814,11 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
 
     testInstruction(
       instruction,
-      registerSetup = regs => {
+      setupRegister = regs => {
         regs.a = 0x00.toUByte
         regs.f = 0x00.toUByte // all flags cleared
       },
-      registerExpect = regs => {
+      expectedRegister = regs => {
         regs.a = 0x00.toUByte
         regs.f = 0x80.toUByte // Z=1, N=0, H=0, C=0; lower nibble cleared
       }
@@ -830,11 +830,11 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
 
     testInstruction(
       instruction,
-      registerSetup = regs => {
+      setupRegister = regs => {
         regs.a = 0x80.toUByte
         regs.f = 0x00.toUByte // all flags cleared
       },
-      registerExpect = regs => {
+      expectedRegister = regs => {
         regs.a = 0x10.toUByte // low 8 bits of 0x110
         regs.f = 0x10.toUByte // C=1, N=0, H=0, Z=0; lower nibble zero
       }
@@ -846,11 +846,11 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
 
     testInstruction(
       instruction,
-      registerSetup = regs => {
+      setupRegister = regs => {
         regs.a = 0x80.toUByte
         regs.f = 0x10.toUByte // C=1 initially, lower nibble cleared
       },
-      registerExpect = regs => {
+      expectedRegister = regs => {
         regs.a = 0x00.toUByte // 0x80 + 0x7F + 1 = 0x100 → low 8 bits = 0
         regs.f = 0xB0.toUByte // Z=1, N=0, H=1, C=1; lower nibble zero
       }
@@ -862,11 +862,11 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
 
     testInstruction(
       instruction,
-      registerSetup = regs => {
+      setupRegister = regs => {
         regs.a = 0x0F.toUByte
         regs.f = 0x10.toUByte // C=1 initially, lower nibble zero
       },
-      registerExpect = regs => {
+      expectedRegister = regs => {
         regs.a = 0x11.toUByte // 0x0F + 0x01 + 1 = 0x11
         regs.f = 0x20.toUByte // Z=0, N=0, H=1, C=0; lower nibble zero
       }
@@ -882,11 +882,11 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
 
     testInstruction(
       instruction,
-      registerSetup = regs => {
+      setupRegister = regs => {
         regs.a = 0x23.toUByte
         regs.f = 0xF0.toUByte // all flags cleared, lower nibble ignored
       },
-      registerExpect = regs => {
+      expectedRegister = regs => {
         regs.a = 0x11.toUByte // 0x23 - 0x12 = 0x11
         regs.f = 0x40.toUByte // Z=0, N=1, H=0, C=0
       }
@@ -898,11 +898,11 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
 
     testInstruction(
       instruction,
-      registerSetup = regs => {
+      setupRegister = regs => {
         regs.a = 0x23.toUByte
         regs.f = 0x00.toUByte
       },
-      registerExpect = regs => {
+      expectedRegister = regs => {
         regs.a = 0x00.toUByte
         regs.f = 0xC0.toUByte // Z=1, N=1, H=0, C=0
       }
@@ -914,11 +914,11 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
 
     testInstruction(
       instruction,
-      registerSetup = regs => {
+      setupRegister = regs => {
         regs.a = 0x10.toUByte
         regs.f = 0x00.toUByte
       },
-      registerExpect = regs => {
+      expectedRegister = regs => {
         regs.a = 0xC0.toUByte // 0x10 - 0x50 wraps to 0xC0
         regs.f = 0x50.toUByte // Z=0, N=1, H=0, C=1
       }
@@ -930,11 +930,11 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
 
     testInstruction(
       instruction,
-      registerSetup = regs => {
+      setupRegister = regs => {
         regs.a = 0x10.toUByte
         regs.f = 0x00.toUByte
       },
-      registerExpect = regs => {
+      expectedRegister = regs => {
         regs.a = 0x0F.toUByte
         regs.f = 0x60.toUByte // Z=0, N=1, H=1, C=0
       }
@@ -950,11 +950,11 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
 
     testInstruction(
       instruction,
-      registerSetup = regs => {
+      setupRegister = regs => {
         regs.a = 0x23.toUByte
         regs.f = 0x00.toUByte // C=0
       },
-      registerExpect = regs => {
+      expectedRegister = regs => {
         regs.a = 0x11.toUByte // 0x23 - 0x12 - 0 = 0x11
         regs.f = 0x40.toUByte // Z=0, N=1, H=0, C=0
       }
@@ -966,11 +966,11 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
 
     testInstruction(
       instruction,
-      registerSetup = regs => {
+      setupRegister = regs => {
         regs.a = 0x23.toUByte
         regs.f = 0x10.toUByte // C=1 initially
       },
-      registerExpect = regs => {
+      expectedRegister = regs => {
         regs.a = 0x10.toUByte // 0x23 - 0x12 - 1 = 0x10
         regs.f = 0x40.toUByte // Z=0, N=1, H=0, C=0
       }
@@ -982,11 +982,11 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
 
     testInstruction(
       instruction,
-      registerSetup = regs => {
+      setupRegister = regs => {
         regs.a = 0x23.toUByte
         regs.f = 0x10.toUByte // C=1
       },
-      registerExpect = regs => {
+      expectedRegister = regs => {
         regs.a = 0x00.toUByte // 0x23 - 0x22 - 1 = 0
         regs.f = 0xC0.toUByte // Z=1, N=1, H=0, C=0
       }
@@ -998,11 +998,11 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
 
     testInstruction(
       instruction,
-      registerSetup = regs => {
+      setupRegister = regs => {
         regs.a = 0x10.toUByte
         regs.f = 0x00.toUByte // C=0 initially
       },
-      registerExpect = regs => {
+      expectedRegister = regs => {
         regs.a = 0xC0.toUByte // 0x10 - 0x50 = -0x40 → 0xC0
         regs.f = 0x50.toUByte // Z=0, N=1, H=0, C=1; lower nibble zero
       }
@@ -1014,11 +1014,11 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
 
     testInstruction(
       instruction,
-      registerSetup = regs => {
+      setupRegister = regs => {
         regs.a = 0x10.toUByte
         regs.f = 0x10.toUByte // C=1 initially
       },
-      registerExpect = regs => {
+      expectedRegister = regs => {
         regs.a = 0xBF.toUByte // 0x10 - 0x50 - 1 = -0x41 → 0xBF
         regs.f = 0x70.toUByte // Z=0, N=1, H=0, C=1; lower nibble zero
       }
@@ -1030,11 +1030,11 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
 
     testInstruction(
       instruction,
-      registerSetup = regs => {
+      setupRegister = regs => {
         regs.a = 0x10.toUByte
         regs.f = 0x10.toUByte // C=1 initially
       },
-      registerExpect = regs => {
+      expectedRegister = regs => {
         regs.a = 0x0E.toUByte // 0x10 - 0x01 - 1 = 0x0E
         regs.f = 0x60.toUByte // Z=0, N=1, H=1, C=0
       }
@@ -1050,11 +1050,11 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
 
     testInstruction(
       instruction,
-      registerSetup = regs => {
+      setupRegister = regs => {
         regs.a = 0x23.toUByte
         regs.f = 0x00.toUByte
       },
-      registerExpect = regs => {
+      expectedRegister = regs => {
         regs.a = 0x23.toUByte // A unchanged
         regs.f = 0x40.toUByte // N=1, Z=0, H=0, C=0
       }
@@ -1066,11 +1066,11 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
 
     testInstruction(
       instruction,
-      registerSetup = regs => {
+      setupRegister = regs => {
         regs.a = 0x55.toUByte
         regs.f = 0x00.toUByte
       },
-      registerExpect = regs => {
+      expectedRegister = regs => {
         regs.a = 0x55.toUByte // A unchanged
         regs.f = 0xC0.toUByte // Z=1, N=1, H=0, C=0
       }
@@ -1082,11 +1082,11 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
 
     testInstruction(
       instruction,
-      registerSetup = regs => {
+      setupRegister = regs => {
         regs.a = 0x10.toUByte
         regs.f = 0x00.toUByte // all flags cleared initially
       },
-      registerExpect = regs => {
+      expectedRegister = regs => {
         regs.a = 0x10.toUByte // A unchanged
         regs.f = 0x50.toUByte // Z=0, N=1, H=0, C=1
       }
@@ -1098,11 +1098,11 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
 
     testInstruction(
       instruction,
-      registerSetup = regs => {
+      setupRegister = regs => {
         regs.a = 0x10.toUByte
         regs.f = 0x00.toUByte
       },
-      registerExpect = regs => {
+      expectedRegister = regs => {
         regs.a = 0x10.toUByte // A unchanged
         regs.f = 0x60.toUByte // Z=0, N=1, H=1, C=0
       }

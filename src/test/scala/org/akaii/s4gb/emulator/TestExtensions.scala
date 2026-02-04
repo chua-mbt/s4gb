@@ -2,7 +2,7 @@ package org.akaii.s4gb.emulator
 
 import org.akaii.s4gb.emulator.byteops.*
 import org.akaii.s4gb.emulator.cpu.Registers
-import org.akaii.s4gb.emulator.instructions.OpCode
+import org.akaii.s4gb.emulator.cpu.instructions.OpCode
 import spire.math.UByte
 
 extension (registers: Registers) {

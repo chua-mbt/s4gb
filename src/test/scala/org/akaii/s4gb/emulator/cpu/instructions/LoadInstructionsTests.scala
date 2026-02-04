@@ -1,9 +1,9 @@
-package org.akaii.s4gb.emulator.instructions
+package org.akaii.s4gb.emulator.cpu.instructions
 
 import org.akaii.s4gb.emulator.byteops.*
 import org.akaii.s4gb.emulator.cpu.Registers
 import org.akaii.s4gb.emulator.cpu.Registers.R16
-import org.akaii.s4gb.emulator.instructions.{Instruction, OpCode}
+import org.akaii.s4gb.emulator.cpu.instructions.{Instruction, OpCode}
 import org.akaii.s4gb.emulator.{TestMap, setParam}
 import spire.math.{UByte, UShort}
 
@@ -26,7 +26,7 @@ class LoadInstructionsTests extends InstructionsTest {
 
       testInstruction(
         instruction = instruction,
-        registerExpect = registers => registers(destParam.toRegister) = imm16
+        expectedRegister = registers => registers(destParam.toRegister) = imm16
       )
     }
   }
@@ -44,11 +44,11 @@ class LoadInstructionsTests extends InstructionsTest {
 
       testInstruction(
         instruction = instruction,
-        registerSetup = registers => {
+        setupRegister = registers => {
           registers.a = 0x42.toUByte
           registers(destRefParam.toRegister) = 0xC000.toUShort
         },
-        memoryExpect = memory => {
+        expectedMemory = memory => {
           memory.write(0xC000.toUShort, 0x42.toUByte)
         }
       )
@@ -68,9 +68,9 @@ class LoadInstructionsTests extends InstructionsTest {
 
       testInstruction(
         instruction = instruction,
-        registerSetup = registers => registers(srcParam.toRegister) = 0xC000.toUShort,
-        memorySetup = (registers, memory) => memory.write(registers(srcParam.toRegister), 0x42.toUByte),
-        registerExpect = _.a = 0x42.toUByte
+        setupRegister = registers => registers(srcParam.toRegister) = 0xC000.toUShort,
+        setupMemory = (registers, memory) => memory.write(registers(srcParam.toRegister), 0x42.toUByte),
+        expectedRegister = _.a = 0x42.toUByte
       )
     }
   }
@@ -90,7 +90,7 @@ class LoadInstructionsTests extends InstructionsTest {
 
       testInstruction(
         instruction = instruction,
-        registerExpect = registers => registers(destParam.toRegister) = imm8
+        expectedRegister = registers => registers(destParam.toRegister) = imm8
       )
     }
   }
@@ -110,8 +110,8 @@ class LoadInstructionsTests extends InstructionsTest {
 
       testInstruction(
         instruction = instruction,
-        registerSetup = registers => registers(srcParam.toRegister) = value,
-        registerExpect = registers => registers(destParam.toRegister) = value
+        setupRegister = registers => registers(srcParam.toRegister) = value,
+        expectedRegister = registers => registers(destParam.toRegister) = value
       )
     }
   }

@@ -1,18 +1,18 @@
-package org.akaii.s4gb.emulator.instructions
+package org.akaii.s4gb.emulator.cpu.instructions
 
 import munit.*
 import org.akaii.s4gb.emulator.TestMap
 import org.akaii.s4gb.emulator.byteops.*
 import org.akaii.s4gb.emulator.cpu.Registers
 import org.akaii.s4gb.emulator.cpu.Registers.R16
-import org.akaii.s4gb.emulator.instructions.{Instruction, OpCode}
+import org.akaii.s4gb.emulator.cpu.instructions.{Instruction, OpCode}
 import spire.math.{UByte, UShort}
 
 class MiscInstructionsTests extends InstructionsTest {
   test("NOP") {
     val instruction = Instruction.decode(Array(OpCode.NOP.pattern))
     assertEquals(instruction.toString, "NOP(0x00)")
-    verifyInstruction[Instruction.NOP.type](OpCode.NOP.pattern, instruction)
+    assertEquals(instruction, Instruction.NOP)
 
     testInstruction(instruction = instruction)
   }
@@ -22,11 +22,11 @@ class MiscInstructionsTests extends InstructionsTest {
     val instruction = Instruction.decode(Array(OpCode.DAA.pattern))
     testInstruction(
       instruction,
-      registerSetup = regs => {
+      setupRegister = regs => {
         regs.a = baseA
         regs.flags.n = true
       },
-      registerExpect = regs => {
+      expectedRegister = regs => {
         regs.a = baseA
         regs.flags.h = false
       }
@@ -38,12 +38,12 @@ class MiscInstructionsTests extends InstructionsTest {
     val instruction = Instruction.decode(Array(OpCode.DAA.pattern))
     testInstruction(
       instruction,
-      registerSetup = regs => {
+      setupRegister = regs => {
         regs.a = baseA
         regs.flags.n = true
         regs.flags.h = true
       },
-      registerExpect = regs => {
+      expectedRegister = regs => {
         regs.a = 0x0F.toUByte
         regs.flags.h = false
       }
@@ -55,13 +55,13 @@ class MiscInstructionsTests extends InstructionsTest {
     val instruction = Instruction.decode(Array(OpCode.DAA.pattern))
     testInstruction(
       instruction,
-      registerSetup = regs => {
+      setupRegister = regs => {
         regs.a = baseA
         regs.flags.n = true
         regs.flags.h = true
         regs.flags.c = true
       },
-      registerExpect = regs => {
+      expectedRegister = regs => {
         regs.a = 0xAF.toUByte
         regs.flags.h = false
       }
@@ -73,11 +73,11 @@ class MiscInstructionsTests extends InstructionsTest {
     val instruction = Instruction.decode(Array(OpCode.DAA.pattern))
     testInstruction(
       instruction,
-      registerSetup = regs => {
+      setupRegister = regs => {
         regs.a = baseA
         regs.flags.h = true
       },
-      registerExpect = regs => {
+      expectedRegister = regs => {
         regs.a = 0x1B.toUByte
         regs.flags.h = false
       }
@@ -90,12 +90,12 @@ class MiscInstructionsTests extends InstructionsTest {
     val instruction = Instruction.decode(Array(OpCode.DAA.pattern))
     testInstruction(
       instruction,
-      registerSetup = regs => {
+      setupRegister = regs => {
         regs.a = baseA
         regs.flags.h = true
         regs.flags.c = true
       },
-      registerExpect = regs => {
+      expectedRegister = regs => {
         regs.a = 0x7B.toUByte
         regs.flags.h = false
         regs.flags.c = true
@@ -108,13 +108,13 @@ class MiscInstructionsTests extends InstructionsTest {
     val instruction = Instruction.decode(Array(OpCode.DAA.pattern))
     testInstruction(
       instruction,
-      registerSetup = regs => {
+      setupRegister = regs => {
         regs.a = baseA
         regs.flags.n = true
         regs.flags.h = true
         regs.flags.z = false
       },
-      registerExpect = regs => {
+      expectedRegister = regs => {
         regs.a = 0x00.toUByte
         regs.flags.h = false
         regs.flags.z = true

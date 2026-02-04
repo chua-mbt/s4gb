@@ -1,8 +1,8 @@
-package org.akaii.s4gb.emulator.instructions
+package org.akaii.s4gb.emulator.cpu.instructions
 
 import org.akaii.s4gb.emulator.byteops.*
 import org.akaii.s4gb.emulator.cpu.Registers
-import org.akaii.s4gb.emulator.instructions.OpCode.Masks.*
+import OpCode.Masks.*
 import spire.math.UByte
 import spire.syntax.literals.*
 
@@ -65,6 +65,9 @@ enum OpCode(val pattern: UByte, val mask: UByte = 0xFF.toUByte) {
   case XOR_A_IMM8 extends OpCode(0xEE.toUByte) // 11101110
   case OR_A_IMM8 extends OpCode(0xF6.toUByte) // 11110110
   case CP_A_IMM8 extends OpCode(0xFE.toUByte) // 11111110
+
+  case DI extends OpCode(0xF3.toUByte) // 11110011
+  case EI extends OpCode(0xFB.toUByte) // 11111011
 }
 
 object OpCode {

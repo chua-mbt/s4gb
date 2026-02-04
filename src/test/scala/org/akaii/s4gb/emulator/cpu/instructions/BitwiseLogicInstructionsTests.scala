@@ -1,10 +1,10 @@
-package org.akaii.s4gb.emulator.instructions
+package org.akaii.s4gb.emulator.cpu.instructions
 
 import munit.*
 import org.akaii.s4gb.emulator.byteops.*
 import org.akaii.s4gb.emulator.cpu.Registers
 import org.akaii.s4gb.emulator.cpu.Registers.R16
-import org.akaii.s4gb.emulator.instructions.{Instruction, OpCode}
+import org.akaii.s4gb.emulator.cpu.instructions.{Instruction, OpCode}
 import org.akaii.s4gb.emulator.{TestMap, setParam}
 import spire.math.{UByte, UShort}
 
@@ -16,11 +16,11 @@ class BitwiseLogicInstructionsTests extends InstructionsTest {
 
     testInstruction(
       instruction,
-      registerSetup = regs => {
+      setupRegister = regs => {
         regs.a = 0x55.toUByte // 01010101
         regs.f = 0x00.toUByte // all flags clear
       },
-      registerExpect = regs => {
+      expectedRegister = regs => {
         regs.a = 0xAA.toUByte // 10101010
         regs.f = 0x60.toUByte // N=1, H=1, Z & C unchanged
       }
@@ -28,11 +28,11 @@ class BitwiseLogicInstructionsTests extends InstructionsTest {
 
     testInstruction(
       instruction,
-      registerSetup = regs => {
+      setupRegister = regs => {
         regs.a = 0xAA.toUByte // 10101010
         regs.f = 0xF0.toUByte // previous flags set
       },
-      registerExpect = regs => {
+      expectedRegister = regs => {
         regs.a = 0x55.toUByte // 01010101
         regs.f = 0xF0.toUByte // N=1, H=1, Z & C unchanged
       }
@@ -52,11 +52,11 @@ class BitwiseLogicInstructionsTests extends InstructionsTest {
       if (operandParam == OpCode.Parameters.R8.A) {
         testInstruction(
           instruction,
-          registerSetup = regs => {
+          setupRegister = regs => {
             regs.a = 0x55.toUByte // 01010101
             regs.f = 0x00.toUByte
           },
-          registerExpect = regs => {
+          expectedRegister = regs => {
             regs.a = 0x55.toUByte
             regs.f = 0x20.toUByte // Z=0, N=0, H=1, C=0
           }
@@ -64,12 +64,12 @@ class BitwiseLogicInstructionsTests extends InstructionsTest {
       } else {
         testInstruction(
           instruction,
-          registerSetup = regs => {
+          setupRegister = regs => {
             regs.a = 0x55.toUByte // 01010101
             regs(operandParam.toRegister) = 0xAA.toUByte // 10101010
             regs.f = 0x00.toUByte
           },
-          registerExpect = regs => {
+          expectedRegister = regs => {
             regs.a = 0x00.toUByte
             regs.f = 0xA0.toUByte // Z=1, N=0, H=1, C=0
           }
@@ -77,12 +77,12 @@ class BitwiseLogicInstructionsTests extends InstructionsTest {
 
         testInstruction(
           instruction,
-          registerSetup = regs => {
+          setupRegister = regs => {
             regs.a = 0xFF.toUByte
             regs(operandParam.toRegister) = 0x0F.toUByte
             regs.f = 0x00.toUByte
           },
-          registerExpect = regs => {
+          expectedRegister = regs => {
             regs.a = 0x0F.toUByte
             regs.f = 0x20.toUByte // Z=0, N=0, H=1, C=0
           }
@@ -104,11 +104,11 @@ class BitwiseLogicInstructionsTests extends InstructionsTest {
       if (operandParam == OpCode.Parameters.R8.A) {
         testInstruction(
           instruction,
-          registerSetup = regs => {
+          setupRegister = regs => {
             regs.a = 0x55.toUByte
             regs.f = 0x00.toUByte
           },
-          registerExpect = regs => {
+          expectedRegister = regs => {
             regs.a = 0x00.toUByte
             regs.f = 0x80.toUByte // Z=1, N=0, H=0, C=0
           }
@@ -116,12 +116,12 @@ class BitwiseLogicInstructionsTests extends InstructionsTest {
       } else {
         testInstruction(
           instruction,
-          registerSetup = regs => {
+          setupRegister = regs => {
             regs.a = 0xFF.toUByte
             regs(operandParam.toRegister) = 0xFF.toUByte
             regs.f = 0x00.toUByte
           },
-          registerExpect = regs => {
+          expectedRegister = regs => {
             regs.a = 0x00.toUByte
             regs.f = 0x80.toUByte // Z=1, N=0, H=0, C=0
           }
@@ -129,12 +129,12 @@ class BitwiseLogicInstructionsTests extends InstructionsTest {
 
         testInstruction(
           instruction,
-          registerSetup = regs => {
+          setupRegister = regs => {
             regs.a = 0x0F.toUByte
             regs(operandParam.toRegister) = 0xF0.toUByte
             regs.f = 0x00.toUByte
           },
-          registerExpect = regs => {
+          expectedRegister = regs => {
             regs.a = 0xFF.toUByte
             regs.f = 0x00.toUByte // Z=0, N=0, H=0, C=0
           }
@@ -156,11 +156,11 @@ class BitwiseLogicInstructionsTests extends InstructionsTest {
       if (operandParam == OpCode.Parameters.R8.A) {
         testInstruction(
           instruction,
-          registerSetup = regs => {
+          setupRegister = regs => {
             regs.a = 0x55.toUByte
             regs.f = 0x00.toUByte
           },
-          registerExpect = regs => {
+          expectedRegister = regs => {
             regs.a = 0x55.toUByte
             regs.f = 0x00.toUByte // Z=0, N=0, H=0, C=0
           }
@@ -168,12 +168,12 @@ class BitwiseLogicInstructionsTests extends InstructionsTest {
       } else {
         testInstruction(
           instruction,
-          registerSetup = regs => {
+          setupRegister = regs => {
             regs.a = 0x00.toUByte
             regs(operandParam.toRegister) = 0x00.toUByte
             regs.f = 0x00.toUByte
           },
-          registerExpect = regs => {
+          expectedRegister = regs => {
             regs.a = 0x00.toUByte
             regs.f = 0x80.toUByte // Z=1, N=0, H=0, C=
           }
@@ -181,12 +181,12 @@ class BitwiseLogicInstructionsTests extends InstructionsTest {
 
         testInstruction(
           instruction,
-          registerSetup = regs => {
+          setupRegister = regs => {
             regs.a = 0x01.toUByte
             regs(operandParam.toRegister) = 0x02.toUByte
             regs.f = 0x00.toUByte
           },
-          registerExpect = regs => {
+          expectedRegister = regs => {
             regs.a = 0x03.toUByte
             regs.f = 0x00.toUByte // Z=0, N=0, H=0, C=0
           }
@@ -204,11 +204,11 @@ class BitwiseLogicInstructionsTests extends InstructionsTest {
 
     testInstruction(
       instructionZero,
-      registerSetup = regs => {
+      setupRegister = regs => {
         regs.a = 0x55.toUByte // 01010101
         regs.f = 0x00.toUByte
       },
-      registerExpect = regs => {
+      expectedRegister = regs => {
         regs.a = 0x00.toUByte
         regs.f = 0xA0.toUByte // Z=1, N=0, H=1, C=0
       }
@@ -221,11 +221,11 @@ class BitwiseLogicInstructionsTests extends InstructionsTest {
 
     testInstruction(
       instructionNonZero,
-      registerSetup = regs => {
+      setupRegister = regs => {
         regs.a = 0xFF.toUByte
         regs.f = 0x00.toUByte
       },
-      registerExpect = regs => {
+      expectedRegister = regs => {
         regs.a = 0x0F.toUByte
         regs.f = 0x20.toUByte // Z=0, N=0, H=1, C=0
       }
@@ -241,11 +241,11 @@ class BitwiseLogicInstructionsTests extends InstructionsTest {
 
     testInstruction(
       instructionZero,
-      registerSetup = regs => {
+      setupRegister = regs => {
         regs.a = 0xFF.toUByte
         regs.f = 0x00.toUByte
       },
-      registerExpect = regs => {
+      expectedRegister = regs => {
         regs.a = 0x00.toUByte
         regs.f = 0x80.toUByte // Z=1, N=0, H=0, C=0
       }
@@ -258,11 +258,11 @@ class BitwiseLogicInstructionsTests extends InstructionsTest {
 
     testInstruction(
       instructionNonZero,
-      registerSetup = regs => {
+      setupRegister = regs => {
         regs.a = 0x0F.toUByte
         regs.f = 0x00.toUByte
       },
-      registerExpect = regs => {
+      expectedRegister = regs => {
         regs.a = 0xFF.toUByte
         regs.f = 0x00.toUByte // Z=0, N=0, H=0, C=0
       }
@@ -278,11 +278,11 @@ class BitwiseLogicInstructionsTests extends InstructionsTest {
 
     testInstruction(
       instructionZero,
-      registerSetup = regs => {
+      setupRegister = regs => {
         regs.a = 0x00.toUByte
         regs.f = 0x00.toUByte
       },
-      registerExpect = regs => {
+      expectedRegister = regs => {
         regs.a = 0x00.toUByte
         regs.f = 0x80.toUByte // Z=1, N=0, H=0, C=
       }
@@ -295,11 +295,11 @@ class BitwiseLogicInstructionsTests extends InstructionsTest {
 
     testInstruction(
       instructionNonZero,
-      registerSetup = regs => {
+      setupRegister = regs => {
         regs.a = 0x01.toUByte
         regs.f = 0x00.toUByte
       },
-      registerExpect = regs => {
+      expectedRegister = regs => {
         regs.a = 0x03.toUByte
         regs.f = 0x00.toUByte // Z=0, N=0, H=0, C=0
       }

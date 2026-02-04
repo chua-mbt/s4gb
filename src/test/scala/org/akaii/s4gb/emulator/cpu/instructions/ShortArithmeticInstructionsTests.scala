@@ -1,8 +1,8 @@
-package org.akaii.s4gb.emulator.instructions
+package org.akaii.s4gb.emulator.cpu.instructions
 
 import org.akaii.s4gb.emulator.byteops.*
 import org.akaii.s4gb.emulator.cpu.Registers
-import org.akaii.s4gb.emulator.instructions.{Instruction, OpCode}
+import org.akaii.s4gb.emulator.cpu.instructions.{Instruction, OpCode}
 import org.akaii.s4gb.emulator.{TestMap, setParam}
 import spire.math.UByte
 
@@ -35,7 +35,7 @@ class ShortArithmeticInstructionsTests extends InstructionsTest {
       sums.foreach { case(hlValue, operandValue, expectedSum) =>
         testInstruction(
           instruction,
-          registerSetup = regs => {
+          setupRegister = regs => {
             regs.hl = hlValue
             regs(operandParam.toRegister) = operandValue
             regs.flags.z = true // Z should be unaffected
@@ -43,7 +43,7 @@ class ShortArithmeticInstructionsTests extends InstructionsTest {
             regs.flags.h = true // H should be cleared
             regs.flags.c = true // C should be cleared
           },
-          registerExpect = regs => {
+          expectedRegister = regs => {
             regs.hl = expectedSum
             regs.flags.z = true // unchanged
             regs.flags.n = false
@@ -69,14 +69,14 @@ class ShortArithmeticInstructionsTests extends InstructionsTest {
 
       testInstruction(
         instruction,
-        registerSetup = regs => {
+        setupRegister = regs => {
           regs.hl = hlValue
           regs(operandParam.toRegister) = opValue
           regs.flags.n = true
           regs.flags.h = false
           regs.flags.c = false
         },
-        registerExpect = regs => {
+        expectedRegister = regs => {
           regs.hl = expectedSum
           regs.flags.n = false
           regs.flags.h = true
@@ -100,14 +100,14 @@ class ShortArithmeticInstructionsTests extends InstructionsTest {
 
       testInstruction(
         instruction,
-        registerSetup = regs => {
+        setupRegister = regs => {
           regs.hl = hlValue
           regs(operandParam.toRegister) = opValue
           regs.flags.n = true
           regs.flags.h = false
           regs.flags.c = false
         },
-        registerExpect = regs => {
+        expectedRegister = regs => {
           regs.hl = expectedSum
           regs.flags.n = false
           regs.flags.h = operandParam != OpCode.Parameters.R16.HL
@@ -130,8 +130,8 @@ class ShortArithmeticInstructionsTests extends InstructionsTest {
 
       testInstruction(
         instruction,
-        registerSetup = regs => regs(operandParam.toRegister) = 0x1234.toUShort,
-        registerExpect = regs => regs(operandParam.toRegister) = 0x1235.toUShort
+        setupRegister = regs => regs(operandParam.toRegister) = 0x1234.toUShort,
+        expectedRegister = regs => regs(operandParam.toRegister) = 0x1235.toUShort
       )
     }
   }
@@ -143,8 +143,8 @@ class ShortArithmeticInstructionsTests extends InstructionsTest {
 
       testInstruction(
         instruction,
-        registerSetup = regs => regs(operandParam.toRegister) = 0xFFFF.toUShort,
-        registerExpect = regs => regs(operandParam.toRegister) = 0x0000.toUShort
+        setupRegister = regs => regs(operandParam.toRegister) = 0xFFFF.toUShort,
+        expectedRegister = regs => regs(operandParam.toRegister) = 0x0000.toUShort
       )
     }
   }
@@ -161,8 +161,8 @@ class ShortArithmeticInstructionsTests extends InstructionsTest {
 
       testInstruction(
         instruction,
-        registerSetup = regs => regs(operandParam.toRegister) = 0x1234.toUShort,
-        registerExpect = regs => regs(operandParam.toRegister) = 0x1233.toUShort
+        setupRegister = regs => regs(operandParam.toRegister) = 0x1234.toUShort,
+        expectedRegister = regs => regs(operandParam.toRegister) = 0x1233.toUShort
       )
     }
   }
@@ -174,8 +174,8 @@ class ShortArithmeticInstructionsTests extends InstructionsTest {
 
       testInstruction(
         instruction,
-        registerSetup = regs => regs(operandParam.toRegister) = 0x0000.toUShort,
-        registerExpect = regs => regs(operandParam.toRegister) = 0xFFFF.toUShort
+        setupRegister = regs => regs(operandParam.toRegister) = 0x0000.toUShort,
+        expectedRegister = regs => regs(operandParam.toRegister) = 0xFFFF.toUShort
       )
     }
   }
