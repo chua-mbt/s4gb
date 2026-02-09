@@ -24,16 +24,12 @@ sealed abstract class Instruction(protected val value: Array[UByte]) extends Pro
     if (state.getElapsed < micro.length) {
       val microInstruction = micro(state.getElapsed)
       microInstruction.execute(state)
-      state.registers.advance(
-        cycles = 1,
-        bytes = if (state.getElapsed == 0) bytes else 0
-      )
     }
 
     state.getElapsed + 1 > micro.length
   }
 
-  protected[instructions] def micro: Seq[Instruction.Micro] = Seq(Instruction.Micro.fetchOpCode())
+  protected[instructions] def micro: Seq[Instruction.Micro] = Seq(Instruction.Micro.fetchOpCode(bytes))
 
   protected def executeImplementation(state: Cpu.State): Unit = ???
 
@@ -63,6 +59,7 @@ object Instruction {
       case OpCode.CPL => CPL
       case OpCode.SCF => SCF
       case OpCode.CCF => CCF
+      case OpCode.JR_IMM8 => JR_IMM8(input)
       // Block 1 (0b01) https://gbdev.io/pandocs/CPU_Instruction_Set.html#block-1-8-bit-register-to-register-loads
       case OpCode.HALT => HALT
       case OpCode.LD_R8_R8 => LD_R8_R8(input)
@@ -101,13 +98,23 @@ object Instruction {
    * @see [[https://gist.github.com/SonoSooS/c0055300670d678b5ae8433e20bea595?utm_source=chatgpt.com#fetch-and-stuff]]
    * */
   object Micro {
-    def readMemory(execute: MicroInstruction = _ => ()): Micro = Micro(execute)
+    private def advancePC(bytes: Int, state: Cpu.State): Unit = state.registers.advancePC(bytes)
 
-    def writeMemory(execute: MicroInstruction = _ => ()): Micro = Micro(execute)
+    private def microOp(execute: MicroInstruction): Micro = Micro{ state => execute(state) }
 
-    def fetchOpCode(execute: MicroInstruction = _ => ()): Micro = readMemory(execute)
+    def fetchOpCode(bytes: Int): Micro = Micro { state => advancePC(bytes, state) }
 
-    def iduOperation(execute: MicroInstruction = _ => ()): Micro = Micro(execute)
+    def fetchOpCode(bytes: Int)(execute: MicroInstruction = _ => ()): Micro = Micro { state =>
+      advancePC(bytes, state); execute(state)
+    }
+
+    def readMemory(execute: MicroInstruction = _ => ()): Micro = microOp(execute)
+
+    def writeMemory(execute: MicroInstruction = _ => ()): Micro = microOp(execute)
+
+    def iduOperation(execute: MicroInstruction = _ => ()): Micro = microOp(execute)
+
+    def modifyPC(execute: MicroInstruction = _ => ()): Micro = microOp(execute)
   }
 
   trait HasImm8 {
@@ -256,8 +263,8 @@ object Instruction {
     lazy val dest: OpCode.Parameters.R16 = operand(destStart)
 
     override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
-      Micro.fetchOpCode { state => writeToOperandLoLocation(destStart, state, imm16) },
-      Micro.fetchOpCode { state => writeToOperandHiLocation(destStart, state, imm16) },
+      Micro.readMemory { state => writeToOperandLoLocation(destStart, state, imm16) },
+      Micro.readMemory { state => writeToOperandHiLocation(destStart, state, imm16) },
     )
   }
 
@@ -331,7 +338,7 @@ object Instruction {
     lazy val dest: OpCode.Parameters.R8 = operand(destStart)
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
-      Micro.fetchOpCode { state => writeToOperandLocation(destStart, state, operandContents(srcStart, state)) }
+      Micro.fetchOpCode(bytes) { state => writeToOperandLocation(destStart, state, operandContents(srcStart, state)) }
     )
   }
 
@@ -353,7 +360,7 @@ object Instruction {
     lazy val operand: OpCode.Parameters.R8 = operand(operandStart)
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
-      Micro.fetchOpCode { state =>
+      Micro.fetchOpCode(bytes) { state =>
         val originalValue = operandContents(operandStart, state)
         val result = originalValue + 1.toUByte
         writeToOperandLocation(operandStart, state, result)
@@ -377,7 +384,7 @@ object Instruction {
     lazy val operand: OpCode.Parameters.R8 = operand(operandStart)
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
-      Micro.fetchOpCode { state =>
+      Micro.fetchOpCode(bytes) { state =>
         val originalValue = operandContents(operandStart, state)
         val result = originalValue - 1.toUByte
         writeToOperandLocation(operandStart, state, result)
@@ -401,7 +408,7 @@ object Instruction {
     lazy val operand: OpCode.Parameters.R8 = operand(operandStart)
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
-      Micro.fetchOpCode { state =>
+      Micro.fetchOpCode(bytes) { state =>
         val a = state.registers.a
         val valueToAdd = operandContents(operandStart, state)
         resolve(state, a, valueToAdd, storeInA = true)
@@ -422,7 +429,7 @@ object Instruction {
     lazy val operand: OpCode.Parameters.R8 = operand(operandStart)
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
-      Micro.fetchOpCode { state =>
+      Micro.fetchOpCode(bytes) { state =>
         val a = state.registers.a
         val valueToAdd = operandContents(operandStart, state)
         val carryIn = if (state.registers.flags.c) 1.toUByte else 0.toUByte
@@ -444,7 +451,7 @@ object Instruction {
     lazy val operand: OpCode.Parameters.R8 = operand(operandStart)
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
-      Micro.fetchOpCode { state =>
+      Micro.fetchOpCode(bytes) { state =>
         val a = state.registers.a
         val valueToSub = operandContents(operandStart, state)
         resolve(state, a, valueToSub, storeInA = true)
@@ -465,7 +472,7 @@ object Instruction {
     lazy val operand: OpCode.Parameters.R8 = operand(operandStart)
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
-      Micro.fetchOpCode { state =>
+      Micro.fetchOpCode(bytes) { state =>
         val a = state.registers.a
         val valueToSub = operandContents(operandStart, state)
         val carryIn = if (state.registers.flags.c) 1.toUByte else 0.toUByte
@@ -489,7 +496,7 @@ object Instruction {
     lazy val operand: OpCode.Parameters.R8 = operand(operandStart)
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
-      Micro.fetchOpCode { state =>
+      Micro.fetchOpCode(bytes) { state =>
         val a = state.registers.a
         val valueToSub = operandContents(operandStart, state)
         resolve(state, a, valueToSub)
@@ -507,7 +514,7 @@ object Instruction {
     override val bytes: Int = 2
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
-      Micro.fetchOpCode(),
+      Micro.fetchOpCode(bytes),
       Micro.readMemory { state =>
         val a = state.registers.a
         val valueToAdd = imm8
@@ -526,7 +533,7 @@ object Instruction {
     override val bytes: Int = 2
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
-      Micro.fetchOpCode(),
+      Micro.fetchOpCode(bytes),
       Micro.readMemory { state =>
         val a = state.registers.a
         val valueToAdd = imm8
@@ -546,7 +553,7 @@ object Instruction {
     override val bytes: Int = 2
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
-      Micro.fetchOpCode(),
+      Micro.fetchOpCode(bytes),
       Micro.readMemory { state =>
         val a = state.registers.a
         val valueToSub = imm8
@@ -565,7 +572,7 @@ object Instruction {
     override val bytes: Int = 2
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
-      Micro.fetchOpCode(),
+      Micro.fetchOpCode(bytes),
       Micro.readMemory { state =>
         val a = state.registers.a
         val valueToSub = imm8
@@ -587,7 +594,7 @@ object Instruction {
     override val bytes: Int = 2
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
-      Micro.fetchOpCode(),
+      Micro.fetchOpCode(bytes),
       Micro.readMemory { state =>
         val a = state.registers.a
         val valueToSub = imm8
@@ -620,7 +627,7 @@ object Instruction {
     private var carryFromLow: UByte = 0.toUByte
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
-      Micro.iduOperation { state =>
+      Micro.fetchOpCode(bytes) { state =>
         val hl = state.registers.hl
         val op = operandContents(operandStart, state)
         val lSum = hl.registerLoByte.toInt + op.registerLoByte.toInt
@@ -706,7 +713,7 @@ object Instruction {
     override val bytes: Int = 1
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
-      Micro.fetchOpCode { state =>
+      Micro.fetchOpCode(bytes) { state =>
         state.registers.a = ~state.registers.a
         state.registers.flags.n = true
         state.registers.flags.h = true
@@ -727,7 +734,7 @@ object Instruction {
     lazy val operand: OpCode.Parameters.R8 = operand(operandStart)
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
-      Micro.fetchOpCode { state =>
+      Micro.fetchOpCode(bytes) { state =>
         val a = state.registers.a
         val valueToAnd = operandContents(operandStart, state)
         val result = a & valueToAnd
@@ -750,7 +757,7 @@ object Instruction {
     lazy val operand: OpCode.Parameters.R8 = operand(operandStart)
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
-      Micro.fetchOpCode { state =>
+      Micro.fetchOpCode(bytes) { state =>
         val a = state.registers.a
         val valueToXor = operandContents(operandStart, state)
         val result = a ^ valueToXor
@@ -773,7 +780,7 @@ object Instruction {
     lazy val operand: OpCode.Parameters.R8 = operand(operandStart)
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
-      Micro.fetchOpCode { state =>
+      Micro.fetchOpCode(bytes) { state =>
         val a = state.registers.a
         val valueToOr = operandContents(operandStart, state)
         val result = a | valueToOr
@@ -793,7 +800,7 @@ object Instruction {
     override val bytes: Int = 2
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
-      Micro.fetchOpCode(),
+      Micro.fetchOpCode(bytes),
       Micro.readMemory { state =>
         val a = state.registers.a
         val valueToAnd = imm8
@@ -814,7 +821,7 @@ object Instruction {
     override val bytes: Int = 2
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
-      Micro.fetchOpCode(),
+      Micro.fetchOpCode(bytes),
       Micro.readMemory { state =>
         val a = state.registers.a
         val valueToXor = imm8
@@ -835,7 +842,7 @@ object Instruction {
     override val bytes: Int = 2
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
-      Micro.fetchOpCode(),
+      Micro.fetchOpCode(bytes),
       Micro.readMemory { state =>
         val a = state.registers.a
         val valueToOr = imm8
@@ -866,7 +873,7 @@ object Instruction {
     override val bytes: Int = 1
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
-      Micro.fetchOpCode { state =>
+      Micro.fetchOpCode(bytes) { state =>
         val a = state.registers.a
         val carry = (a & 0x80.toUByte) >> 7
         val result = (a << 1) | carry
@@ -889,7 +896,7 @@ object Instruction {
     override val bytes: Int = 1
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
-      Micro.fetchOpCode { state =>
+      Micro.fetchOpCode(bytes) { state =>
         val a = state.registers.a
         val carry = a & 0x01.toUByte
         val result = (a >> 1) | (carry << 7)
@@ -912,7 +919,7 @@ object Instruction {
     override val bytes: Int = 1
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
-      Micro.fetchOpCode { state =>
+      Micro.fetchOpCode(bytes) { state =>
         val a = state.registers.a
         val carryIn = if (state.registers.flags.c) 1.toUByte else 0.toUByte
         val carryOut = (a & 0x80.toUByte) >> 7
@@ -936,7 +943,7 @@ object Instruction {
     override val bytes: Int = 1
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
-      Micro.fetchOpCode { state =>
+      Micro.fetchOpCode(bytes) { state =>
         val a = state.registers.a
         val carryIn = if (state.registers.flags.c) 0x80.toUByte else 0.toUByte
         val carryOut = a & 0x01.toUByte
@@ -955,6 +962,34 @@ object Instruction {
    * https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#Jumps_and_subroutine_instructions
    **/
 
+  /**
+   * JR_IMM8 - Relative Jump to address imm8 (n16 sic).
+   *
+   * The target address n16 is encoded as a signed 8-bit offset from the address immediately following the JR
+   * instruction, so it must be between -128 and 127 bytes away. For example:
+   *
+   *    JR Label  ; no-op; encoded offset of 0
+   * Label:
+   *    JR Label  ; infinite loop; encoded offset of -2
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#JR_n16]]
+   */
+  case class JR_IMM8(private val input: Array[UByte]) extends Instruction(input) with HasImm8 {
+    override val cycles: Int = 3
+    override val bytes: Int = 2
+
+    override protected[instructions] def micro: Seq[Micro] = Seq(
+      Micro.fetchOpCode(bytes),
+      Micro.readMemory(),
+      Micro.modifyPC { state =>
+        val pcAfterInstruction = state.registers.pc
+        val offset = imm8.toByte // interpret as signed
+        val targetAddress = (pcAfterInstruction.toInt + offset.toInt).toUShort
+        state.registers.pc = targetAddress
+      }
+    )
+  }
+
   /*
    * Carry flag instructions
    * https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#Carry_flag_instructions
@@ -970,7 +1005,7 @@ object Instruction {
     override val bytes: Int = 1
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
-      Micro.fetchOpCode { state =>
+      Micro.fetchOpCode(bytes) { state =>
         state.registers.flags.n = false
         state.registers.flags.h = false
         state.registers.flags.c = true
@@ -983,7 +1018,7 @@ object Instruction {
     override val bytes: Int = 1
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
-      Micro.fetchOpCode { state =>
+      Micro.fetchOpCode(bytes) { state =>
         state.registers.flags.n = false
         state.registers.flags.h = false
         state.registers.flags.c = !state.registers.flags.c
@@ -1008,9 +1043,9 @@ object Instruction {
     private var originalSP: UShort = UShort.MinValue
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
-      Micro.fetchOpCode { state => originalSP = state.registers.sp },
-      Micro.fetchOpCode(),
-      Micro.fetchOpCode(),
+      Micro.fetchOpCode(bytes) { state => originalSP = state.registers.sp },
+      Micro.readMemory(),
+      Micro.readMemory(),
       Micro.writeMemory { state => state.memory.write(imm16, originalSP.registerLoByte) },
       Micro.writeMemory { state => state.memory.write(imm16 + 1.toUShort, originalSP.registerHiByte) }
     )
@@ -1031,7 +1066,7 @@ object Instruction {
     override val bytes: Int = 1
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
-      Micro.fetchOpCode { state => state.setIME(false) },
+      Micro.fetchOpCode(bytes) { state => state.setIME(false) },
     )
   }
 
@@ -1047,7 +1082,7 @@ object Instruction {
     override val bytes: Int = 1
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
-      Micro.fetchOpCode { state => state.setIME(true) },
+      Micro.fetchOpCode(bytes) { state => state.setIME(true) },
     )
   }
 
@@ -1076,7 +1111,7 @@ object Instruction {
     override val bytes: Int = 1
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
-      Micro.fetchOpCode { state => ??? } // TODO
+      Micro.fetchOpCode(bytes) { state => ??? } // TODO
     )
   }
 
@@ -1110,7 +1145,7 @@ object Instruction {
     override val bytes: Int = 1
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
-      Micro.fetchOpCode { state =>
+      Micro.fetchOpCode(bytes) { state =>
         var adjustment = 0
         if (state.registers.flags.n) {
           if (state.registers.flags.h) adjustment += 0x06

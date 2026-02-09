@@ -39,7 +39,6 @@ abstract class InstructionsTest extends FunSuite {
     initialState.memory.asInstanceOf[TestMap].copyTo(memory)
 
     registers.pc = instruction.bytes.toUShort
-    registers.sp = instruction.cycles.toUShort
 
     expectedRegisters(registers)
     expectedMemory(memory)
@@ -74,12 +73,11 @@ abstract class InstructionsTest extends FunSuite {
   protected def verifyFinalState(
     finalState: Cpu.State,
     instruction: Instruction,
+    expectedPC: UShort,
     expectedState: Cpu.State
   )(implicit loc: Location): Unit = {
     assertEquals(finalState.getElapsed, instruction.cycles)
-    assertEquals(finalState.getElapsed, expectedState.registers.sp.toInt)
-    assertEquals(finalState.registers.sp, instruction.cycles.toUShort)
-    assertEquals(finalState.registers.pc, instruction.bytes.toUShort)
+    assertEquals(finalState.registers.pc, expectedPC)
     assertEquals(finalState.registers, expectedState.registers)
     assertEquals(finalState.memory, expectedState.memory)
   }
@@ -91,12 +89,13 @@ abstract class InstructionsTest extends FunSuite {
     setupIME: IMEFlag = IMEEnabled,
     expectedRegister: Registers => Unit = _ => (),
     expectedMemory: TestMap => Unit = _ => (),
-    expectedIME: IMEFlag = IMEEnabled
+    expectedIME: IMEFlag = IMEEnabled,
+    expectedPC: Option[UShort] = None
   ): Unit = {
     val initialState = setupTest(setupRegister, setupMemory, setupIME)
     val expectedState = setupExpected(initialState, instruction, expectedRegister, expectedMemory, expectedIME)
     val finalState = exhaustInstruction(instruction, initialState)
-    verifyFinalState(finalState, instruction, expectedState)
+    verifyFinalState(finalState, instruction, expectedPC.getOrElse(instruction.bytes.toUShort), expectedState)
   }
 
   protected def forNonSPR16OpCodeParams(test: OpCode.Parameters.R16 => Unit): Unit =

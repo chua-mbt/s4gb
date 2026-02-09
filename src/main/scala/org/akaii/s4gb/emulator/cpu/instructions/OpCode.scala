@@ -38,7 +38,7 @@ enum OpCode(val pattern: UByte, val mask: UByte = 0xFF.toUByte) {
   case SCF extends OpCode(0x37.toUByte) // 00110111
   case CCF extends OpCode(0x3F.toUByte) // 00111111
 
-  // JR_IMM8
+  case JR_IMM8 extends OpCode(0x18.toUByte) // 00011000
   // JR_COND_IMM8
   // STOP
 

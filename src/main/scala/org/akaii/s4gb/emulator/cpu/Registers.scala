@@ -24,10 +24,8 @@ case class Registers(
   private val flagMask: UByte = 0xF0.toUByte
   private var flagRegister: UByte = UByte.MinValue
 
-  def advance(cycles: Int, bytes: Int): Unit = {
-    sp = sp + cycles.toUShort
-    pc = pc + bytes.toUShort
-  }
+  def advanceSP(cycles: Int): Unit = sp = sp + cycles.toUShort
+  def advancePC(bytes: Int): Unit = pc = pc + bytes.toUShort
 
   def apply(r: R8): UByte = underlying(r.ordinal)
   def update(r: R8, v: UByte): Unit = underlying.update(r.ordinal, v)
