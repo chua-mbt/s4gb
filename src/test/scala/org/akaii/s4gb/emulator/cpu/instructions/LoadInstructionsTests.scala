@@ -75,6 +75,24 @@ class LoadInstructionsTests extends InstructionsTest {
     }
   }
 
+  test("LD_MEM_HL_IMM8") {
+    val imm8: UByte = 0x42.toUByte
+    val opcode: UByte = OpCode.LD_MEM_HL_IMM8.pattern
+    val input: Array[UByte] = Array(opcode, imm8)
+    val instruction = Instruction.decode(input)
+
+    assertEquals(instruction.toString, f"LD_MEM_HL_IMM8(0x${opcode.toInt}%02X${imm8.toInt}%02X)")
+    verifyInstruction[Instruction.LD_MEM_HL_IMM8](opcode, instruction) { ld =>
+      assertEquals(ld.imm8, imm8)
+    }
+
+    testInstruction(
+      instruction = instruction,
+      setupRegister = registers => registers.hl = 0xC000.toUShort,
+      expectedMemory = memory => memory.write(0xC000.toUShort, imm8)
+    )
+  }
+
   test("LD_R8_IMM8") {
     val imm8: UByte = 0x42.toUByte
     forNonMemHLR8OpCodeParams { destParam =>

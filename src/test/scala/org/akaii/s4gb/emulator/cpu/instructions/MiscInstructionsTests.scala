@@ -20,6 +20,7 @@ class MiscInstructionsTests extends InstructionsTest {
   test("DAA - flags[N]") {
     val baseA: UByte = 0x15.toUByte
     val instruction = Instruction.decode(Array(OpCode.DAA.pattern))
+    verifyInstructionOpCode[Instruction.DAA.type](OpCode.DAA.pattern, instruction)
     testInstruction(
       instruction,
       setupRegister = regs => {

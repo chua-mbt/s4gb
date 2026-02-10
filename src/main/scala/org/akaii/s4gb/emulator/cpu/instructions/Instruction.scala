@@ -48,8 +48,11 @@ object Instruction {
       case OpCode.INC_R16 => INC_R16(input)
       case OpCode.DEC_R16 => DEC_R16(input)
       case OpCode.ADD_HL_R16 => ADD_HL_R16(input)
+      case OpCode.INC_MEM_HL => INC_MEM_HL
       case OpCode.INC_R8 => INC_R8(input)
+      case OpCode.DEC_MEM_HL => DEC_MEM_HL
       case OpCode.DEC_R8 => DEC_R8(input)
+      case OpCode.LD_MEM_HL_IMM8 => LD_MEM_HL_IMM8(input)
       case OpCode.LD_R8_IMM8 => LD_R8_IMM8(input)
       case OpCode.RLCA => RLCA
       case OpCode.RRCA => RRCA
@@ -303,6 +306,24 @@ object Instruction {
   }
 
   /**
+   * LD_MEM_HL_IMM8 - Copy the value imm8 (n8) into the byte pointed to by HL.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD__HL_,r8]]
+   */
+  case class LD_MEM_HL_IMM8(private val input: Array[UByte]) extends Instruction(input) with HasImm8 with HasR8Operand {
+    override val cycles: Int = 3
+    override val bytes: Int = 2
+
+    private val destStart = 5
+    lazy val dest: OpCode.Parameters.R8 = operand(destStart)
+
+    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+      Micro.readMemory(),
+      Micro.writeMemory { state => writeToOperandLocation(destStart, state, imm8) }
+    )
+  }
+
+  /**
    * LD_R8_IMM8 - Copy the value imm8 (n8) into register r8.
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD_r8,n8]]
@@ -348,6 +369,31 @@ object Instruction {
    **/
 
   /**
+   * INC_MEM_HL - Increment the byte pointed to by HL by 1.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#INC__HL_]]
+   */
+  case object INC_MEM_HL extends Instruction(Array(OpCode.INC_MEM_HL.pattern)) with HasR8Operand {
+    override val cycles: Int = 3
+    override val bytes: Int = 1
+
+    private val operandStart = 5
+    lazy val operand: OpCode.Parameters.R8 = OpCode.Parameters.R8.MEM_HL
+
+    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+      Micro.readMemory(),
+      Micro.writeMemory { state =>
+        val originalValue = operandContents(operandStart, state)
+        val result = originalValue + 1.toUByte
+        writeToOperandLocation(operandStart, state, result)
+        state.registers.flags.z = result == 0.toUByte
+        state.registers.flags.n = false
+        state.registers.flags.h = originalValue.overflowFromBit3(1.toUByte)
+      }
+    )
+  }
+
+  /**
    * INC_R8 - Increment the value in register r8 by 1.
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#INC_r8]]
@@ -367,6 +413,30 @@ object Instruction {
         state.registers.flags.z = result == 0.toUByte
         state.registers.flags.n = false
         state.registers.flags.h = originalValue.overflowFromBit3(1.toUByte)
+      }
+    )
+  }
+
+  /**
+   * DEC_MEM_HL - Decrement the byte pointed to by HL by 1.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#DEC__HL_]]
+   */
+  case object DEC_MEM_HL extends Instruction(Array(OpCode.DEC_MEM_HL.pattern)) with HasR8Operand {
+    override val cycles: Int = 3
+    override val bytes: Int = 1
+
+    private val operandStart = 5
+
+    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+      Micro.readMemory(),
+      Micro.writeMemory { state =>
+        val originalValue = operandContents(operandStart, state)
+        val result = originalValue - 1.toUByte
+        writeToOperandLocation(operandStart, state, result)
+        state.registers.flags.z = result == 0.toUByte
+        state.registers.flags.n = true
+        state.registers.flags.h = originalValue.borrowFromBit4(1.toUByte)
       }
     )
   }

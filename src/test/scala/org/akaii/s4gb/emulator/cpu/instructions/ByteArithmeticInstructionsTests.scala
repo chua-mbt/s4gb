@@ -8,6 +8,48 @@ import spire.math.UByte
 
 class ByteArithmeticInstructionsTests extends InstructionsTest {
 
+  test("INC_MEM_HL - normal increment") {
+    val opcode: UByte = OpCode.INC_MEM_HL.pattern
+    val instruction = Instruction.decode(Array(opcode))
+
+    assertEquals(instruction.toString, f"INC_MEM_HL(0x${opcode.toInt}%02X)")
+    verifyInstructionOpCode[Instruction.INC_MEM_HL.type](opcode, instruction)
+
+    testInstruction(
+      instruction,
+      setupRegister = regs => regs.hl = 0xC000.toUShort,
+      setupMemory = (_, memory) => memory.write(0xC000.toUShort, 0x12.toUByte),
+      expectedMemory = memory => memory.write(0xC000.toUShort, 0x13.toUByte),
+      expectedRegister = regs => regs.f = 0x00.toUByte // Z=0, N=0, H=0, C=unchanged
+    )
+  }
+
+  test("INC_MEM_HL - overflow and zero flag set") {
+    val opcode: UByte = OpCode.INC_MEM_HL.pattern
+    val instruction = Instruction.decode(Array(opcode))
+
+    testInstruction(
+      instruction,
+      setupRegister = regs => regs.hl = 0xC000.toUShort,
+      setupMemory = (_, memory) => memory.write(0xC000.toUShort, 0xFF.toUByte),
+      expectedMemory = memory => memory.write(0xC000.toUShort, 0x00.toUByte),
+      expectedRegister = regs => regs.f = 0xA0.toUByte // Z=1, N=0, H=1, C=unchanged
+    )
+  }
+
+  test("INC_MEM_HL - half-carry set") {
+    val opcode: UByte = OpCode.INC_MEM_HL.pattern
+    val instruction = Instruction.decode(Array(opcode))
+
+    testInstruction(
+      instruction,
+      setupRegister = regs => regs.hl = 0xC000.toUShort,
+      setupMemory = (_, memory) => memory.write(0xC000.toUShort, 0x0F.toUByte),
+      expectedMemory = memory => memory.write(0xC000.toUShort, 0x10.toUByte),
+      expectedRegister = regs => regs.f = 0x20.toUByte // Z=0, N=0, H=1, C=unchanged
+    )
+  }
+
   test("INC_R8 - normal increment") {
     forNonMemHLR8OpCodeParams { operandParam =>
       val opcode: UByte = OpCode.INC_R8.setParam(operandParam -> 3)
@@ -59,6 +101,61 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
         }
       )
     }
+  }
+
+  test("DEC_MEM_HL - normal decrement") {
+    val opcode: UByte = OpCode.DEC_MEM_HL.pattern
+    val instruction = Instruction.decode(Array(opcode))
+
+    assertEquals(instruction.toString, f"DEC_MEM_HL(0x${opcode.toInt}%02X)")
+    verifyInstructionOpCode[Instruction.DEC_MEM_HL.type](opcode, instruction)
+
+    testInstruction(
+      instruction,
+      setupRegister = regs => regs.hl = 0xC000.toUShort,
+      setupMemory = (_, memory) => memory.write(0xC000.toUShort, 0x12.toUByte),
+      expectedMemory = memory => memory.write(0xC000.toUShort, 0x11.toUByte),
+      expectedRegister = regs => regs.f = 0x40.toUByte // Z=0, N=1, H=0, C=unchanged
+    )
+  }
+
+  test("DEC_MEM_HL - zero flag set") {
+    val opcode: UByte = OpCode.DEC_MEM_HL.pattern
+    val instruction = Instruction.decode(Array(opcode))
+
+    testInstruction(
+      instruction,
+      setupRegister = regs => regs.hl = 0xC000.toUShort,
+      setupMemory = (_, memory) => memory.write(0xC000.toUShort, 0x01.toUByte),
+      expectedMemory = memory => memory.write(0xC000.toUShort, 0x00.toUByte),
+      expectedRegister = regs => regs.f = 0xC0.toUByte // Z=1, N=1, H=1, C=unchanged
+    )
+  }
+
+  test("DEC_MEM_HL - underflow") {
+    val opcode: UByte = OpCode.DEC_MEM_HL.pattern
+    val instruction = Instruction.decode(Array(opcode))
+
+    testInstruction(
+      instruction,
+      setupRegister = regs => regs.hl = 0xC000.toUShort,
+      setupMemory = (_, memory) => memory.write(0xC000.toUShort, 0x00.toUByte),
+      expectedMemory = memory => memory.write(0xC000.toUShort, 0xFF.toUByte),
+      expectedRegister = regs => regs.f = 0x60.toUByte // Z=0, N=1, H=1, C=unchanged
+    )
+  }
+
+  test("DEC_MEM_HL - half-borrow set") {
+    val opcode: UByte = OpCode.DEC_MEM_HL.pattern
+    val instruction = Instruction.decode(Array(opcode))
+
+    testInstruction(
+      instruction,
+      setupRegister = regs => regs.hl = 0xC000.toUShort,
+      setupMemory = (_, memory) => memory.write(0xC000.toUShort, 0x10.toUByte),
+      expectedMemory = memory => memory.write(0xC000.toUShort, 0x0F.toUByte),
+      expectedRegister = regs => regs.f = 0x60.toUByte // Z=0, N=1, H=1, C=unchanged
+    )
   }
 
   test("DEC_R8 - normal decrement") {
