@@ -1,5 +1,6 @@
 package org.akaii.s4gb.emulator
 
+import org.akaii.s4gb.emulator.hashops.*
 import spire.math.{UByte, UShort}
 
 case class TestMap() extends MemoryMap {
@@ -19,7 +20,7 @@ case class TestMap() extends MemoryMap {
     case _ => false
   }
 
-  override def hashCode(): Int = java.util.Arrays.hashCode(underlying.map(_.toInt))
+  override def hashCode(): Int = computeHash(underlying.map(_.toInt))
   
   override def toString: String = {
     val populatedEntries = underlying.zipWithIndex

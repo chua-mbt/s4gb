@@ -1,6 +1,7 @@
 package org.akaii.s4gb.emulator.cpu
 
 import org.akaii.s4gb.emulator.byteops.*
+import org.akaii.s4gb.emulator.hashops.*
 import spire.math.{UByte, UShort}
 import spire.syntax.literals.*
 
@@ -103,7 +104,7 @@ case class Registers(
   }
 
   override def hashCode(): Int =
-    java.util.Arrays.hashCode(underlying.map(_.toInt) :+ sp.toInt :+ pc.toInt :+ f.toInt)
+    computeHash(underlying.map(_.toInt) :+ sp.toInt :+ pc.toInt :+ f.toInt)
   
   override def toString: String = {
     val regs8 = Seq(
