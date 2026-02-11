@@ -65,6 +65,8 @@ object Instruction {
       case OpCode.JR_IMM8 => JR_IMM8(input)
       // Block 1 (0b01) https://gbdev.io/pandocs/CPU_Instruction_Set.html#block-1-8-bit-register-to-register-loads
       case OpCode.HALT => HALT
+      case OpCode.LD_MEM_HL_R8 => LD_MEM_HL_R8(input)
+      case OpCode.LD_R8_MEM_HL => LD_R8_MEM_HL(input)
       case OpCode.LD_R8_R8 => LD_R8_R8(input)
       // Block 2 (0b10) https://gbdev.io/pandocs/CPU_Instruction_Set.html#block-2-8-bit-arithmetic
       case OpCode.ADD_A_R8 => ADD_A_R8(input)
@@ -103,7 +105,7 @@ object Instruction {
   object Micro {
     private def advancePC(bytes: Int, state: Cpu.State): Unit = state.registers.advancePC(bytes)
 
-    private def microOp(execute: MicroInstruction): Micro = Micro{ state => execute(state) }
+    private def microOp(execute: MicroInstruction): Micro = Micro { state => execute(state) }
 
     def fetchOpCode(bytes: Int): Micro = Micro { state => advancePC(bytes, state) }
 
@@ -204,7 +206,7 @@ object Instruction {
     self: Instruction =>
     def resolve(state: Cpu.State, op1: UByte, op2: UByte, carryIn: UByte = 0.toUByte, storeInA: Boolean = false): Unit = {
       val sum = op1.toInt + op2.toInt + carryIn.toInt
-      if(storeInA) state.registers.a = sum.toUByte
+      if (storeInA) state.registers.a = sum.toUByte
       state.registers.flags.z = sum.toUByte == 0.toUByte
       state.registers.flags.n = false
       state.registers.flags.h = op1.overflowFromBit3(op2, carryIn)
@@ -216,7 +218,7 @@ object Instruction {
     self: Instruction =>
     def resolve(state: Cpu.State, op1: UByte, op2: UByte, carryIn: UByte = 0.toUByte, storeInA: Boolean = false): Unit = {
       val diff = op1.toInt - op2.toInt - carryIn.toInt
-      if(storeInA) state.registers.a = diff.toUByte
+      if (storeInA) state.registers.a = diff.toUByte
       state.registers.flags.z = diff.toUByte == 0.toUByte
       state.registers.flags.n = true
       state.registers.flags.h = op1.borrowFromBit4(op2, carryIn)
@@ -337,6 +339,40 @@ object Instruction {
 
     override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
       Micro.readMemory { state => writeToOperandLocation(destStart, state, imm8) }
+    )
+  }
+
+  /**
+   * LD_MEM_HL_R8 - Copy the value in register r8 into the byte pointed to by HL.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD__HL_,r8]]
+   */
+  case class LD_MEM_HL_R8(private val input: Array[UByte]) extends Instruction(input) with HasR8Operand {
+    override val cycles: Int = 2
+    override val bytes: Int = 1
+
+    private val srcStart = 2
+    lazy val src: OpCode.Parameters.R8 = operand(srcStart)
+
+    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+      Micro.writeMemory { state => state.memory.write(state.registers.hl, operandContents(srcStart, state)) }
+    )
+  }
+
+  /**
+   * LD_R8_MEM_HL - Copy the value pointed to by HL into register r8.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD__HL_,r8]]
+   */
+  case class LD_R8_MEM_HL(private val input: Array[UByte]) extends Instruction(input) with HasR8Operand {
+    override val cycles: Int = 2
+    override val bytes: Int = 1
+
+    private val destStart = 5
+    lazy val dest: OpCode.Parameters.R8 = operand(destStart)
+
+    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+      Micro.readMemory { state => writeToOperandLocation(destStart, state, state.memory(state.registers.hl)) }
     )
   }
 
@@ -1038,9 +1074,9 @@ object Instruction {
    * The target address n16 is encoded as a signed 8-bit offset from the address immediately following the JR
    * instruction, so it must be between -128 and 127 bytes away. For example:
    *
-   *    JR Label  ; no-op; encoded offset of 0
+   * JR Label  ; no-op; encoded offset of 0
    * Label:
-   *    JR Label  ; infinite loop; encoded offset of -2
+   * JR Label  ; infinite loop; encoded offset of -2
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#JR_n16]]
    */

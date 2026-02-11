@@ -47,6 +47,8 @@ enum OpCode(val pattern: UByte, val mask: UByte = 0xFF.toUByte) {
 
   // Block 1: https://gbdev.io/pandocs/CPU_Instruction_Set.html#block-1-8-bit-register-to-register-loads
   case HALT extends OpCode(0x76.toUByte, excludeNone) // 01110110
+  case LD_MEM_HL_R8 extends OpCode(0x70.toUByte, excludeBits210) // 01110SSS
+  case LD_R8_MEM_HL extends OpCode(0x46.toUByte, excludeBits543) // 01DDD110
   case LD_R8_R8 extends OpCode(0x40.toUByte, excludeBits543210) // 01DDDSSS
 
   // Block 2: https://gbdev.io/pandocs/CPU_Instruction_Set.html#block-2-8-bit-arithmetic

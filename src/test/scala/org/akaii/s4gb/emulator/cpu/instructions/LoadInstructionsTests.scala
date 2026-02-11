@@ -113,6 +113,55 @@ class LoadInstructionsTests extends InstructionsTest {
     }
   }
 
+  test("LD_MEM_HL_R8") {
+    forNonMemHLR8OpCodeParams { srcParam =>
+      val opcode: UByte = OpCode.LD_MEM_HL_R8.setParam(srcParam -> 0)
+      val input: Array[UByte] = Array(opcode)
+      val instruction = Instruction.decode(input)
+
+      assertEquals(instruction.toString, f"LD_MEM_HL_R8(0x${opcode.toInt}%02X)")
+      verifyInstruction[Instruction.LD_MEM_HL_R8](opcode, instruction) { ld =>
+        assertEquals(ld.src, srcParam)
+      }
+
+      val value: UByte = srcParam match {
+        case OpCode.Parameters.R8.H => 0xC0.toUByte // H is high portion of HL, which is the target address 0x[C0]00
+        case OpCode.Parameters.R8.L => 0x00.toUByte // L is low portion of HL, which is the target address 0xC0[00]
+        case _ => 0x42.toUByte
+      }
+
+      testInstruction(
+        instruction = instruction,
+        setupRegister = registers => {
+          registers(srcParam.toRegister) = value
+          registers.hl = 0xC000.toUShort
+        },
+        expectedMemory = memory => memory.write(0xC000.toUShort, value)
+      )
+    }
+  }
+
+  test("LD_R8_MEM_HL") {
+    val value: UByte = 0x42.toUByte
+    forNonMemHLR8OpCodeParams { destParam =>
+      val opcode: UByte = OpCode.LD_R8_MEM_HL.setParam(destParam -> 3)
+      val input: Array[UByte] = Array(opcode)
+      val instruction = Instruction.decode(input)
+
+      assertEquals(instruction.toString, f"LD_R8_MEM_HL(0x${opcode.toInt}%02X)")
+      verifyInstruction[Instruction.LD_R8_MEM_HL](opcode, instruction) { ld =>
+        assertEquals(ld.dest, destParam)
+      }
+
+      testInstruction(
+        instruction = instruction,
+        setupRegister = registers => registers.hl = 0xC000.toUShort,
+        setupMemory = (registers, memory) => memory.write(0xC000.toUShort, value),
+        expectedRegister = registers => registers(destParam.toRegister) = value
+      )
+    }
+  }
+
   test("LD_R8_R8") {
     val value: UByte = 0x33.toUByte
     forNonMemHLR8OpCodeParamPairs { (srcParam, destParam) =>
