@@ -4,6 +4,7 @@ import org.akaii.s4gb.emulator.MemoryMap
 import org.akaii.s4gb.emulator.byteops.*
 import org.akaii.s4gb.emulator.cpu.{Cpu, Registers}
 import OpCode.Extract.*
+import org.akaii.s4gb.emulator.cpu.instructions.Instruction.Micro
 import spire.math.{UByte, UShort}
 
 /**
@@ -21,12 +22,15 @@ sealed abstract class Instruction(protected val value: Array[UByte]) extends Pro
   val bytes: Int
 
   def execute(state: Cpu.State): Boolean = {
-    if (state.getElapsed < micro.length) {
-      val microInstruction = micro(state.getElapsed)
-      microInstruction.execute(state)
-    }
+    val earlyCompletion: Boolean =
+      if (state.getMicroStep < micro.length) {
+        val microInstruction = micro(state.getMicroStep)
+        microInstruction.execute(state) == Micro.Done
+      } else {
+        false
+      }
 
-    state.getElapsed + 1 > micro.length
+    earlyCompletion || (state.getElapsed + 1) > micro.length
   }
 
   protected[instructions] def micro: Seq[Instruction.Micro] = Seq(Instruction.Micro.fetchOpCode(bytes))
@@ -63,6 +67,7 @@ object Instruction {
       case OpCode.SCF => SCF
       case OpCode.CCF => CCF
       case OpCode.JR_IMM8 => JR_IMM8(input)
+      case OpCode.JR_COND_IMM8 => JR_COND_IMM8(input)
       // Block 1 (0b01) https://gbdev.io/pandocs/CPU_Instruction_Set.html#block-1-8-bit-register-to-register-loads
       case OpCode.HALT => HALT
       case OpCode.LD_MEM_HL_R8 => LD_MEM_HL_R8(input)
@@ -92,10 +97,11 @@ object Instruction {
     }
   }
 
-  private type MicroInstruction = Cpu.State => Unit
+  private type MicroStep = Cpu.State => Unit
+  private type MicroGate = Cpu.State => Micro.Next
 
-  /** Each MicroInstruction costs 1 cycle */
-  final case class Micro private(execute: MicroInstruction = _ => ())
+  /** Each MicroStep costs 1 cycle */
+  final case class Micro private(execute: MicroGate)
 
   /**
    * Types are distinguished only to understand how the cycle is being spent
@@ -103,23 +109,29 @@ object Instruction {
    * @see [[https://gist.github.com/SonoSooS/c0055300670d678b5ae8433e20bea595?utm_source=chatgpt.com#fetch-and-stuff]]
    * */
   object Micro {
+    sealed trait Next
+    case object Done extends Next
+    case object Continue extends Next
+
     private def advancePC(bytes: Int, state: Cpu.State): Unit = state.registers.advancePC(bytes)
 
-    private def microOp(execute: MicroInstruction): Micro = Micro { state => execute(state) }
+    private def microOp(execute: MicroStep): Micro = Micro { state => execute(state); Continue }
 
-    def fetchOpCode(bytes: Int): Micro = Micro { state => advancePC(bytes, state) }
+    def fetchOpCode(bytes: Int): Micro = microOp { state => advancePC(bytes, state) }
 
-    def fetchOpCode(bytes: Int)(execute: MicroInstruction = _ => ()): Micro = Micro { state =>
+    def fetchOpCode(bytes: Int)(execute: MicroStep = _ => ()): Micro = microOp { state =>
       advancePC(bytes, state); execute(state)
     }
 
-    def readMemory(execute: MicroInstruction = _ => ()): Micro = microOp(execute)
+    def readMemory(execute: MicroStep = _ => ()): Micro = microOp(execute)
 
-    def writeMemory(execute: MicroInstruction = _ => ()): Micro = microOp(execute)
+    def readMemoryAndThen(execute: MicroGate): Micro = Micro { state => execute(state) }
 
-    def iduOperation(execute: MicroInstruction = _ => ()): Micro = microOp(execute)
+    def writeMemory(execute: MicroStep = _ => ()): Micro = microOp(execute)
 
-    def modifyPC(execute: MicroInstruction = _ => ()): Micro = microOp(execute)
+    def iduOperation(execute: MicroStep = _ => ()): Micro = microOp(execute)
+
+    def modifyPC(execute: MicroStep = _ => ()): Micro = microOp(execute)
   }
 
   trait HasImm8 {
@@ -200,6 +212,21 @@ object Instruction {
         case parameter =>
           state.registers.update(parameter.toRegister.lo, value.registerLoByte)
       }
+  }
+
+  trait HasCondOperand {
+    self: Instruction =>
+    def operand(start: Int): OpCode.Parameters.Condition = OpCode.Parameters.Condition.values(opCode.range(start, start - 1))
+
+    def continueIf(condition: OpCode.Parameters.Condition)(state: Cpu.State): Micro.Next = {
+      val shouldContinue = condition match {
+        case OpCode.Parameters.Condition.NZ => !state.registers.flags.z
+        case OpCode.Parameters.Condition.Z => state.registers.flags.z
+        case OpCode.Parameters.Condition.NC => !state.registers.flags.c
+        case OpCode.Parameters.Condition.C => state.registers.flags.c
+      }
+      if(shouldContinue) Micro.Continue else Micro.Done
+    }
   }
 
   trait AddOperation {
@@ -1087,6 +1114,33 @@ object Instruction {
     override protected[instructions] def micro: Seq[Micro] = Seq(
       Micro.fetchOpCode(bytes),
       Micro.readMemory(),
+      Micro.modifyPC { state =>
+        val pcAfterInstruction = state.registers.pc
+        val offset = imm8.toByte // interpret as signed
+        val targetAddress = (pcAfterInstruction.toInt + offset.toInt).toUShort
+        state.registers.pc = targetAddress
+      }
+    )
+  }
+
+  /**
+   * JR_COND_IMM8 - Relative Jump to address imm8 (n16 sic) if condition cc is met.
+   *
+   * The target address n16 is encoded as a signed 8-bit offset from the address immediately following the JR
+   * instruction, so it must be between -128 and 127 bytes away.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#JR_cc,n16]]
+   */
+  case class JR_COND_IMM8(private val input: Array[UByte]) extends Instruction(input) with HasCondOperand with HasImm8 {
+    override val cycles: Int = 2
+    override val bytes: Int = 2
+
+    private val operandStart = 4
+    lazy val operand: OpCode.Parameters.Condition = operand(operandStart)
+
+    override protected[instructions] def micro: Seq[Micro] = Seq(
+      Micro.fetchOpCode(bytes),
+      Micro.readMemoryAndThen(continueIf(operand)),
       Micro.modifyPC { state =>
         val pcAfterInstruction = state.registers.pc
         val offset = imm8.toByte // interpret as signed

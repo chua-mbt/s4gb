@@ -13,7 +13,7 @@ object Cpu {
     memory: MemoryMap,
     private var imeFlag: IMEFlag = IMEEnabled,
     private var executionMode: ExecutionMode = Running,
-    private var elapsed: Int = 0
+    private var microStep: Int = 0
   ) {
     def setIME(value: Boolean): Unit = (value, imeFlag) match {
       case (true, IMEDisabled) => imeFlag = IMEEnabling
@@ -23,8 +23,9 @@ object Cpu {
 
     def imeEnabled: Boolean = imeFlag.enabled
     def changeExecutionMode(newMode: ExecutionMode): Unit = { executionMode = newMode }
-    def setElapsed(cycles: Int): Unit = { elapsed = cycles }
-    def getElapsed: Int = elapsed
+    def setMicroStep(cycles: Int): Unit = { microStep = cycles }
+    def getMicroStep: Int = microStep
+    def getElapsed: Int = microStep + 1
   }
 
   sealed trait IMEFlag {

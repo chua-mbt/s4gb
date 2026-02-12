@@ -42,7 +42,7 @@ enum OpCode(val pattern: UByte, val mask: UByte = 0xFF.toUByte) {
   case CCF extends OpCode(0x3F.toUByte) // 00111111
 
   case JR_IMM8 extends OpCode(0x18.toUByte) // 00011000
-  // JR_COND_IMM8
+  case JR_COND_IMM8 extends OpCode(0x20.toUByte, excludeBits43) // 001CC000
   // STOP
 
   // Block 1: https://gbdev.io/pandocs/CPU_Instruction_Set.html#block-1-8-bit-register-to-register-loads
@@ -86,6 +86,7 @@ object OpCode {
   object Masks {
     val excludeNone: UByte = 0xFF.toUByte // 11111111
     val excludeBits54: UByte = 0xCF.toUByte // 11001111
+    val excludeBits43: UByte = 0xE7.toUByte // 11100111
     val excludeBits543: UByte = 0xC7.toUByte // 11000111
     val excludeBits210: UByte = 0xF8.toUByte // 11111000
     val excludeBits543210: UByte = 0xC0.toUByte // 11000000

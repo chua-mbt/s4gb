@@ -51,7 +51,7 @@ abstract class InstructionsTest extends FunSuite {
     if (instruction.execute(state)) {
       state
     } else {
-      state.setElapsed(state.getElapsed + 1)
+      state.setMicroStep(state.getMicroStep + 1)
       exhaustInstruction(instruction, state)
     }
 
@@ -74,9 +74,10 @@ abstract class InstructionsTest extends FunSuite {
     finalState: Cpu.State,
     instruction: Instruction,
     expectedPC: UShort,
+    expectedElapsed: Int,
     expectedState: Cpu.State
   )(implicit loc: Location): Unit = {
-    assertEquals(finalState.getElapsed, instruction.cycles)
+    assertEquals(finalState.getElapsed, expectedElapsed)
     assertEquals(finalState.registers.pc, expectedPC)
     assertEquals(finalState.registers, expectedState.registers)
     assertEquals(finalState.memory, expectedState.memory)
@@ -90,12 +91,14 @@ abstract class InstructionsTest extends FunSuite {
     expectedRegister: Registers => Unit = _ => (),
     expectedMemory: TestMap => Unit = _ => (),
     expectedIME: IMEFlag = IMEEnabled,
-    expectedPC: Option[UShort] = None
-  ): Unit = {
+    expectedPC: Option[UShort] = None,
+    expectedElapsed: Option[Int] = None
+  )(implicit loc: Location): Unit = {
     val initialState = setupTest(setupRegister, setupMemory, setupIME)
     val expectedState = setupExpected(initialState, instruction, expectedRegister, expectedMemory, expectedIME)
     val finalState = exhaustInstruction(instruction, initialState)
-    verifyFinalState(finalState, instruction, expectedPC.getOrElse(instruction.bytes.toUShort), expectedState)
+    verifyFinalState(finalState, instruction, expectedPC.getOrElse(instruction.bytes.toUShort),
+      expectedElapsed.getOrElse(instruction.cycles), expectedState)
   }
 
   protected def forNonSPR16OpCodeParams(test: OpCode.Parameters.R16 => Unit): Unit =
@@ -112,4 +115,7 @@ abstract class InstructionsTest extends FunSuite {
       source <- OpCode.Parameters.R8.nonMemHLValues
       dest <- OpCode.Parameters.R8.nonMemHLValues
     } test(source, dest)
+
+  protected def forCondOpCodeParams(test: OpCode.Parameters.Condition => Unit): Unit =
+    OpCode.Parameters.Condition.values.foreach(test)
 }

@@ -37,3 +37,9 @@ extension (opcode: OpCode)
     params.foldLeft(opcode.pattern) { case (acc, (param, shift)) =>
       acc | (param.ordinal << shift).toUByte
     }
+
+  @scala.annotation.targetName("setParamCond")
+  def setParam(params: (OpCode.Parameters.Condition, Int)*): UByte =
+    params.foldLeft(opcode.pattern) { case (acc, (param, shift)) =>
+      acc | (param.ordinal << shift).toUByte
+    }
