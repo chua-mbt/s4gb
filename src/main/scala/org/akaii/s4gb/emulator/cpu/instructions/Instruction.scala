@@ -49,7 +49,9 @@ object Instruction {
       case OpCode.LD_R16MEM_A => LD_R16MEM_A(input)
       case OpCode.LD_A_R16MEM => LD_A_R16MEM(input)
       case OpCode.LD_MEM_IMM16_SP => LD_MEM_IMM16_SP(input)
+      case OpCode.INC_SP => INC_SP
       case OpCode.INC_R16 => INC_R16(input)
+      case OpCode.DEC_SP => DEC_SP
       case OpCode.DEC_R16 => DEC_R16(input)
       case OpCode.ADD_HL_R16 => ADD_HL_R16(input)
       case OpCode.INC_MEM_HL => INC_MEM_HL
@@ -213,7 +215,10 @@ object Instruction {
     def operand(start: Int): OpCode.Parameters.R16 = OpCode.Parameters.R16.values(opCode.range(start, start - 1))
 
     protected def operandContents(operandStart: Int, state: Cpu.State): UShort =
-      operand(operandStart) match {
+      operandContents(operand(operandStart), state)
+
+    protected def operandContents(operand: OpCode.Parameters.R16, state: Cpu.State): UShort =
+      operand match {
         case OpCode.Parameters.R16.SP =>
           state.registers.sp
         case parameter =>
@@ -221,7 +226,10 @@ object Instruction {
       }
 
     protected def writeToOperandLocation(operandStart: Int, state: Cpu.State, value: UShort): Unit =
-      operand(operandStart) match {
+      writeToOperandLocation(operand(operandStart), state, value)
+
+    protected def writeToOperandLocation(operand: OpCode.Parameters.R16, state: Cpu.State, value: UShort): Unit =
+      operand match {
         case OpCode.Parameters.R16.SP =>
           state.registers.sp = value
         case parameter =>
@@ -804,6 +812,26 @@ object Instruction {
   }
 
   /**
+   * INC_SP - Increment the value in register SP by 1.
+   *
+   * See INC_R16 for why this takes 2 cycles.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#INC_SP]]
+   */
+  case object INC_SP extends Instruction(Array(OpCode.INC_SP.pattern)) with HasR16Operand {
+    override val cycles: MCycle = MCycle.Fixed(2)
+    override val bytes: Int = 1
+
+    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+      Micro.iduOperation { state =>
+        val original = operandContents(OpCode.Parameters.R16.SP, state)
+        val result = original + 1.toUShort
+        writeToOperandLocation(OpCode.Parameters.R16.SP, state, result)
+      }
+    )
+  }
+
+  /**
    * INC_R16 - Increment the value in register r16 by 1.
    *
    * The ALU is actually not used at all for this one! This is just IDU magic.
@@ -831,12 +859,29 @@ object Instruction {
   }
 
   /**
+   * DEC_SP - Decrement the value in register SP by 1.
+   *
+   * See INC_R16 for why this takes 2 cycles.
+   */
+  case object DEC_SP extends Instruction(Array(OpCode.DEC_SP.pattern)) with HasR16Operand {
+    override val cycles: MCycle = MCycle.Fixed(2)
+    override val bytes: Int = 1
+
+    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+      Micro.iduOperation { state =>
+        val original = operandContents(OpCode.Parameters.R16.SP, state)
+        val result = original - 1.toUShort
+        writeToOperandLocation(OpCode.Parameters.R16.SP, state, result)
+      }
+    )
+  }
+
+  /**
    * DEC_R16 - Decrement the value in register r16 by 1.
    *
    * See INC_R16 for why this takes 2 cycles.
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#DEC_r16]]
-   * @see [[https://gist.github.com/SonoSooS/c0055300670d678b5ae8433e20bea595?utm_source=chatgpt.com#incdec-r16]]
    */
   case class DEC_R16(private val input: Array[UByte]) extends Instruction(input) with HasR16Operand {
     override val cycles: MCycle = MCycle.Fixed(2)

@@ -12,7 +12,7 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
     val opcode: UByte = OpCode.INC_MEM_HL.pattern
     val instruction = Instruction.decode(Array(opcode))
 
-    assertEquals(instruction.toString, f"INC_MEM_HL(0x${opcode.toInt}%02X)")
+    assertEquals(instruction.toString, "INC_MEM_HL(0x34)")
     verifyInstructionOpCode[Instruction.INC_MEM_HL.type](opcode, instruction)
 
     testInstruction(
@@ -107,7 +107,7 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
     val opcode: UByte = OpCode.DEC_MEM_HL.pattern
     val instruction = Instruction.decode(Array(opcode))
 
-    assertEquals(instruction.toString, f"DEC_MEM_HL(0x${opcode.toInt}%02X)")
+    assertEquals(instruction.toString, "DEC_MEM_HL(0x35)")
     verifyInstructionOpCode[Instruction.DEC_MEM_HL.type](opcode, instruction)
 
     testInstruction(

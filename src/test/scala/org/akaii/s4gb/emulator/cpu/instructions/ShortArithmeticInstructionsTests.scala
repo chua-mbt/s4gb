@@ -117,6 +117,30 @@ class ShortArithmeticInstructionsTests extends InstructionsTest {
     }
   }
 
+  test("INC_SP - normal increment") {
+    val opcode: UByte = OpCode.INC_SP.pattern
+    val instruction = Instruction.decode(Array(opcode))
+
+    assertEquals(instruction.toString, "INC_SP(0x33)")
+    verifyInstructionOpCode[Instruction.INC_SP.type](opcode, instruction)
+
+    testInstruction(
+      instruction,
+      setupRegister = regs => regs.sp = 0x1234.toUShort,
+      expectedRegister = regs => regs.sp = 0x1235.toUShort
+    )
+  }
+
+  test("INC_SP - overflow") {
+    val opcode: UByte = OpCode.INC_SP.pattern
+    val instruction = Instruction.decode(Array(opcode))
+
+    testInstruction(
+      instruction,
+      setupRegister = regs => regs.sp = 0xFFFF.toUShort,
+      expectedRegister = regs => regs.sp = 0x0000.toUShort
+    )
+  }
 
   test("INC_R16 - normal increment") {
     forNonSPR16OpCodeParams { operandParam =>
@@ -147,6 +171,31 @@ class ShortArithmeticInstructionsTests extends InstructionsTest {
         expectedRegister = regs => regs(operandParam.toRegister) = 0x0000.toUShort
       )
     }
+  }
+
+  test("DEC_SP - normal decrement") {
+    val opcode: UByte = OpCode.DEC_SP.pattern
+      val instruction = Instruction.decode(Array(opcode))
+
+      assertEquals(instruction.toString, "DEC_SP(0x3B)")
+      verifyInstructionOpCode[Instruction.DEC_SP.type](opcode, instruction)
+
+      testInstruction(
+        instruction,
+        setupRegister = regs => regs.sp = 0x1234.toUShort,
+        expectedRegister = regs => regs.sp = 0x1233.toUShort
+      )
+  }
+
+  test("DEC_SP - underflow") {
+    val opcode: UByte = OpCode.DEC_SP.pattern
+    val instruction = Instruction.decode(Array(opcode))
+
+    testInstruction(
+      instruction,
+      setupRegister = regs => regs.sp = 0x0000.toUShort,
+      expectedRegister = regs => regs.sp = 0xFFFF.toUShort
+    )
   }
 
   test("DEC_R16 - normal decrement") {
