@@ -18,7 +18,7 @@ import spire.math.{UByte, UShort}
  */
 sealed abstract class Instruction(protected val value: Array[UByte]) extends Product with Serializable {
   val opCode: UByte = value.head
-  val cycles: Int
+  val cycles: Instruction.MCycle
   val bytes: Int
 
   def execute(state: Cpu.State): Boolean = {
@@ -97,6 +97,23 @@ object Instruction {
     }
   }
 
+  sealed trait MCycle {
+    def withinCost(elapsed: Int): Boolean
+    def maxCost: Int
+  }
+
+  object MCycle {
+    case class Fixed(cost: Int) extends MCycle {
+      override def withinCost(elapsed: Int): Boolean = elapsed == cost
+      override def maxCost: Int = cost
+    }
+
+    case class Varying(costRange: Range) extends MCycle {
+      override def withinCost(elapsed: Int): Boolean = costRange.contains(elapsed)
+      override def maxCost: Int = costRange.max
+    }
+  }
+
   private type MicroStep = Cpu.State => Unit
   private type MicroGate = Cpu.State => Micro.Next
 
@@ -110,7 +127,9 @@ object Instruction {
    * */
   object Micro {
     sealed trait Next
+
     case object Done extends Next
+
     case object Continue extends Next
 
     private def advancePC(bytes: Int, state: Cpu.State): Unit = state.registers.advancePC(bytes)
@@ -225,7 +244,7 @@ object Instruction {
         case OpCode.Parameters.Condition.NC => !state.registers.flags.c
         case OpCode.Parameters.Condition.C => state.registers.flags.c
       }
-      if(shouldContinue) Micro.Continue else Micro.Done
+      if (shouldContinue) Micro.Continue else Micro.Done
     }
   }
 
@@ -288,7 +307,7 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD_r16,n16]]
    */
   case class LD_R16_IMM16(private val input: Array[UByte]) extends Instruction(input) with HasR16Operand with HasImm16 {
-    override val cycles: Int = 3
+    override val cycles: MCycle = MCycle.Fixed(3)
     override val bytes: Int = 3
 
     private val destStart = 5
@@ -306,7 +325,7 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD__r16_,A]]
    */
   case class LD_R16MEM_A(private val input: Array[UByte]) extends Instruction(input) with HasR16Operand {
-    override val cycles: Int = 2
+    override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 1
 
     private val destRefStart = 5
@@ -323,7 +342,7 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD_A,_r16_]]
    */
   case class LD_A_R16MEM(private val input: Array[UByte]) extends Instruction(input) with HasR16Operand {
-    override val cycles: Int = 2
+    override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 1
 
     private val srcRefStart = 5
@@ -340,7 +359,7 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD__HL_,r8]]
    */
   case class LD_MEM_HL_IMM8(private val input: Array[UByte]) extends Instruction(input) with HasImm8 with HasR8Operand {
-    override val cycles: Int = 3
+    override val cycles: MCycle = MCycle.Fixed(3)
     override val bytes: Int = 2
 
     private val destStart = 5
@@ -358,7 +377,7 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD_r8,n8]]
    */
   case class LD_R8_IMM8(private val input: Array[UByte]) extends Instruction(input) with HasR8Operand with HasImm8 {
-    override val cycles: Int = 2
+    override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 2
 
     private val destStart = 5
@@ -375,7 +394,7 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD__HL_,r8]]
    */
   case class LD_MEM_HL_R8(private val input: Array[UByte]) extends Instruction(input) with HasR8Operand {
-    override val cycles: Int = 2
+    override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 1
 
     private val srcStart = 2
@@ -392,7 +411,7 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD__HL_,r8]]
    */
   case class LD_R8_MEM_HL(private val input: Array[UByte]) extends Instruction(input) with HasR8Operand {
-    override val cycles: Int = 2
+    override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 1
 
     private val destStart = 5
@@ -412,7 +431,7 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD_r8,r8]]
    */
   case class LD_R8_R8(private val input: Array[UByte]) extends Instruction(input) with HasR8Operand {
-    override val cycles: Int = 1
+    override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
 
     private val srcStart = 2
@@ -437,7 +456,7 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#INC__HL_]]
    */
   case object INC_MEM_HL extends Instruction(Array(OpCode.INC_MEM_HL.pattern)) with HasR8Operand {
-    override val cycles: Int = 3
+    override val cycles: MCycle = MCycle.Fixed(3)
     override val bytes: Int = 1
 
     private val operandStart = 5
@@ -462,7 +481,7 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#INC_r8]]
    */
   case class INC_R8(private val input: Array[UByte]) extends Instruction(input) with HasR8Operand {
-    override val cycles: Int = 1
+    override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
 
     private val operandStart = 5
@@ -486,7 +505,7 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#DEC__HL_]]
    */
   case object DEC_MEM_HL extends Instruction(Array(OpCode.DEC_MEM_HL.pattern)) with HasR8Operand {
-    override val cycles: Int = 3
+    override val cycles: MCycle = MCycle.Fixed(3)
     override val bytes: Int = 1
 
     private val operandStart = 5
@@ -510,7 +529,7 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#DEC_r8]]
    */
   case class DEC_R8(private val input: Array[UByte]) extends Instruction(input) with HasR8Operand {
-    override val cycles: Int = 1
+    override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
 
     private val operandStart = 5
@@ -534,7 +553,7 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#ADD_A,r8]]
    */
   case class ADD_A_R8(private val input: Array[UByte]) extends Instruction(input) with HasR8Operand with AddOperation {
-    override val cycles: Int = 1
+    override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
 
     private val operandStart = 2
@@ -555,7 +574,7 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#ADC_A,r8]]
    */
   case class ADC_A_R8(private val input: Array[UByte]) extends Instruction(input) with HasR8Operand with AddOperation {
-    override val cycles: Int = 1
+    override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
 
     private val operandStart = 2
@@ -577,7 +596,7 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#SUB_A,r8]]
    */
   case class SUB_A_R8(private val input: Array[UByte]) extends Instruction(input) with HasR8Operand with SubOperation {
-    override val cycles: Int = 1
+    override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
 
     private val operandStart = 2
@@ -598,7 +617,7 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#SBC_A,r8]]
    */
   case class SBC_A_R8(private val input: Array[UByte]) extends Instruction(input) with HasR8Operand with SubOperation {
-    override val cycles: Int = 1
+    override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
 
     private val operandStart = 2
@@ -622,7 +641,7 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#CP_A,r8]]
    */
   case class CP_A_R8(private val input: Array[UByte]) extends Instruction(input) with HasR8Operand with SubOperation {
-    override val cycles: Int = 1
+    override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
 
     private val operandStart = 2
@@ -643,7 +662,7 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#ADD_A,n8]]
    */
   case class ADD_A_IMM8(private val input: Array[UByte]) extends Instruction(input) with HasImm8 with AddOperation {
-    override val cycles: Int = 2
+    override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 2
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
@@ -662,7 +681,7 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#ADC_A,n8]]
    */
   case class ADC_A_IMM8(private val input: Array[UByte]) extends Instruction(input) with HasImm8 with AddOperation {
-    override val cycles: Int = 2
+    override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 2
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
@@ -682,7 +701,7 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#SUB_A,n8]]
    */
   case class SUB_A_IMM8(private val input: Array[UByte]) extends Instruction(input) with HasImm8 with SubOperation {
-    override val cycles: Int = 2
+    override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 2
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
@@ -701,7 +720,7 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#SBC_A,n8]]
    */
   case class SBC_A_IMM8(private val input: Array[UByte]) extends Instruction(input) with HasImm8 with SubOperation {
-    override val cycles: Int = 2
+    override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 2
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
@@ -723,7 +742,7 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#CP_A,n8]]
    */
   case class CP_A_IMM8(private val input: Array[UByte]) extends Instruction(input) with HasImm8 with SubOperation {
-    override val cycles: Int = 2
+    override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 2
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
@@ -751,7 +770,7 @@ object Instruction {
    * @see [[https://gist.github.com/SonoSooS/c0055300670d678b5ae8433e20bea595?utm_source=chatgpt.com#add-hl-r16]]
    */
   case class ADD_HL_R16(private val input: Array[UByte]) extends Instruction(input) with HasR16Operand {
-    override val cycles: Int = 2
+    override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 1
 
     private val operandStart = 5
@@ -792,7 +811,7 @@ object Instruction {
    * @see [[https://gist.github.com/SonoSooS/c0055300670d678b5ae8433e20bea595?utm_source=chatgpt.com#incdec-r16]]
    */
   case class INC_R16(private val input: Array[UByte]) extends Instruction(input) with HasR16Operand {
-    override val cycles: Int = 2
+    override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 1
 
     private val operandStart = 5
@@ -816,7 +835,7 @@ object Instruction {
    * @see [[https://gist.github.com/SonoSooS/c0055300670d678b5ae8433e20bea595?utm_source=chatgpt.com#incdec-r16]]
    */
   case class DEC_R16(private val input: Array[UByte]) extends Instruction(input) with HasR16Operand {
-    override val cycles: Int = 2
+    override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 1
 
     private val operandStart = 5
@@ -842,7 +861,7 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#CPL]]
    */
   case object CPL extends Instruction(Array(OpCode.CPL.pattern)) {
-    override val cycles: Int = 1
+    override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
@@ -860,7 +879,7 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#AND_A,r8]]
    */
   case class AND_A_R8(private val input: Array[UByte]) extends Instruction(input) with HasR8Operand with AndOperation {
-    override val cycles: Int = 1
+    override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
 
     private val operandStart = 2
@@ -883,7 +902,7 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#XOR_A,r8]]
    */
   case class XOR_A_R8(private val input: Array[UByte]) extends Instruction(input) with HasR8Operand with OrOperation {
-    override val cycles: Int = 1
+    override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
 
     private val operandStart = 2
@@ -906,7 +925,7 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#OR_A,r8]]
    */
   case class OR_A_R8(private val input: Array[UByte]) extends Instruction(input) with HasR8Operand with OrOperation {
-    override val cycles: Int = 1
+    override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
 
     private val operandStart = 2
@@ -929,7 +948,7 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#AND_A,n8]]
    */
   case class AND_A_IMM8(private val input: Array[UByte]) extends Instruction(input) with HasImm8 with AndOperation {
-    override val cycles: Int = 2
+    override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 2
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
@@ -950,7 +969,7 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#XOR_A,n8]]
    */
   case class XOR_A_IMM8(private val input: Array[UByte]) extends Instruction(input) with HasImm8 with OrOperation {
-    override val cycles: Int = 2
+    override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 2
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
@@ -971,7 +990,7 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#OR_A,n8]]
    */
   case class OR_A_IMM8(private val input: Array[UByte]) extends Instruction(input) with HasImm8 with OrOperation {
-    override val cycles: Int = 2
+    override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 2
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
@@ -1002,7 +1021,7 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#RLCA]]
    */
   case object RLCA extends Instruction(Array(OpCode.RLCA.pattern)) {
-    override val cycles: Int = 1
+    override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
@@ -1025,7 +1044,7 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#RRCA]]
    */
   case object RRCA extends Instruction(Array(OpCode.RRCA.pattern)) {
-    override val cycles: Int = 1
+    override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
@@ -1048,7 +1067,7 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#RLA]]
    */
   case object RLA extends Instruction(Array(OpCode.RLA.pattern)) {
-    override val cycles: Int = 1
+    override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
@@ -1072,7 +1091,7 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#RRA]]
    */
   case object RRA extends Instruction(Array(OpCode.RRA.pattern)) {
-    override val cycles: Int = 1
+    override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
@@ -1108,7 +1127,7 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#JR_n16]]
    */
   case class JR_IMM8(private val input: Array[UByte]) extends Instruction(input) with HasImm8 {
-    override val cycles: Int = 3
+    override val cycles: MCycle = MCycle.Fixed(3)
     override val bytes: Int = 2
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
@@ -1132,7 +1151,7 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#JR_cc,n16]]
    */
   case class JR_COND_IMM8(private val input: Array[UByte]) extends Instruction(input) with HasCondOperand with HasImm8 {
-    override val cycles: Int = 2
+    override val cycles: MCycle = MCycle.Varying(2 to 3)
     override val bytes: Int = 2
 
     private val operandStart = 4
@@ -1161,7 +1180,7 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#SCF]]
    */
   case object SCF extends Instruction(Array(OpCode.SCF.pattern)) {
-    override val cycles: Int = 1
+    override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
@@ -1174,7 +1193,7 @@ object Instruction {
   }
 
   case object CCF extends Instruction(Array(OpCode.CCF.pattern)) {
-    override val cycles: Int = 1
+    override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
@@ -1197,7 +1216,7 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD__n16_,SP]]
    */
   case class LD_MEM_IMM16_SP(private val input: Array[UByte]) extends Instruction(input) with HasImm16 {
-    override val cycles: Int = 5
+    override val cycles: MCycle = MCycle.Fixed(5)
     override val bytes: Int = 3
 
     private var originalSP: UShort = UShort.MinValue
@@ -1222,7 +1241,7 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#DI]]
    */
   case object DI extends Instruction(Array(OpCode.DI.pattern)) {
-    override val cycles: Int = 1
+    override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
@@ -1238,7 +1257,7 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#EI]]
    */
   case object EI extends Instruction(Array(OpCode.EI.pattern)) {
-    override val cycles: Int = 1
+    override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
@@ -1267,7 +1286,7 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#HALT]]
    */
   case object HALT extends Instruction(Array(OpCode.HALT.pattern)) {
-    override val cycles: Int = 1
+    override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
@@ -1286,7 +1305,7 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#NOP]]
    */
   case object NOP extends Instruction(0x0.toInstructionInput) {
-    override val cycles: Int = 1
+    override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
 
     override def executeImplementation(state: Cpu.State): Unit = {}
@@ -1301,7 +1320,7 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#DAA]]
    */
   case object DAA extends Instruction(Array(OpCode.DAA.pattern)) {
-    override val cycles: Int = 1
+    override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
 
     override protected[instructions] def micro: Seq[Micro] = Seq(

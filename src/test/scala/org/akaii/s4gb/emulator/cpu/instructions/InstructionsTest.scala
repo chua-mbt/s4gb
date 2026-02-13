@@ -61,7 +61,7 @@ abstract class InstructionsTest extends FunSuite {
   )(verifications: T => Unit = (_: T) => ())(implicit loc: Location): Unit = {
     assert(summon[ClassTag[T]].runtimeClass.isInstance(instruction))
     assertEquals(instruction.opCode, opCode)
-    assertEquals(instruction.micro.length, instruction.cycles)
+    assertEquals(instruction.micro.length, instruction.cycles.maxCost)
     verifications(instruction.asInstanceOf[T])
   }
 
@@ -74,10 +74,11 @@ abstract class InstructionsTest extends FunSuite {
     finalState: Cpu.State,
     instruction: Instruction,
     expectedPC: UShort,
-    expectedElapsed: Int,
+    expectedElapsed: Option[Int],
     expectedState: Cpu.State
   )(implicit loc: Location): Unit = {
-    assertEquals(finalState.getElapsed, expectedElapsed)
+    assert(instruction.cycles.withinCost(finalState.getElapsed))
+    expectedElapsed.foreach(expected => assertEquals(finalState.getElapsed, expected))
     assertEquals(finalState.registers.pc, expectedPC)
     assertEquals(finalState.registers, expectedState.registers)
     assertEquals(finalState.memory, expectedState.memory)
@@ -98,7 +99,7 @@ abstract class InstructionsTest extends FunSuite {
     val expectedState = setupExpected(initialState, instruction, expectedRegister, expectedMemory, expectedIME)
     val finalState = exhaustInstruction(instruction, initialState)
     verifyFinalState(finalState, instruction, expectedPC.getOrElse(instruction.bytes.toUShort),
-      expectedElapsed.getOrElse(instruction.cycles), expectedState)
+      expectedElapsed, expectedState)
   }
 
   protected def forNonSPR16OpCodeParams(test: OpCode.Parameters.R16 => Unit): Unit =
