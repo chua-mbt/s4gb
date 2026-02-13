@@ -8,6 +8,81 @@ import spire.math.UByte
 
 class ShortArithmeticInstructionsTests extends InstructionsTest {
 
+  test("ADD_HL_SP - normal addition") {
+    val opcode: UByte = OpCode.ADD_HL_SP.pattern
+    val instruction = Instruction.decode(Array(opcode))
+
+    assertEquals(instruction.toString, "ADD_HL_SP(0x39)")
+    verifyInstructionOpCode[Instruction.ADD_HL_SP.type](opcode, instruction)
+
+    testInstruction(
+      instruction,
+      setupRegister = regs => {
+        regs.hl = 0x1234.toUShort
+        regs.sp = 0x1111.toUShort
+        regs.flags.z = true // Z should be unaffected
+        regs.flags.n = true // N should be cleared by instruction
+        regs.flags.h = true // H should be cleared
+        regs.flags.c = true // C should be cleared
+      },
+      expectedRegister = regs => {
+        regs.hl = 0x2345.toUShort
+        regs.flags.z = true // unchanged
+        regs.flags.n = false
+        regs.flags.h = false
+        regs.flags.c = false
+      }
+    )
+  }
+
+  test("ADD_HL_SP - half-carry") {
+    val opcode: UByte = OpCode.ADD_HL_SP.pattern
+    val instruction = Instruction.decode(Array(opcode))
+
+    val (hlValue, spValue, expectedHl) = (0x0800.toUShort, 0x0800.toUShort, 0x1000.toUShort)
+
+    testInstruction(
+      instruction,
+      setupRegister = regs => {
+        regs.hl = hlValue
+        regs.sp = spValue
+        regs.flags.n = true
+        regs.flags.h = false
+        regs.flags.c = false
+      },
+      expectedRegister = regs => {
+        regs.hl = expectedHl
+        regs.flags.n = false
+        regs.flags.h = true
+        regs.flags.c = false
+      }
+    )
+  }
+
+  test("ADD_HL_SP - carry / overflow") {
+    val opcode: UByte = OpCode.ADD_HL_SP.pattern
+    val instruction = Instruction.decode(Array(opcode))
+
+    val (hlValue, spValue, expectedHl) = (0x8000.toUShort, 0x8000.toUShort, 0x0000.toUShort)
+
+    testInstruction(
+      instruction,
+      setupRegister = regs => {
+        regs.hl = hlValue
+        regs.sp = spValue
+        regs.flags.n = true
+        regs.flags.h = false
+        regs.flags.c = false
+      },
+      expectedRegister = regs => {
+        regs.hl = expectedHl
+        regs.flags.n = false
+        regs.flags.h = false
+        regs.flags.c = true
+      }
+    )
+  }
+
   test("ADD_HL_R16 - normal addition") {
     forNonSPR16OpCodeParams { operandParam =>
       val opcode: UByte = OpCode.ADD_HL_R16.setParam(operandParam -> 4)

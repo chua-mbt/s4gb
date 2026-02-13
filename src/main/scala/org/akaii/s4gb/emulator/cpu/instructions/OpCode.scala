@@ -24,6 +24,7 @@ enum OpCode(val pattern: UByte, val mask: UByte = 0xFF.toUByte) {
   case INC_R16 extends OpCode(0x03.toUByte, excludeBits54) // 00OO0011
   case DEC_SP extends OpCode(0x3B.toUByte) // 00111011
   case DEC_R16 extends OpCode(0x0B.toUByte, excludeBits54) // 00OO1011
+  case ADD_HL_SP extends OpCode(0x39.toUByte) // 00001001
   case ADD_HL_R16 extends OpCode(0x09.toUByte, excludeBits54) // 00OO1001
 
   case INC_MEM_HL extends OpCode(0x34.toUByte) // 00110100

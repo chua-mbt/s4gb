@@ -53,6 +53,7 @@ object Instruction {
       case OpCode.INC_R16 => INC_R16(input)
       case OpCode.DEC_SP => DEC_SP
       case OpCode.DEC_R16 => DEC_R16(input)
+      case OpCode.ADD_HL_SP => ADD_HL_SP
       case OpCode.ADD_HL_R16 => ADD_HL_R16(input)
       case OpCode.INC_MEM_HL => INC_MEM_HL
       case OpCode.INC_R8 => INC_R8(input)
@@ -157,6 +158,8 @@ object Instruction {
     def writeMemory(execute: MicroStep = _ => ()): Micro = microOp(execute)
 
     def iduOperation(execute: MicroStep = _ => ()): Micro = microOp(execute)
+
+    def aluOperation(execute: MicroStep = _ => ()): Micro = microOp(execute)
 
     def modifyPC(execute: MicroStep = _ => ()): Micro = microOp(execute)
   }
@@ -479,9 +482,9 @@ object Instruction {
     override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
       Micro.readMemory(),
       Micro.writeMemory { state =>
-        val originalValue = operandContents(OpCode.Parameters.R8.MEM_HL, state)
+        val originalValue = state.memory(state.registers.hl)
         val result = originalValue + 1.toUByte
-        writeToOperandLocation(OpCode.Parameters.R8.MEM_HL, state, result)
+        state.memory.write(state.registers.hl, result)
         state.registers.flags.z = result == 0.toUByte
         state.registers.flags.n = false
         state.registers.flags.h = originalValue.overflowFromBit3(1.toUByte)
@@ -525,9 +528,9 @@ object Instruction {
     override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
       Micro.readMemory(),
       Micro.writeMemory { state =>
-        val originalValue = operandContents(OpCode.Parameters.R8.MEM_HL, state)
+        val originalValue = state.memory(state.registers.hl)
         val result = originalValue - 1.toUByte
-        writeToOperandLocation(OpCode.Parameters.R8.MEM_HL, state, result)
+        state.memory.write(state.registers.hl, result)
         state.registers.flags.z = result == 0.toUByte
         state.registers.flags.n = true
         state.registers.flags.h = originalValue.borrowFromBit4(1.toUByte)
@@ -773,6 +776,39 @@ object Instruction {
    **/
 
   /**
+   * ADD_HL_SP - Add the value in SP to HL.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#ADD_HL,SP]]
+   */
+  case object ADD_HL_SP extends Instruction(Array(OpCode.ADD_HL_SP.pattern)) with HasR16Operand {
+    override val cycles: MCycle = MCycle.Fixed(2)
+    override val bytes: Int = 1
+
+    private var carryFromLow: UByte = 0.toUByte
+
+    override protected[instructions] def micro: Seq[Micro] =
+      Seq(
+        Micro.fetchOpCode(bytes) { state =>
+          val hl = state.registers.hl
+          val sp = state.registers.sp
+          val lSum = hl.registerLoByte.toInt + sp.registerLoByte.toInt
+          carryFromLow = if (lSum > UByte.MaxValue.toInt) 1.toUByte else 0.toUByte
+          state.registers.l = lSum.toUByte
+          state.registers.flags.h = hl.overflowFromBit11(sp)
+        },
+        Micro.aluOperation { state =>
+          val hSum = state.registers.hl.registerHiByte.toInt +
+            state.registers.sp.registerHiByte.toInt +
+            carryFromLow.toInt
+
+          state.registers.h = hSum.toUByte
+          state.registers.flags.c = hSum > UByte.MaxValue.toInt
+          state.registers.flags.n = false
+        }
+      )
+  }
+
+  /**
    * ADD_HL_R16 - Add the value in r16 to HL.
    *
    * Because the ALU is 8bit, it needs two 8bit adds to add the two 16bit numbers together.
@@ -824,9 +860,9 @@ object Instruction {
 
     override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
       Micro.iduOperation { state =>
-        val original = operandContents(OpCode.Parameters.R16.SP, state)
+        val original = state.registers.sp
         val result = original + 1.toUShort
-        writeToOperandLocation(OpCode.Parameters.R16.SP, state, result)
+        state.registers.sp = result
       }
     )
   }
@@ -869,9 +905,9 @@ object Instruction {
 
     override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
       Micro.iduOperation { state =>
-        val original = operandContents(OpCode.Parameters.R16.SP, state)
+        val original = state.registers.sp
         val result = original - 1.toUShort
-        writeToOperandLocation(OpCode.Parameters.R16.SP, state, result)
+        state.registers.sp = result
       }
     )
   }
@@ -935,7 +971,7 @@ object Instruction {
       Micro.fetchOpCode(bytes),
       Micro.readMemory { state =>
         val a = state.registers.a
-        val valueToAnd = operandContents(OpCode.Parameters.R8.MEM_HL, state)
+        val valueToAnd = state.memory(state.registers.hl)
         val result = a & valueToAnd
 
         resolve(state, result)
@@ -979,7 +1015,7 @@ object Instruction {
       Micro.fetchOpCode(bytes),
       Micro.readMemory { state =>
         val a = state.registers.a
-        val valueToXor = operandContents(OpCode.Parameters.R8.MEM_HL, state)
+        val valueToXor = state.memory(state.registers.hl)
         val result = a ^ valueToXor
 
         resolve(state, result)
@@ -1013,7 +1049,7 @@ object Instruction {
   /**
    * OR_A_MEM_HL - Set A to the bitwise OR between the byte pointed to by HL and A.
    *
-   * @see[[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#OR_A,_HL_]]
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#OR_A,_HL_]]
    */
   case object OR_A_MEM_HL extends Instruction(Array(OpCode.OR_A_MEM_HL.pattern)) with HasR8Operand with OrOperation {
     override val cycles: MCycle = MCycle.Fixed(2)
@@ -1023,7 +1059,7 @@ object Instruction {
       Micro.fetchOpCode(bytes),
       Micro.readMemory { state =>
         val a = state.registers.a
-        val valueToOr = operandContents(OpCode.Parameters.R8.MEM_HL, state)
+        val valueToOr = state.memory(state.registers.hl)
         val result = a | valueToOr
 
         resolve(state, result)
