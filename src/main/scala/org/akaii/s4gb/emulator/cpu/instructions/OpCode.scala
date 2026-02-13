@@ -56,8 +56,11 @@ enum OpCode(val pattern: UByte, val mask: UByte = 0xFF.toUByte) {
   case ADC_A_R8 extends OpCode(0x88.toUByte, excludeBits210) // 10001SSS
   case SUB_A_R8 extends OpCode(0x90.toUByte, excludeBits210) // 10010SSS
   case SBC_A_R8 extends OpCode(0x98.toUByte, excludeBits210) // 10011SSS
+  case AND_A_MEM_HL extends OpCode(0xA6.toUByte) // 10100110
   case AND_A_R8 extends OpCode(0xA0.toUByte, excludeBits210) // 10100SSS
+  case XOR_A_MEM_HL extends OpCode(0xAE.toUByte) // 10101110
   case XOR_A_R8 extends OpCode(0xA8.toUByte, excludeBits210) // 10101SSS
+  case OR_A_MEM_HL extends OpCode(0xB6.toUByte) // 10110110
   case OR_A_R8 extends OpCode(0xB0.toUByte, excludeBits210) // 10110SSS
   case CP_A_R8 extends OpCode(0xB8.toUByte, excludeBits210) // 10111SSS
 
@@ -94,6 +97,7 @@ object OpCode {
 
   /**
    * Groups of OpCode Parameters
+   *
    * @see [[https://gbdev.io/pandocs/CPU_Instruction_Set.html]]
    */
   object Parameters {

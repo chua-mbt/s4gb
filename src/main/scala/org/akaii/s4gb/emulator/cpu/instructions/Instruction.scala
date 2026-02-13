@@ -78,8 +78,11 @@ object Instruction {
       case OpCode.ADC_A_R8 => ADC_A_R8(input)
       case OpCode.SUB_A_R8 => SUB_A_R8(input)
       case OpCode.SBC_A_R8 => SBC_A_R8(input)
+      case OpCode.AND_A_MEM_HL => AND_A_MEM_HL
       case OpCode.AND_A_R8 => AND_A_R8(input)
+      case OpCode.XOR_A_MEM_HL => XOR_A_MEM_HL
       case OpCode.XOR_A_R8 => XOR_A_R8(input)
+      case OpCode.OR_A_MEM_HL => OR_A_MEM_HL
       case OpCode.OR_A_R8 => OR_A_R8(input)
       case OpCode.CP_A_R8 => CP_A_R8(input)
       // Block 3 (0b11) https://gbdev.io/pandocs/CPU_Instruction_Set.html#block-3
@@ -99,17 +102,20 @@ object Instruction {
 
   sealed trait MCycle {
     def withinCost(elapsed: Int): Boolean
+
     def maxCost: Int
   }
 
   object MCycle {
     case class Fixed(cost: Int) extends MCycle {
       override def withinCost(elapsed: Int): Boolean = elapsed == cost
+
       override def maxCost: Int = cost
     }
 
     case class Varying(costRange: Range) extends MCycle {
       override def withinCost(elapsed: Int): Boolean = costRange.contains(elapsed)
+
       override def maxCost: Int = costRange.max
     }
   }
@@ -180,7 +186,10 @@ object Instruction {
     def operand(start: Int): OpCode.Parameters.R8 = OpCode.Parameters.R8.values(opCode.range(start, start - 2))
 
     protected def operandContents(operandStart: Int, state: Cpu.State): UByte =
-      operand(operandStart) match {
+      operandContents(operand(operandStart), state)
+
+    protected def operandContents(parameter: OpCode.Parameters.R8, state: Cpu.State): UByte =
+      parameter match {
         case OpCode.Parameters.R8.MEM_HL =>
           state.memory(state.registers.hl)
         case parameter =>
@@ -188,7 +197,10 @@ object Instruction {
       }
 
     protected def writeToOperandLocation(operandStart: Int, state: Cpu.State, value: UByte): Unit =
-      operand(operandStart) match {
+      writeToOperandLocation(operand(operandStart), state, value)
+
+    protected def writeToOperandLocation(parameter: OpCode.Parameters.R8, state: Cpu.State, value: UByte): Unit =
+      parameter match {
         case OpCode.Parameters.R8.MEM_HL =>
           state.memory.write(state.registers.hl, value)
         case parameter =>
@@ -362,12 +374,9 @@ object Instruction {
     override val cycles: MCycle = MCycle.Fixed(3)
     override val bytes: Int = 2
 
-    private val destStart = 5
-    lazy val dest: OpCode.Parameters.R8 = operand(destStart)
-
     override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
       Micro.readMemory(),
-      Micro.writeMemory { state => writeToOperandLocation(destStart, state, imm8) }
+      Micro.writeMemory { state => writeToOperandLocation(OpCode.Parameters.R8.MEM_HL, state, imm8) }
     )
   }
 
@@ -459,15 +468,12 @@ object Instruction {
     override val cycles: MCycle = MCycle.Fixed(3)
     override val bytes: Int = 1
 
-    private val operandStart = 5
-    lazy val operand: OpCode.Parameters.R8 = OpCode.Parameters.R8.MEM_HL
-
     override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
       Micro.readMemory(),
       Micro.writeMemory { state =>
-        val originalValue = operandContents(operandStart, state)
+        val originalValue = operandContents(OpCode.Parameters.R8.MEM_HL, state)
         val result = originalValue + 1.toUByte
-        writeToOperandLocation(operandStart, state, result)
+        writeToOperandLocation(OpCode.Parameters.R8.MEM_HL, state, result)
         state.registers.flags.z = result == 0.toUByte
         state.registers.flags.n = false
         state.registers.flags.h = originalValue.overflowFromBit3(1.toUByte)
@@ -508,14 +514,12 @@ object Instruction {
     override val cycles: MCycle = MCycle.Fixed(3)
     override val bytes: Int = 1
 
-    private val operandStart = 5
-
     override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
       Micro.readMemory(),
       Micro.writeMemory { state =>
-        val originalValue = operandContents(operandStart, state)
+        val originalValue = operandContents(OpCode.Parameters.R8.MEM_HL, state)
         val result = originalValue - 1.toUByte
-        writeToOperandLocation(operandStart, state, result)
+        writeToOperandLocation(OpCode.Parameters.R8.MEM_HL, state, result)
         state.registers.flags.z = result == 0.toUByte
         state.registers.flags.n = true
         state.registers.flags.h = originalValue.borrowFromBit4(1.toUByte)
@@ -874,6 +878,27 @@ object Instruction {
   }
 
   /**
+   * AND_A_MEM_HL - Set A to the bitwise AND between the byte pointed to by HL and A.
+   *
+   * @see[[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#AND_A,_HL_]]
+   */
+  case object AND_A_MEM_HL extends Instruction(Array(OpCode.AND_A_MEM_HL.pattern)) with HasR8Operand with AndOperation {
+    override val cycles: MCycle = MCycle.Fixed(2)
+    override val bytes: Int = 1
+
+    override protected[instructions] def micro: Seq[Micro] = Seq(
+      Micro.fetchOpCode(bytes),
+      Micro.readMemory { state =>
+        val a = state.registers.a
+        val valueToAnd = operandContents(OpCode.Parameters.R8.MEM_HL, state)
+        val result = a & valueToAnd
+
+        resolve(state, result)
+      }
+    )
+  }
+
+  /**
    * AND_A_R8 - Set A to the bitwise AND between the value in r8 and A.
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#AND_A,r8]]
@@ -897,6 +922,27 @@ object Instruction {
   }
 
   /**
+   * XOR_A_MEM_HL - Set A to the bitwise XOR between the byte pointed to by HL and A.
+   *
+   * @see[[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#XOR_A,_HL_]]
+   */
+  case object XOR_A_MEM_HL extends Instruction(Array(OpCode.XOR_A_MEM_HL.pattern)) with HasR8Operand with OrOperation {
+    override val cycles: MCycle = MCycle.Fixed(2)
+    override val bytes: Int = 1
+
+    override protected[instructions] def micro: Seq[Micro] = Seq(
+      Micro.fetchOpCode(bytes),
+      Micro.readMemory { state =>
+        val a = state.registers.a
+        val valueToXor = operandContents(OpCode.Parameters.R8.MEM_HL, state)
+        val result = a ^ valueToXor
+
+        resolve(state, result)
+      }
+    )
+  }
+
+  /**
    * XOR_A_R8 - Set A to the bitwise XOR between the value in r8 and A.
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#XOR_A,r8]]
@@ -913,6 +959,27 @@ object Instruction {
         val a = state.registers.a
         val valueToXor = operandContents(operandStart, state)
         val result = a ^ valueToXor
+
+        resolve(state, result)
+      }
+    )
+  }
+
+  /**
+   * OR_A_MEM_HL - Set A to the bitwise OR between the byte pointed to by HL and A.
+   *
+   * @see[[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#OR_A,_HL_]]
+   */
+  case object OR_A_MEM_HL extends Instruction(Array(OpCode.OR_A_MEM_HL.pattern)) with HasR8Operand with OrOperation {
+    override val cycles: MCycle = MCycle.Fixed(2)
+    override val bytes: Int = 1
+
+    override protected[instructions] def micro: Seq[Micro] = Seq(
+      Micro.fetchOpCode(bytes),
+      Micro.readMemory { state =>
+        val a = state.registers.a
+        val valueToOr = operandContents(OpCode.Parameters.R8.MEM_HL, state)
+        val result = a | valueToOr
 
         resolve(state, result)
       }
