@@ -11,8 +11,8 @@ class LoadInstructionsTests extends InstructionsTest {
   test("LD_SP_IMM16") {
     val imm16 = 0x1234.toUShort
     val opcode: UByte = OpCode.LD_SP_IMM16.pattern
-    val immLo: UByte = imm16.registerLoByte
-    val immHi: UByte = imm16.registerHiByte
+    val immLo: UByte = imm16.loByte
+    val immHi: UByte = imm16.hiByte
     val input: Array[UByte] = Array(opcode, immLo, immHi)
     val instruction = Instruction.decode(input)
 
@@ -31,8 +31,8 @@ class LoadInstructionsTests extends InstructionsTest {
     val imm16 = 0x1234.toUShort
     forNonSPR16OpCodeParams { destParam =>
       val opcode: UByte = OpCode.LD_R16_IMM16.setParam(destParam -> 4)
-      val immLo: UByte = imm16.registerLoByte
-      val immHi: UByte = imm16.registerHiByte
+      val immLo: UByte = imm16.loByte
+      val immHi: UByte = imm16.hiByte
 
       val input: Array[UByte] = Array(opcode, immLo, immHi)
       val instruction = Instruction.decode(input)

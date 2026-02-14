@@ -33,12 +33,15 @@ case class Registers(
 
   def apply(r: R16): UShort = (underlying(r.hi.ordinal).toUShort << 8) | underlying(r.lo.ordinal).toUShort
   def update(r: R16, v: UShort): Unit = {
-    underlying.update(r.hi.ordinal, v.registerHiByte)
-    underlying.update(r.lo.ordinal, v.registerLoByte)
+    underlying.update(r.hi.ordinal, v.hiByte)
+    underlying.update(r.lo.ordinal, v.loByte)
   }
 
   def updateSPHi(v: UByte): Unit = sp = (v.toUShort << 8) | (sp & byteMask)
   def updateSPLo(v: UByte): Unit = sp = (sp & (byteMask << 8)) | v.toUShort
+
+  def updatePCHi(v: UByte): Unit = pc = (v.toUShort << 8) | (pc & byteMask)
+  def updatePCLo(v: UByte): Unit = pc = (pc & (byteMask << 8)) | v.toUShort
 
   /** 8-bit registers (direct) */
   @inline def a: UByte = apply(R8.A)

@@ -97,6 +97,9 @@ object Instruction {
       case OpCode.XOR_A_IMM8 => XOR_A_IMM8(input)
       case OpCode.OR_A_IMM8 => OR_A_IMM8(input)
       case OpCode.CP_A_IMM8 => CP_A_IMM8(input)
+      case OpCode.RET_COND => RET_COND(input)
+      case OpCode.RET => RET
+      case OpCode.RETI => RETI
       case OpCode.DI => DI
       case OpCode.EI => EI
       // TODO: implement other instructions
@@ -256,9 +259,9 @@ object Instruction {
     protected def writeToOperandHiLocation(operand: OpCode.Parameters.R16, state: Cpu.State, value: UShort): Unit =
       operand match {
         case OpCode.Parameters.R16.SP =>
-          state.registers.updateSPHi(value.registerHiByte)
+          state.registers.updateSPHi(value.hiByte)
         case parameter =>
-          state.registers.update(parameter.toRegister.hi, value.registerHiByte)
+          state.registers.update(parameter.toRegister.hi, value.hiByte)
       }
 
     protected def writeToOperandLoLocation(operandStart: Int, state: Cpu.State, value: UShort): Unit =
@@ -267,9 +270,9 @@ object Instruction {
     protected def writeToOperandLoLocation(operand: OpCode.Parameters.R16, state: Cpu.State, value: UShort): Unit =
       operand match {
         case OpCode.Parameters.R16.SP =>
-          state.registers.updateSPLo(value.registerLoByte)
+          state.registers.updateSPLo(value.loByte)
         case parameter =>
-          state.registers.update(parameter.toRegister.lo, value.registerLoByte)
+          state.registers.update(parameter.toRegister.lo, value.loByte)
       }
   }
 
@@ -852,14 +855,14 @@ object Instruction {
         Micro.fetchOpCode(bytes) { state =>
           val hl = state.registers.hl
           val sp = state.registers.sp
-          val lSum = hl.registerLoByte.toInt + sp.registerLoByte.toInt
+          val lSum = hl.loByte.toInt + sp.loByte.toInt
           carryFromLow = if (lSum > UByte.MaxValue.toInt) 1.toUByte else 0.toUByte
           state.registers.l = lSum.toUByte
           state.registers.flags.h = hl.overflowFromBit11(sp)
         },
         Micro.aluOperation { state =>
-          val hSum = state.registers.hl.registerHiByte.toInt +
-            state.registers.sp.registerHiByte.toInt +
+          val hSum = state.registers.hl.hiByte.toInt +
+            state.registers.sp.hiByte.toInt +
             carryFromLow.toInt
 
           state.registers.h = hSum.toUByte
@@ -891,14 +894,14 @@ object Instruction {
       Micro.fetchOpCode(bytes) { state =>
         val hl = state.registers.hl
         val op = operandContents(operandStart, state)
-        val lSum = hl.registerLoByte.toInt + op.registerLoByte.toInt
+        val lSum = hl.loByte.toInt + op.loByte.toInt
         carryFromLow = if (lSum > UByte.MaxValue.toInt) 1.toUByte else 0.toUByte
         state.registers.l = lSum.toUByte
         state.registers.flags.h = hl.overflowFromBit11(op)
       },
       Micro.iduOperation { state =>
-        val hSum = state.registers.hl.registerHiByte.toInt +
-          operandContents(operandStart, state).registerHiByte.toInt +
+        val hSum = state.registers.hl.hiByte.toInt +
+          operandContents(operandStart, state).hiByte.toInt +
           carryFromLow.toInt
 
         state.registers.h = hSum.toUByte
@@ -1378,6 +1381,79 @@ object Instruction {
     )
   }
 
+  /**
+   * RET_COND - Return from subroutine if condition cc is met.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#RET_cc]]
+   */
+  case class RET_COND(private val input: Array[UByte]) extends Instruction(input) with HasCondOperand {
+    override val cycles: MCycle = MCycle.Varying(2 to 5)
+    override val bytes: Int = 1
+
+    private val operandStart = 4
+    lazy val operand: OpCode.Parameters.Condition = operand(operandStart)
+
+    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+      Micro.readMemoryAndThen(continueIf(operand)),
+      Micro.readMemory(),
+      Micro.modifyPC { state =>
+        state.registers.updatePCLo(state.memory(state.registers.sp))
+        state.registers.sp += 1.toUShort
+      },
+      Micro.modifyPC { state =>
+        state.registers.updatePCHi(state.memory(state.registers.sp))
+        state.registers.sp += 1.toUShort
+      }
+    )
+  }
+
+  /**
+   * RET - Return from subroutine. This is basically a POP PC (if such an instruction existed).
+   * See POP r16 for an explanation of how POP works.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#RET]]
+   */
+  case object RET extends Instruction(Array(OpCode.RET.pattern)) {
+    override val cycles: MCycle = MCycle.Fixed(4)
+    override val bytes: Int = 1
+
+    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+      Micro.readMemory(),
+      Micro.modifyPC { state =>
+        state.registers.updatePCLo(state.memory(state.registers.sp))
+        state.registers.sp += 1.toUShort
+      },
+      Micro.modifyPC { state =>
+        state.registers.updatePCHi(state.memory(state.registers.sp))
+        state.registers.sp += 1.toUShort
+      }
+    )
+  }
+
+  /**
+   * RETI - Return from subroutine and enable interrupts. This is basically equivalent to executing EI then RET,
+   * meaning that IME is set right after this instruction.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#RETI]]
+   */
+  case object RETI extends Instruction(Array(OpCode.RETI.pattern)) {
+    override val cycles: MCycle = MCycle.Fixed(4)
+    override val bytes: Int = 1
+
+    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+      Micro.readMemory(),
+      Micro.modifyPC { state =>
+        state.registers.updatePCLo(state.memory(state.registers.sp))
+        state.registers.sp += 1.toUShort
+      },
+      Micro.modifyPC { state =>
+        state.registers.updatePCHi(state.memory(state.registers.sp))
+        state.registers.sp += 1.toUShort
+        state.setIME(true)
+      }
+    )
+  }
+
   /*
    * Carry flag instructions
    * https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#Carry_flag_instructions
@@ -1434,8 +1510,8 @@ object Instruction {
       Micro.fetchOpCode(bytes) { state => originalSP = state.registers.sp },
       Micro.readMemory(),
       Micro.readMemory(),
-      Micro.writeMemory { state => state.memory.write(imm16, originalSP.registerLoByte) },
-      Micro.writeMemory { state => state.memory.write(imm16 + 1.toUShort, originalSP.registerHiByte) }
+      Micro.writeMemory { state => state.memory.write(imm16, originalSP.loByte) },
+      Micro.writeMemory { state => state.memory.write(imm16 + 1.toUShort, originalSP.hiByte) }
     )
   }
 
@@ -1493,6 +1569,7 @@ object Instruction {
    * (PC is not incremented, due to a hardware bug).
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#HALT]]
+   * @see [[https://gist.github.com/SonoSooS/c0055300670d678b5ae8433e20bea595#halt]]
    */
   case object HALT extends Instruction(Array(OpCode.HALT.pattern)) {
     override val cycles: MCycle = MCycle.Fixed(1)
@@ -1568,7 +1645,7 @@ object Instruction {
     override val bytes: Int = 2
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
-      Micro.fetchOpCode(bytes){ state => state.changeExecutionMode(Cpu.ExecutionMode.Stopped) },
+      Micro.fetchOpCode(bytes) { state => state.changeExecutionMode(Cpu.ExecutionMode.Stopped) },
       Micro.readMemory(),
     )
   }

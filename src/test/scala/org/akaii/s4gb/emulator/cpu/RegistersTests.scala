@@ -42,8 +42,8 @@ class RegistersTests extends FunSuite {
       set16(value)
       assertEquals(get16(), value)
 
-      assertEquals(regs(r16.hi), value.registerHiByte)
-      assertEquals(regs(r16.lo), value.registerLoByte)
+      assertEquals(regs(r16.hi), value.hiByte)
+      assertEquals(regs(r16.lo), value.loByte)
     }
   }
 

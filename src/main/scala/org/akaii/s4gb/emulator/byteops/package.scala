@@ -5,8 +5,8 @@ import spire.math.{UByte, UShort}
 package object byteops {
   extension (value: UShort) {
     def toHexString: String = f"0x${value.toInt}%04X"
-    def registerHiByte: UByte = UByte((value.toInt >>> 8) & 0xFF)
-    def registerLoByte: UByte = UByte(value.toInt & 0xFF)
+    def hiByte: UByte = UByte((value.toInt >>> 8) & 0xFF)
+    def loByte: UByte = UByte(value.toInt & 0xFF)
 
     def overflowFromBit11(other: UShort): Boolean =
       ((value.toInt & 0x0FFF) + (other.toInt & 0x0FFF)) > 0x0FFF

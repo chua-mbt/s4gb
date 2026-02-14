@@ -15,13 +15,13 @@ class StackInstructionsTests extends InstructionsTest {
     testMemoryLocations.foreach { memoryLocation =>
       val imm16 = memoryLocation
       
-      val input: Array[UByte] = Array(OpCode.LD_MEM_IMM16_SP.pattern, imm16.registerLoByte, imm16.registerHiByte)
+      val input: Array[UByte] = Array(OpCode.LD_MEM_IMM16_SP.pattern, imm16.loByte, imm16.hiByte)
       val instruction = Instruction.decode(input)
 
       assertEquals(
         instruction.toString, 
         f"LD_MEM_IMM16_SP(0x${OpCode.LD_MEM_IMM16_SP.pattern.toInt}%02X" +
-        f"${imm16.registerLoByte.toInt}%02X${imm16.registerHiByte.toInt}%02X)"
+        f"${imm16.loByte.toInt}%02X${imm16.hiByte.toInt}%02X)"
       )
       verifyInstruction[Instruction.LD_MEM_IMM16_SP](OpCode.LD_MEM_IMM16_SP.pattern, instruction) { ld =>
         assertEquals(ld.imm16, imm16)
