@@ -263,6 +263,29 @@ object Instruction {
       }
   }
 
+  trait HasR16MemOperand {
+    self: Instruction =>
+    def operand(start: Int): OpCode.Parameters.R16Mem = OpCode.Parameters.R16Mem.values(opCode.range(start, start - 1))
+
+    protected def operandContents(operandStart: Int, state: Cpu.State): UShort =
+      operand(operandStart) match {
+        case OpCode.Parameters.R16Mem.BC =>
+          state.registers.bc
+        case OpCode.Parameters.R16Mem.DE =>
+          state.registers.de
+        case _ =>
+          state.registers.hl
+      }
+
+    protected def updateIfHL(operandStart: Int, state: Cpu.State): Unit =
+      operand(operandStart) match {
+        case OpCode.Parameters.R16Mem.HLPlus => state.registers.hl += 1.toUShort
+        case OpCode.Parameters.R16Mem.HLMinus => state.registers.hl -= 1.toUShort
+        case _ => ()
+      }
+
+  }
+
   trait HasCondOperand {
     self: Instruction =>
     def operand(start: Int): OpCode.Parameters.Condition = OpCode.Parameters.Condition.values(opCode.range(start, start - 1))
@@ -369,15 +392,18 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD__r16_,A]]
    */
-  case class LD_R16MEM_A(private val input: Array[UByte]) extends Instruction(input) with HasR16Operand {
+  case class LD_R16MEM_A(private val input: Array[UByte]) extends Instruction(input) with HasR16MemOperand {
     override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 1
 
     private val destRefStart = 5
-    lazy val destRef: OpCode.Parameters.R16 = operand(destRefStart)
+    lazy val destRef: OpCode.Parameters.R16Mem = operand(destRefStart)
 
     override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
-      Micro.writeMemory { state => state.memory.write(operandContents(destRefStart, state), state.registers.a) }
+      Micro.writeMemory { state =>
+        state.memory.write(operandContents(destRefStart, state), state.registers.a)
+        updateIfHL(destRefStart, state)
+      }
     )
   }
 
@@ -386,15 +412,18 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD_A,_r16_]]
    */
-  case class LD_A_R16MEM(private val input: Array[UByte]) extends Instruction(input) with HasR16Operand {
+  case class LD_A_R16MEM(private val input: Array[UByte]) extends Instruction(input) with HasR16MemOperand {
     override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 1
 
     private val srcRefStart = 5
-    lazy val srcRef: OpCode.Parameters.R16 = operand(srcRefStart)
+    lazy val srcRef: OpCode.Parameters.R16Mem = operand(srcRefStart)
 
     override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
-      Micro.readMemory { state => state.registers.a = state.memory(operandContents(srcRefStart, state)) }
+      Micro.readMemory { state =>
+        state.registers.a = state.memory(operandContents(srcRefStart, state))
+        updateIfHL(srcRefStart, state)
+      }
     )
   }
 

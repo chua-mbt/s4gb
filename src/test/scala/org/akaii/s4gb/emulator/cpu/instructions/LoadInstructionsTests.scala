@@ -51,7 +51,7 @@ class LoadInstructionsTests extends InstructionsTest {
   }
 
   test("LD_R16MEM_A") {
-    forNonSPR16OpCodeParams { destRefParam =>
+    forR16MemOpCodeParams { destRefParam =>
       val opcode: UByte = OpCode.LD_R16MEM_A.setParam(destRefParam -> 4)
       val input: Array[UByte] = Array(opcode)
       val instruction = Instruction.decode(input)
@@ -67,6 +67,10 @@ class LoadInstructionsTests extends InstructionsTest {
           registers.a = 0x42.toUByte
           registers(destRefParam.toRegister) = 0xC000.toUShort
         },
+        expectedRegister = registers =>
+          if (destRefParam == OpCode.Parameters.R16Mem.HLPlus) registers.hl = 0xC001.toUShort
+          else if (destRefParam == OpCode.Parameters.R16Mem.HLMinus) registers.hl = 0xBFFF.toUShort
+          else registers(destRefParam.toRegister) = 0xC000.toUShort,
         expectedMemory = memory => {
           memory.write(0xC000.toUShort, 0x42.toUByte)
         }
@@ -75,7 +79,7 @@ class LoadInstructionsTests extends InstructionsTest {
   }
 
   test("LD_A_R16MEM") {
-    forNonSPR16OpCodeParams { srcParam =>
+    forR16MemOpCodeParams { srcParam =>
       val opcode: UByte = OpCode.LD_A_R16MEM.setParam(srcParam -> 4)
       val input: Array[UByte] = Array(opcode)
       val instruction = Instruction.decode(input)
@@ -89,7 +93,12 @@ class LoadInstructionsTests extends InstructionsTest {
         instruction = instruction,
         setupRegister = registers => registers(srcParam.toRegister) = 0xC000.toUShort,
         setupMemory = (registers, memory) => memory.write(registers(srcParam.toRegister), 0x42.toUByte),
-        expectedRegister = _.a = 0x42.toUByte
+        expectedRegister = registers => {
+          registers.a = 0x42.toUByte
+          if (srcParam == OpCode.Parameters.R16Mem.HLPlus) registers.hl = 0xC001.toUShort
+          else if (srcParam == OpCode.Parameters.R16Mem.HLMinus) registers.hl = 0xBFFF.toUShort
+          else registers(srcParam.toRegister) = 0xC000.toUShort
+        }
       )
     }
   }

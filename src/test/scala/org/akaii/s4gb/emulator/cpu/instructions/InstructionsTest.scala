@@ -105,6 +105,9 @@ abstract class InstructionsTest extends FunSuite {
   protected def forNonSPR16OpCodeParams(test: OpCode.Parameters.R16 => Unit): Unit =
     OpCode.Parameters.R16.nonSPValues.foreach(test)
 
+  protected def forR16MemOpCodeParams(test: OpCode.Parameters.R16Mem => Unit): Unit =
+    OpCode.Parameters.R16Mem.values.foreach(test)
+
   protected def forNonMemHLR8OpCodeParams(test: OpCode.Parameters.R8 => Unit): Unit =
     OpCode.Parameters.R8.nonMemHLValues.foreach(test)
 

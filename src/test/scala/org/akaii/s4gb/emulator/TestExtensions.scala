@@ -5,6 +5,8 @@ import org.akaii.s4gb.emulator.cpu.Registers
 import org.akaii.s4gb.emulator.cpu.instructions.OpCode
 import spire.math.UByte
 
+import scala.language.reflectiveCalls
+
 extension (registers: Registers) {
   def copyTo(target: Registers): Unit = {
     System.arraycopy(registers.underlying, 0, target.underlying, 0, registers.underlying.length)
@@ -21,25 +23,10 @@ extension (memory: TestMap) {
 }
 
 /**
- * Extensions to help set parameters for OpCode instances in testing
- *
- * Requires targetName disambiguation due to type JVM erasure
+ * Extension to help set parameters for OpCode instances in testing
  */
 extension (opcode: OpCode)
-  @scala.annotation.targetName("setParamR8")
-  def setParam(params: (OpCode.Parameters.R8, Int)*): UByte =
-    params.foldLeft(opcode.pattern) { case (acc, (param, shift)) =>
-      acc | (param.ordinal << shift).toUByte
-    }
-
-  @scala.annotation.targetName("setParamR16")
-  def setParam(params: (OpCode.Parameters.R16, Int)*): UByte =
-    params.foldLeft(opcode.pattern) { case (acc, (param, shift)) =>
-      acc | (param.ordinal << shift).toUByte
-    }
-
-  @scala.annotation.targetName("setParamCond")
-  def setParam(params: (OpCode.Parameters.Condition, Int)*): UByte =
+  def setParam[T <: { def ordinal: Int }](params: (T, Int)*): UByte =
     params.foldLeft(opcode.pattern) { case (acc, (param, shift)) =>
       acc | (param.ordinal << shift).toUByte
     }

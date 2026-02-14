@@ -145,6 +145,12 @@ object OpCode {
 
     enum R16Mem {
       case BC, DE, HLPlus, HLMinus
+
+      def toRegister: Registers.R16 = this match {
+        case BC => Registers.R16.BC
+        case DE => Registers.R16.DE
+        case _ => Registers.R16.HL
+      }
     }
 
     enum Condition {
