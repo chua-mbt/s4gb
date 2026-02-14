@@ -8,6 +8,25 @@ import org.akaii.s4gb.emulator.{TestMap, setParam}
 import spire.math.{UByte, UShort}
 
 class LoadInstructionsTests extends InstructionsTest {
+  test("LD_SP_IMM16") {
+    val imm16 = 0x1234.toUShort
+    val opcode: UByte = OpCode.LD_SP_IMM16.pattern
+    val immLo: UByte = imm16.registerLoByte
+    val immHi: UByte = imm16.registerHiByte
+    val input: Array[UByte] = Array(opcode, immLo, immHi)
+    val instruction = Instruction.decode(input)
+
+    assertEquals(instruction.toString, f"LD_SP_IMM16(0x${opcode.toInt}%02X${immLo.toInt}%02X${immHi.toInt}%02X)")
+    verifyInstruction[Instruction.LD_SP_IMM16](opcode, instruction) { ld =>
+      assertEquals(ld.imm16, imm16)
+    }
+
+    testInstruction(
+      instruction = instruction,
+      expectedRegister = registers => registers.sp = imm16
+    )
+  }
+
   test("LD_R16_IMM16") {
     val imm16 = 0x1234.toUShort
     forNonSPR16OpCodeParams { destParam =>

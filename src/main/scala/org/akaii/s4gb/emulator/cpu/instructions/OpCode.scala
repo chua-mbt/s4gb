@@ -15,6 +15,7 @@ enum OpCode(val pattern: UByte, val mask: UByte = 0xFF.toUByte) {
   // Block 0: https://gbdev.io/pandocs/CPU_Instruction_Set.html#block-0
   case NOP extends OpCode(0x00.toUByte) // 00000000
 
+  case LD_SP_IMM16 extends OpCode(0x31.toUByte) // 00110001
   case LD_R16_IMM16 extends OpCode(0x01.toUByte, excludeBits54) // 00DD0001
   case LD_R16MEM_A extends OpCode(0x02.toUByte, excludeBits54) // 00DD0010
   case LD_A_R16MEM extends OpCode(0x0A.toUByte, excludeBits54) // 00SS1010

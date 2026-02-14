@@ -45,6 +45,7 @@ object Instruction {
     OpCode.decode(input.head) match {
       // Block 0 (0b00)  https://gbdev.io/pandocs/CPU_Instruction_Set.html#block-0
       case OpCode.NOP => NOP
+      case OpCode.LD_SP_IMM16 => LD_SP_IMM16(input)
       case OpCode.LD_R16_IMM16 => LD_R16_IMM16(input)
       case OpCode.LD_R16MEM_A => LD_R16MEM_A(input)
       case OpCode.LD_A_R16MEM => LD_A_R16MEM(input)
@@ -240,7 +241,10 @@ object Instruction {
       }
 
     protected def writeToOperandHiLocation(operandStart: Int, state: Cpu.State, value: UShort): Unit =
-      operand(operandStart) match {
+      writeToOperandHiLocation(operand(operandStart), state, value)
+
+    protected def writeToOperandHiLocation(operand: OpCode.Parameters.R16, state: Cpu.State, value: UShort): Unit =
+      operand match {
         case OpCode.Parameters.R16.SP =>
           state.registers.updateSPHi(value.registerHiByte)
         case parameter =>
@@ -248,7 +252,10 @@ object Instruction {
       }
 
     protected def writeToOperandLoLocation(operandStart: Int, state: Cpu.State, value: UShort): Unit =
-      operand(operandStart) match {
+      writeToOperandLoLocation(operand(operandStart), state, value)
+
+    protected def writeToOperandLoLocation(operand: OpCode.Parameters.R16, state: Cpu.State, value: UShort): Unit =
+      operand match {
         case OpCode.Parameters.R16.SP =>
           state.registers.updateSPLo(value.registerLoByte)
         case parameter =>
@@ -323,6 +330,21 @@ object Instruction {
    *
    * Generally, direction is from right to left (i.e., LD dest <- src)
    **/
+
+  /**
+   * LD_SP_IMM16 - Copy the value imm16 (n16) into register SP.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD_SP,n16]]
+   */
+  case class LD_SP_IMM16(private val input: Array[UByte]) extends Instruction(input) with HasR16Operand with HasImm16 {
+    override val cycles: MCycle = MCycle.Fixed(3)
+    override val bytes: Int = 3
+
+    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+      Micro.readMemory { state => writeToOperandHiLocation(OpCode.Parameters.R16.SP, state, imm16) },
+      Micro.readMemory { state => writeToOperandLoLocation(OpCode.Parameters.R16.SP, state, imm16) }
+    )
+  }
 
   /**
    * LD_R16_IMM16 - Copy the value imm16 (n16) into register r16.
