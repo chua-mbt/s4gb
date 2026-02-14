@@ -2,9 +2,8 @@ package org.akaii.s4gb.emulator.cpu.instructions
 
 import org.akaii.s4gb.emulator.MemoryMap
 import org.akaii.s4gb.emulator.byteops.*
+import org.akaii.s4gb.emulator.cpu.instructions.OpCode.Extract.*
 import org.akaii.s4gb.emulator.cpu.{Cpu, Registers}
-import OpCode.Extract.*
-import org.akaii.s4gb.emulator.cpu.instructions.Instruction.Micro
 import spire.math.{UByte, UShort}
 
 /**
@@ -21,21 +20,20 @@ sealed abstract class Instruction(protected val value: Array[UByte]) extends Pro
   val cycles: Instruction.MCycle
   val bytes: Int
 
-  def execute(state: Cpu.State): Boolean = {
+  def execute(state: Cpu.State): Instruction.ExecutionResult = {
     val earlyCompletion: Boolean =
       if (state.getMicroStep < micro.length) {
         val microInstruction = micro(state.getMicroStep)
-        microInstruction.execute(state) == Micro.Done
+        microInstruction.execute(state) == Instruction.ExecutionResult.Completed
       } else {
         false
       }
 
-    earlyCompletion || (state.getElapsed + 1) > micro.length
+    val nextStep = state.getElapsed + 1
+    Instruction.ExecutionResult(earlyCompletion || nextStep > micro.length)
   }
 
   protected[instructions] def micro: Seq[Instruction.Micro] = Seq(Instruction.Micro.fetchOpCode(bytes))
-
-  protected def executeImplementation(state: Cpu.State): Unit = ???
 
   override def toString: String = f"$productPrefix(0x${opCode.toInt}%02X)"
 }
@@ -125,10 +123,20 @@ object Instruction {
   }
 
   private type MicroStep = Cpu.State => Unit
-  private type MicroGate = Cpu.State => Micro.Next
+  private type MicroGate = Cpu.State => ExecutionResult
 
   /** Each MicroStep costs 1 cycle */
   final case class Micro private(execute: MicroGate)
+
+  sealed trait ExecutionResult
+
+  object ExecutionResult {
+    case object Completed extends ExecutionResult
+
+    case object Progressing extends ExecutionResult
+
+    def apply(done: Boolean): ExecutionResult = if (done) Completed else Progressing
+  }
 
   /**
    * Types are distinguished only to understand how the cycle is being spent
@@ -136,15 +144,10 @@ object Instruction {
    * @see [[https://gist.github.com/SonoSooS/c0055300670d678b5ae8433e20bea595?utm_source=chatgpt.com#fetch-and-stuff]]
    * */
   object Micro {
-    sealed trait Next
-
-    case object Done extends Next
-
-    case object Continue extends Next
 
     private def advancePC(bytes: Int, state: Cpu.State): Unit = state.registers.advancePC(bytes)
 
-    private def microOp(execute: MicroStep): Micro = Micro { state => execute(state); Continue }
+    private def microOp(execute: MicroStep): Micro = Micro { state => execute(state); ExecutionResult.Progressing }
 
     def fetchOpCode(bytes: Int): Micro = microOp { state => advancePC(bytes, state) }
 
@@ -290,14 +293,14 @@ object Instruction {
     self: Instruction =>
     def operand(start: Int): OpCode.Parameters.Condition = OpCode.Parameters.Condition.values(opCode.range(start, start - 1))
 
-    def continueIf(condition: OpCode.Parameters.Condition)(state: Cpu.State): Micro.Next = {
+    def continueIf(condition: OpCode.Parameters.Condition)(state: Cpu.State): ExecutionResult = {
       val shouldContinue = condition match {
         case OpCode.Parameters.Condition.NZ => !state.registers.flags.z
         case OpCode.Parameters.Condition.Z => state.registers.flags.z
         case OpCode.Parameters.Condition.NC => !state.registers.flags.c
         case OpCode.Parameters.Condition.C => state.registers.flags.c
       }
-      if (shouldContinue) Micro.Continue else Micro.Done
+      ExecutionResult.apply(!shouldContinue)
     }
   }
 
@@ -1489,7 +1492,7 @@ object Instruction {
     override val bytes: Int = 1
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
-      Micro.fetchOpCode(bytes) { state => ??? } // TODO
+      Micro.fetchOpCode(bytes) { state => state.changeExecutionMode(Cpu.ExecutionMode.Halted) }
     )
   }
 
@@ -1506,8 +1509,6 @@ object Instruction {
   case object NOP extends Instruction(0x0.toInstructionInput) {
     override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
-
-    override def executeImplementation(state: Cpu.State): Unit = {}
   }
 
   /**

@@ -48,11 +48,12 @@ abstract class InstructionsTest extends FunSuite {
 
   @annotation.tailrec
   final def exhaustInstruction(instruction: Instruction, state: Cpu.State): Cpu.State =
-    if (instruction.execute(state)) {
-      state
-    } else {
-      state.setMicroStep(state.getMicroStep + 1)
-      exhaustInstruction(instruction, state)
+    instruction.execute(state) match {
+      case Instruction.ExecutionResult.Completed =>
+        state
+      case Instruction.ExecutionResult.Progressing =>
+        state.setMicroStep(state.getMicroStep + 1)
+        exhaustInstruction(instruction, state)
     }
 
   protected def verifyInstruction[T <: Instruction : ClassTag](
@@ -74,11 +75,13 @@ abstract class InstructionsTest extends FunSuite {
     finalState: Cpu.State,
     instruction: Instruction,
     expectedPC: UShort,
+    expectedExecutionMode: Cpu.ExecutionMode,
     expectedElapsed: Option[Int],
     expectedState: Cpu.State
   )(implicit loc: Location): Unit = {
     assert(instruction.cycles.withinCost(finalState.getElapsed))
     expectedElapsed.foreach(expected => assertEquals(finalState.getElapsed, expected))
+    assertEquals(finalState.getExecutionMode, expectedExecutionMode)
     assertEquals(finalState.registers.pc, expectedPC)
     assertEquals(finalState.registers, expectedState.registers)
     assertEquals(finalState.memory, expectedState.memory)
@@ -92,13 +95,14 @@ abstract class InstructionsTest extends FunSuite {
     expectedRegister: Registers => Unit = _ => (),
     expectedMemory: TestMap => Unit = _ => (),
     expectedIME: IMEFlag = IMEEnabled,
+    expectedExecutionMode: Cpu.ExecutionMode = Cpu.ExecutionMode.Running,
     expectedPC: Option[UShort] = None,
     expectedElapsed: Option[Int] = None
   )(implicit loc: Location): Unit = {
     val initialState = setupTest(setupRegister, setupMemory, setupIME)
     val expectedState = setupExpected(initialState, instruction, expectedRegister, expectedMemory, expectedIME)
     val finalState = exhaustInstruction(instruction, initialState)
-    verifyFinalState(finalState, instruction, expectedPC.getOrElse(instruction.bytes.toUShort),
+    verifyFinalState(finalState, instruction, expectedPC.getOrElse(instruction.bytes.toUShort), expectedExecutionMode,
       expectedElapsed, expectedState)
   }
 

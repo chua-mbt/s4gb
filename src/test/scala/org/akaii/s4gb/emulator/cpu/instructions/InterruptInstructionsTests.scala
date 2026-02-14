@@ -34,6 +34,6 @@ class InterruptInstructionsTests extends InstructionsTest {
     assertEquals(instruction.toString, "HALT(0x76)")
     assertEquals(instruction, Instruction.HALT)
 
-    // TODO : instruction.execute.apply.tupled(state)
+    testInstruction(instruction = instruction, expectedExecutionMode = ExecutionMode.Halted)
   }
 }
