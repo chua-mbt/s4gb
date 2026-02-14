@@ -3,6 +3,7 @@ package org.akaii.s4gb.emulator.cpu.instructions
 import munit.*
 import org.akaii.s4gb.emulator.TestMap
 import org.akaii.s4gb.emulator.byteops.*
+import org.akaii.s4gb.emulator.cpu.Cpu.ExecutionMode
 import org.akaii.s4gb.emulator.cpu.Registers
 import org.akaii.s4gb.emulator.cpu.Registers.R16
 import org.akaii.s4gb.emulator.cpu.instructions.{Instruction, OpCode}
@@ -85,7 +86,6 @@ class MiscInstructionsTests extends InstructionsTest {
     )
   }
 
-
   test("DAA - flags[HC]") {
     val baseA: UByte = 0x15.toUByte
     val instruction = Instruction.decode(Array(OpCode.DAA.pattern))
@@ -123,4 +123,10 @@ class MiscInstructionsTests extends InstructionsTest {
     )
   }
 
+  test("STOP") {
+    val instruction = Instruction.decode(Array(OpCode.STOP.pattern, 0x00.toUByte))
+    assertEquals(instruction.toString, "STOP(0x1000)")
+    verifyInstructionOpCode[Instruction.STOP](OpCode.STOP.pattern, instruction)
+    testInstruction(instruction = instruction, expectedExecutionMode = ExecutionMode.Stopped)
+  }
 }

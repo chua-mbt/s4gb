@@ -70,6 +70,7 @@ object Instruction {
       case OpCode.CCF => CCF
       case OpCode.JR_IMM8 => JR_IMM8(input)
       case OpCode.JR_COND_IMM8 => JR_COND_IMM8(input)
+      case OpCode.STOP => STOP(input)
       // Block 1 (0b01) https://gbdev.io/pandocs/CPU_Instruction_Set.html#block-1-8-bit-register-to-register-loads
       case OpCode.HALT => HALT
       case OpCode.LD_MEM_HL_R8 => LD_MEM_HL_R8(input)
@@ -119,6 +120,12 @@ object Instruction {
       override def withinCost(elapsed: Int): Boolean = costRange.contains(elapsed)
 
       override def maxCost: Int = costRange.max
+    }
+
+    case object Undefined extends MCycle {
+      override def withinCost(elapsed: Int): Boolean = true
+
+      override def maxCost: Int = Int.MaxValue
     }
   }
 
@@ -1468,7 +1475,7 @@ object Instruction {
   }
 
   /**
-   * Halt - Enter CPU low-power consumption mode until an interrupt occurs.
+   * HALT - Enter CPU low-power consumption mode until an interrupt occurs.
    *
    * The exact behavior of this instruction depends on the state of the IME flag, and whether interrupts are
    * pending (i.e. whether ‘[IE] & [IF]’ is non-zero):
@@ -1543,6 +1550,26 @@ object Instruction {
         state.registers.flags.z = adjustedA == 0.toUByte
         state.registers.flags.h = false
       }
+    )
+  }
+
+  /**
+   * STOP - Enter CPU very low power mode. Also used to switch between GBC double speed and normal speed CPU modes.
+   *
+   * The exact behavior of this instruction is fragile and may interpret its second byte as a separate
+   * instruction (see the Pan Docs), which is why rgbasm(1) allows explicitly specifying the
+   * second byte (STOP imm8 (n8)) to override the default of $00 (a NOP instruction).
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#STOP]]
+   * @see [[https://gist.github.com/SonoSooS/c0055300670d678b5ae8433e20bea595#nop-and-stop]]
+   */
+  case class STOP(private val input: Array[UByte]) extends Instruction(input) with HasImm8 {
+    override val cycles: MCycle = MCycle.Undefined
+    override val bytes: Int = 2
+
+    override protected[instructions] def micro: Seq[Micro] = Seq(
+      Micro.fetchOpCode(bytes){ state => state.changeExecutionMode(Cpu.ExecutionMode.Stopped) },
+      Micro.readMemory(),
     )
   }
 }

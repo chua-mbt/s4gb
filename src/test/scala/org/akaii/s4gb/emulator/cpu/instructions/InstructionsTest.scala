@@ -5,6 +5,7 @@ import org.akaii.s4gb.emulator.byteops.*
 import org.akaii.s4gb.emulator.cpu.Cpu.{IMEEnabled, IMEFlag}
 import org.akaii.s4gb.emulator.cpu.{Cpu, Registers}
 import org.akaii.s4gb.emulator.cpu.Registers.R16
+import org.akaii.s4gb.emulator.cpu.instructions.Instruction.MCycle
 import org.akaii.s4gb.emulator.cpu.instructions.{Instruction, OpCode}
 import org.akaii.s4gb.emulator.{MemoryMap, TestMap, copyTo}
 import spire.math.{UByte, UShort}
@@ -62,7 +63,7 @@ abstract class InstructionsTest extends FunSuite {
   )(verifications: T => Unit = (_: T) => ())(implicit loc: Location): Unit = {
     assert(summon[ClassTag[T]].runtimeClass.isInstance(instruction))
     assertEquals(instruction.opCode, opCode)
-    assertEquals(instruction.micro.length, instruction.cycles.maxCost)
+    if(instruction.cycles != MCycle.Undefined) assertEquals(instruction.micro.length, instruction.cycles.maxCost)
     verifications(instruction.asInstanceOf[T])
   }
 

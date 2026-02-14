@@ -47,7 +47,7 @@ enum OpCode(val pattern: UByte, val mask: UByte = 0xFF.toUByte) {
 
   case JR_IMM8 extends OpCode(0x18.toUByte) // 00011000
   case JR_COND_IMM8 extends OpCode(0x20.toUByte, excludeBits43) // 001CC000
-  // STOP
+  case STOP extends OpCode(0x10.toUByte) // 00010000
 
   // Block 1: https://gbdev.io/pandocs/CPU_Instruction_Set.html#block-1-8-bit-register-to-register-loads
   case HALT extends OpCode(0x76.toUByte, excludeNone) // 01110110
@@ -104,8 +104,12 @@ object OpCode {
    *
    * @see [[https://gbdev.io/pandocs/CPU_Instruction_Set.html]]
    */
+  trait Parameters {
+    def ordinal: Int
+  }
+
   object Parameters {
-    enum R8 {
+    enum R8 extends Parameters {
       case B, C, D, E, H, L, MEM_HL, A
 
       def toRegister: Registers.R8 = this match {
@@ -124,7 +128,7 @@ object OpCode {
       val nonMemHLValues: Seq[R8] = Seq(B, C, D, E, H, L, A)
     }
 
-    enum R16 {
+    enum R16 extends Parameters {
       case BC, DE, HL, SP
 
       def toRegister: Registers.R16 = this match {
@@ -139,11 +143,11 @@ object OpCode {
       val nonSPValues: Seq[R16] = Seq(BC, DE, HL)
     }
 
-    enum R16Stack {
+    enum R16Stack extends Parameters {
       case BC, DE, HL, AF
     }
 
-    enum R16Mem {
+    enum R16Mem extends Parameters {
       case BC, DE, HLPlus, HLMinus
 
       def toRegister: Registers.R16 = this match {
@@ -153,7 +157,7 @@ object OpCode {
       }
     }
 
-    enum Condition {
+    enum Condition extends Parameters {
       case NZ, Z, NC, C
     }
   }

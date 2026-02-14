@@ -9,5 +9,11 @@ lazy val root = (project in file("."))
       "org.typelevel" %% "spire-macros" % "0.18.0",
       "org.scalameta" %% "munit" % "1.2.1" % Test
     ),
-    testFrameworks += new TestFramework("utest.runner.Framework")
+    testFrameworks += new TestFramework("utest.runner.Framework"),
+    scalacOptions ++= Seq(
+      "-deprecation",
+      "-feature",
+      "-unchecked",
+      "-Xfatal-warnings"
+    )
   )

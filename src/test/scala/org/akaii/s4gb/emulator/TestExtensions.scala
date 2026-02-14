@@ -26,7 +26,7 @@ extension (memory: TestMap) {
  * Extension to help set parameters for OpCode instances in testing
  */
 extension (opcode: OpCode)
-  def setParam[T <: { def ordinal: Int }](params: (T, Int)*): UByte =
+  def setParam[T <: OpCode.Parameters](params: (T, Int)*): UByte =
     params.foldLeft(opcode.pattern) { case (acc, (param, shift)) =>
       acc | (param.ordinal << shift).toUByte
     }
