@@ -3,6 +3,7 @@ package org.akaii.s4gb.emulator.cpu.instructions
 import org.akaii.s4gb.emulator.MemoryMap
 import org.akaii.s4gb.emulator.byteops.*
 import org.akaii.s4gb.emulator.cpu.instructions.OpCode.Extract.*
+import org.akaii.s4gb.emulator.cpu.instructions.OpCode.Parameters.R16Stack
 import org.akaii.s4gb.emulator.cpu.{Cpu, Registers}
 import spire.math.{UByte, UShort}
 
@@ -100,6 +101,8 @@ object Instruction {
       case OpCode.RET_COND => RET_COND(input)
       case OpCode.RET => RET
       case OpCode.RETI => RETI
+      case OpCode.POP_R16STK => POP_R16STK(input)
+      case OpCode.PUSH_R16STK => PUSH_R16STK(input)
       case OpCode.DI => DI
       case OpCode.EI => EI
       // TODO: implement other instructions
@@ -171,6 +174,7 @@ object Instruction {
 
     def writeMemory(execute: MicroStep = _ => ()): Micro = microOp(execute)
 
+    // idu operations can happen in parallel with memory writes, so sometimes this is subsumed within a write
     def iduOperation(execute: MicroStep = _ => ()): Micro = microOp(execute)
 
     def aluOperation(execute: MicroStep = _ => ()): Micro = microOp(execute)
@@ -209,10 +213,8 @@ object Instruction {
 
     protected def operandContents(parameter: OpCode.Parameters.R8, state: Cpu.State): UByte =
       parameter match {
-        case OpCode.Parameters.R8.MEM_HL =>
-          state.memory(state.registers.hl)
-        case parameter =>
-          state.registers(parameter.toRegister)
+        case OpCode.Parameters.R8.MEM_HL => state.memory(state.registers.hl)
+        case parameter => state.registers(parameter.toRegister)
       }
 
     protected def writeToOperandLocation(operandStart: Int, state: Cpu.State, value: UByte): Unit =
@@ -220,10 +222,8 @@ object Instruction {
 
     protected def writeToOperandLocation(parameter: OpCode.Parameters.R8, state: Cpu.State, value: UByte): Unit =
       parameter match {
-        case OpCode.Parameters.R8.MEM_HL =>
-          state.memory.write(state.registers.hl, value)
-        case parameter =>
-          state.registers.update(parameter.toRegister, value)
+        case OpCode.Parameters.R8.MEM_HL => state.memory.write(state.registers.hl, value)
+        case parameter => state.registers.update(parameter.toRegister, value)
       }
   }
 
@@ -236,10 +236,8 @@ object Instruction {
 
     protected def operandContents(operand: OpCode.Parameters.R16, state: Cpu.State): UShort =
       operand match {
-        case OpCode.Parameters.R16.SP =>
-          state.registers.sp
-        case parameter =>
-          state.registers(parameter.toRegister)
+        case OpCode.Parameters.R16.SP => state.registers.sp
+        case parameter => state.registers(parameter.toRegister)
       }
 
     protected def writeToOperandLocation(operandStart: Int, state: Cpu.State, value: UShort): Unit =
@@ -247,10 +245,8 @@ object Instruction {
 
     protected def writeToOperandLocation(operand: OpCode.Parameters.R16, state: Cpu.State, value: UShort): Unit =
       operand match {
-        case OpCode.Parameters.R16.SP =>
-          state.registers.sp = value
-        case parameter =>
-          state.registers.update(parameter.toRegister, value)
+        case OpCode.Parameters.R16.SP => state.registers.sp = value
+        case parameter => state.registers.update(parameter.toRegister, value)
       }
 
     protected def writeToOperandHiLocation(operandStart: Int, state: Cpu.State, value: UShort): Unit =
@@ -258,10 +254,8 @@ object Instruction {
 
     protected def writeToOperandHiLocation(operand: OpCode.Parameters.R16, state: Cpu.State, value: UShort): Unit =
       operand match {
-        case OpCode.Parameters.R16.SP =>
-          state.registers.updateSPHi(value.hiByte)
-        case parameter =>
-          state.registers.update(parameter.toRegister.hi, value.hiByte)
+        case OpCode.Parameters.R16.SP => state.registers.updateSPHi(value.hiByte)
+        case parameter => state.registers.update(parameter.toRegister.hi, value.hiByte)
       }
 
     protected def writeToOperandLoLocation(operandStart: Int, state: Cpu.State, value: UShort): Unit =
@@ -269,10 +263,8 @@ object Instruction {
 
     protected def writeToOperandLoLocation(operand: OpCode.Parameters.R16, state: Cpu.State, value: UShort): Unit =
       operand match {
-        case OpCode.Parameters.R16.SP =>
-          state.registers.updateSPLo(value.loByte)
-        case parameter =>
-          state.registers.update(parameter.toRegister.lo, value.loByte)
+        case OpCode.Parameters.R16.SP => state.registers.updateSPLo(value.loByte)
+        case parameter => state.registers.update(parameter.toRegister.lo, value.loByte)
       }
   }
 
@@ -282,12 +274,9 @@ object Instruction {
 
     protected def operandContents(operandStart: Int, state: Cpu.State): UShort =
       operand(operandStart) match {
-        case OpCode.Parameters.R16Mem.BC =>
-          state.registers.bc
-        case OpCode.Parameters.R16Mem.DE =>
-          state.registers.de
-        case _ =>
-          state.registers.hl
+        case OpCode.Parameters.R16Mem.BC => state.registers.bc
+        case OpCode.Parameters.R16Mem.DE => state.registers.de
+        case _ => state.registers.hl
       }
 
     protected def updateIfHL(operandStart: Int, state: Cpu.State): Unit =
@@ -297,6 +286,34 @@ object Instruction {
         case _ => ()
       }
 
+  }
+
+  trait HasR16StkOperand {
+    self: Instruction =>
+    def operand(start: Int): OpCode.Parameters.R16Stack = OpCode.Parameters.R16Stack.values(opCode.range(start, start - 1))
+
+    protected def operandContents(operandStart: Int, state: Cpu.State): UShort =
+      operandContents(operand(operandStart), state)
+
+    protected def operandContents(operand: OpCode.Parameters.R16Stack, state: Cpu.State): UShort = {
+      operand match
+        case R16Stack.BC => state.registers.bc
+        case R16Stack.DE => state.registers.de
+        case R16Stack.HL => state.registers.hl
+        case R16Stack.AF => state.registers.af
+    }
+
+    protected def writeToOperandLoLocation(operand: OpCode.Parameters.R16Stack, state: Cpu.State, value: UByte): Unit =
+      operand match {
+        case R16Stack.AF => state.registers.f = value
+        case r16 => state.registers.update(r16.toRegister.lo, value)
+      }
+
+    protected def writeToOperandHiLocation(operand: OpCode.Parameters.R16Stack, state: Cpu.State, value: UByte): Unit =
+      operand match {
+        case R16Stack.AF => state.registers.update(Registers.R8.A, value)
+        case r16 => state.registers.update(r16.toRegister.hi, value)
+      }
   }
 
   trait HasCondOperand {
@@ -404,6 +421,8 @@ object Instruction {
    * LD_R16MEM_A - Copy the value in register A into the byte pointed to by r16.
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD__r16_,A]]
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD__HLI_,A]]
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD__HLD_,A]]
    */
   case class LD_R16MEM_A(private val input: Array[UByte]) extends Instruction(input) with HasR16MemOperand {
     override val cycles: MCycle = MCycle.Fixed(2)
@@ -424,6 +443,8 @@ object Instruction {
    * LD_A_R16MEM - Copy the byte pointed to by r16 into register A.
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD_A,_r16_]]
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD_A,_HLI_]]
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD_A,_HLD_]]
    */
   case class LD_A_R16MEM(private val input: Array[UByte]) extends Instruction(input) with HasR16MemOperand {
     override val cycles: MCycle = MCycle.Fixed(2)
@@ -899,7 +920,7 @@ object Instruction {
         state.registers.l = lSum.toUByte
         state.registers.flags.h = hl.overflowFromBit11(op)
       },
-      Micro.iduOperation { state =>
+      Micro.aluOperation { state =>
         val hSum = state.registers.hl.hiByte.toInt +
           operandContents(operandStart, state).hiByte.toInt +
           carryFromLow.toInt
@@ -1367,11 +1388,11 @@ object Instruction {
     override val bytes: Int = 2
 
     private val operandStart = 4
-    lazy val operand: OpCode.Parameters.Condition = operand(operandStart)
+    lazy val condition: OpCode.Parameters.Condition = operand(operandStart)
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
       Micro.fetchOpCode(bytes),
-      Micro.readMemoryAndThen(continueIf(operand)),
+      Micro.readMemoryAndThen(continueIf(condition)),
       Micro.modifyPC { state =>
         val pcAfterInstruction = state.registers.pc
         val offset = imm8.toByte // interpret as signed
@@ -1391,10 +1412,10 @@ object Instruction {
     override val bytes: Int = 1
 
     private val operandStart = 4
-    lazy val operand: OpCode.Parameters.Condition = operand(operandStart)
+    lazy val condition: OpCode.Parameters.Condition = operand(operandStart)
 
     override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
-      Micro.readMemoryAndThen(continueIf(operand)),
+      Micro.readMemoryAndThen(continueIf(condition)),
       Micro.readMemory(),
       Micro.modifyPC { state =>
         state.registers.updatePCLo(state.memory(state.registers.sp))
@@ -1512,6 +1533,68 @@ object Instruction {
       Micro.readMemory(),
       Micro.writeMemory { state => state.memory.write(imm16, originalSP.loByte) },
       Micro.writeMemory { state => state.memory.write(imm16 + 1.toUShort, originalSP.hiByte) }
+    )
+  }
+
+  /**
+   * POP_R16STK (POP_AF) - Pop register r16 from the stack. This is roughly equivalent to the following imaginary instructions:
+   *
+   * LD LOW(r16), [SP]   ; C, E or L
+   * INC SP
+   * LD HIGH(r16), [SP]  ; B, D or H
+   * INC SP
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#POP_r16]]
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#POP_AF]]
+   */
+  case class POP_R16STK(private val input: Array[UByte]) extends Instruction(input) with HasR16StkOperand {
+    override val cycles: MCycle = MCycle.Fixed(3)
+    override val bytes: Int = 1
+
+    private val operandStart = 5
+    lazy val operand: OpCode.Parameters.R16Stack = operand(operandStart)
+
+    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+      Micro.readMemory { state =>
+        writeToOperandLoLocation(operand, state, state.memory(state.registers.sp))
+        state.registers.sp += 1.toUShort
+      },
+      Micro.readMemory { state =>
+        writeToOperandHiLocation(operand, state, state.memory(state.registers.sp))
+        state.registers.sp += 1.toUShort
+      }
+    )
+  }
+
+  /**
+   * PUSH_R16STK (PUSH_AF) - Push register r16 into the stack. This is roughly equivalent to the following imaginary instructions:
+   *
+   * DEC SP
+   * LD [SP], HIGH(r16)  ; B, D or H
+   * DEC SP
+   * LD [SP], LOW(r16)   ; C, E or L
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#PUSH_r16]]
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#PUSH_AF]]
+   */
+  case class PUSH_R16STK(private val input: Array[UByte]) extends Instruction(input) with HasR16StkOperand {
+    override val cycles: MCycle = MCycle.Fixed(4)
+    override val bytes: Int = 1
+
+    private val operandStart = 5
+    lazy val operand: OpCode.Parameters.R16Stack = operand(operandStart)
+
+    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+      Micro.iduOperation { state =>
+        state.registers.sp -= 1.toUShort
+      },
+      Micro.writeMemory { state =>
+        state.memory.write(state.registers.sp, operandContents(operand, state).hiByte)
+        state.registers.sp -= 1.toUShort
+      },
+      Micro.writeMemory { state =>
+        state.memory.write(state.registers.sp, operandContents(operand, state).loByte)
+      }
     )
   }
 

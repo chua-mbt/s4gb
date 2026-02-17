@@ -82,7 +82,7 @@ class JumpInstructionsTests extends InstructionsTest {
         val opcode: UByte = OpCode.JR_COND_IMM8.setParam(cond -> 3)
         val instruction = Instruction.decode(Array(opcode, unsigned))
         verifyInstruction[Instruction.JR_COND_IMM8](opcode, instruction) { jr =>
-          assertEquals(jr.operand, cond)
+          assertEquals(jr.condition, cond)
           assertEquals(jr.imm8, unsigned)
         }
         instruction
@@ -191,7 +191,7 @@ class JumpInstructionsTests extends InstructionsTest {
       val instruction = Instruction.decode(Array(opcode))
 
       verifyInstruction[Instruction.RET_COND](opcode, instruction) { ret =>
-        assertEquals(ret.operand, cond)
+        assertEquals(ret.condition, cond)
       }
 
       testInstruction(
@@ -222,7 +222,7 @@ class JumpInstructionsTests extends InstructionsTest {
       val instruction = Instruction.decode(Array(opcode))
 
       verifyInstruction[Instruction.RET_COND](opcode, instruction) { ret =>
-        assertEquals(ret.operand, cond)
+        assertEquals(ret.condition, cond)
       }
 
       testInstruction(

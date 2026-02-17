@@ -63,7 +63,7 @@ abstract class InstructionsTest extends FunSuite {
   )(verifications: T => Unit = (_: T) => ())(implicit loc: Location): Unit = {
     assert(summon[ClassTag[T]].runtimeClass.isInstance(instruction))
     assertEquals(instruction.opCode, opCode)
-    if(instruction.cycles != MCycle.Undefined) assertEquals(instruction.micro.length, instruction.cycles.maxCost)
+    if (instruction.cycles != MCycle.Undefined) assertEquals(instruction.micro.length, instruction.cycles.maxCost)
     verifications(instruction.asInstanceOf[T])
   }
 
@@ -112,6 +112,9 @@ abstract class InstructionsTest extends FunSuite {
 
   protected def forR16MemOpCodeParams(test: OpCode.Parameters.R16Mem => Unit): Unit =
     OpCode.Parameters.R16Mem.values.foreach(test)
+
+  protected def forR16StackOpCodeParams(test: OpCode.Parameters.R16Stack => Unit): Unit =
+    OpCode.Parameters.R16Stack.values.foreach(test)
 
   protected def forNonMemHLR8OpCodeParams(test: OpCode.Parameters.R8 => Unit): Unit =
     OpCode.Parameters.R8.nonMemHLValues.foreach(test)

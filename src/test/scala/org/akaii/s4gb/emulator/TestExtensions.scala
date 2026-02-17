@@ -24,6 +24,14 @@ extension (memory: TestMap) {
 
 /**
  * Extension to help set parameters for OpCode instances in testing
+ *
+ * Sets the ordinal value of the OpCode parameter into a specified position from the right-most bit
+ *
+ * Base opcode: 11DDDSSS
+ * DDD:         111 (A) << 3 (from 543) = 0111000
+ * SSS:         110 (L) << 0 (from 210) = 0000110
+ * Result:      01111110 (0x7E), which encodes LD A,L
+ *
  */
 extension (opcode: OpCode)
   def setParam[T <: OpCode.Parameters](params: (T, Int)*): UByte =

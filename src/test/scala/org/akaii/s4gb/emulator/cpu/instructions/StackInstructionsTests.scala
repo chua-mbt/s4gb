@@ -40,4 +40,78 @@ class StackInstructionsTests extends InstructionsTest {
     }
   }
 
+  test("POP_R16STK") {
+    val initialSP: UShort = 0xFFFE.toUShort
+
+    forR16StackOpCodeParams { operandParam =>
+      val opcode: UByte = OpCode.POP_R16STK.setParam(operandParam -> 4)
+      val instruction = Instruction.decode(Array(opcode))
+
+      verifyInstruction[Instruction.POP_R16STK](opcode, instruction) { pop =>
+        assertEquals(pop.operand, operandParam)
+      }
+
+      testInstruction(
+        instruction,
+        setupRegister = regs => {
+          regs.sp = initialSP
+          operandParam match {
+            case OpCode.Parameters.R16Stack.BC => regs.bc = 0xFFFF.toUShort
+            case OpCode.Parameters.R16Stack.DE => regs.de = 0xFFFF.toUShort
+            case OpCode.Parameters.R16Stack.HL => regs.hl = 0xFFFF.toUShort
+            case OpCode.Parameters.R16Stack.AF => regs.af = 0xFFFF.toUShort
+          }
+        },
+        setupMemory = (regs, memory) => {
+          val value: UShort = 0x1234.toUShort
+          memory.write(initialSP, value.loByte)
+          memory.write(initialSP + 1.toUShort, value.hiByte)
+        },
+        expectedRegister = regs => {
+          val value: UShort = 0x1234.toUShort
+          operandParam match {
+            case OpCode.Parameters.R16Stack.BC => regs.bc = value
+            case OpCode.Parameters.R16Stack.DE => regs.de = value
+            case OpCode.Parameters.R16Stack.HL => regs.hl = value
+            case OpCode.Parameters.R16Stack.AF => regs.af = value
+          }
+          regs.sp = initialSP + 2.toUShort
+        }
+      )
+    }
+  }
+
+  test("PUSH_R16STK") {
+    val initialSP: UShort = 0xFFFE.toUShort
+
+    forR16StackOpCodeParams { operandParam =>
+      val opcode: UByte = OpCode.PUSH_R16STK.setParam(operandParam -> 4)
+      val instruction = Instruction.decode(Array(opcode))
+
+      verifyInstruction[Instruction.PUSH_R16STK](opcode, instruction) { push =>
+        assertEquals(push.operand, operandParam)
+      }
+
+      val value: UShort = 0x1234.toUShort
+      testInstruction(
+        instruction,
+        setupRegister = regs => {
+          regs.sp = initialSP
+          operandParam match {
+            case OpCode.Parameters.R16Stack.BC => regs.bc = value
+            case OpCode.Parameters.R16Stack.DE => regs.de = value
+            case OpCode.Parameters.R16Stack.HL => regs.hl = value
+            case OpCode.Parameters.R16Stack.AF => regs.af = value
+          }
+        },
+        expectedRegister = regs => regs.sp = initialSP - 2.toUShort,
+        expectedMemory = memory => {
+          val loByte = if(operandParam == OpCode.Parameters.R16Stack.AF) value.loByte & 0xF0.toUByte else value.loByte
+          memory.write(initialSP - 1.toUShort, value.hiByte)
+          memory.write(initialSP - 2.toUShort, loByte)
+        }
+      )
+    }
+  }
+
 }

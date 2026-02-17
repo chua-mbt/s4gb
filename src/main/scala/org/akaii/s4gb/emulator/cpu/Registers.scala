@@ -78,6 +78,12 @@ case class Registers(
   @inline def hl: UShort = apply(R16.HL)
   @inline def hl_=(v: UShort): Unit = update(R16.HL, v)
 
+  @inline def af: UShort = (underlying(R8.A.ordinal).toUShort << 8) | f.toUShort
+  @inline def af_=(v: UShort): Unit = {
+    underlying.update(R8.A.ordinal, v.hiByte)
+    f = v.loByte
+  }
+
   object flags {
     @inline def clear(): Unit = f = UByte(0)
     @inline def apply(flag: Flag): Boolean = (f & flag.mask) != UByte(0)

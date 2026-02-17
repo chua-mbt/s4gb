@@ -82,6 +82,9 @@ enum OpCode(val pattern: UByte, val mask: UByte = 0xFF.toUByte) {
   case RET extends OpCode(0xC9.toUByte) // 11001001
   case RETI extends OpCode(0xD9.toUByte) // 11011001
 
+  case POP_R16STK extends OpCode(0xC1.toUByte, excludeBits54) // 11RR0001
+  case PUSH_R16STK extends OpCode(0xC5.toUByte, excludeBits54) // 11RR0101
+
   case DI extends OpCode(0xF3.toUByte) // 11110011
   case EI extends OpCode(0xFB.toUByte) // 11111011
 }
@@ -149,6 +152,13 @@ object OpCode {
 
     enum R16Stack extends Parameters {
       case BC, DE, HL, AF
+
+      def toRegister: Registers.R16 = this match {
+        case BC => Registers.R16.BC
+        case DE => Registers.R16.DE
+        case HL => Registers.R16.HL
+        case AF => throw new UnsupportedOperationException("No mapping for AF to R16")
+      }
     }
 
     enum R16Mem extends Parameters {
