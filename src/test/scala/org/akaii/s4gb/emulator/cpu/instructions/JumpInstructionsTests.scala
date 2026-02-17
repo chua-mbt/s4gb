@@ -282,6 +282,21 @@ class JumpInstructionsTests extends InstructionsTest {
       expectedIME = IMEEnabled
     )
   }
+
+  test("JP_HL") {
+    val instruction = Instruction.decode(Array(OpCode.JP_HL.pattern))
+    verifyInstructionOpCode[Instruction.JP_HL.type](OpCode.JP_HL.pattern, instruction)
+
+    val targetAddress = 0x1234.toUShort
+
+    testInstruction(
+      instruction,
+      setupRegister = regs => regs.hl = targetAddress,
+      expectedRegister = regs => regs.pc = targetAddress,
+      expectedPC = Some(targetAddress),
+    )
+  }
+
 }
 
 object JumpInstructionsTests {

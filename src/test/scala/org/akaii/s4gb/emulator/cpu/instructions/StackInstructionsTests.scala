@@ -114,4 +114,16 @@ class StackInstructionsTests extends InstructionsTest {
     }
   }
 
+  test("LD_SP_HL") {
+    val instruction = Instruction.decode(Array(OpCode.LD_SP_HL.pattern))
+    verifyInstructionOpCode[Instruction.LD_SP_HL.type](OpCode.LD_SP_HL.pattern, instruction)
+
+    testInstruction(
+      instruction,
+      setupRegister = regs => regs.hl = 0x1234.toUShort,
+      expectedRegister = regs => regs.sp = 0x1234.toUShort
+    )
+  }
+
+
 }

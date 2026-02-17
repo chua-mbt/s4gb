@@ -3,7 +3,6 @@ package org.akaii.s4gb.emulator.cpu.instructions
 import org.akaii.s4gb.emulator.MemoryMap
 import org.akaii.s4gb.emulator.byteops.*
 import org.akaii.s4gb.emulator.cpu.instructions.OpCode.Extract.*
-import org.akaii.s4gb.emulator.cpu.instructions.OpCode.Parameters.R16Stack
 import org.akaii.s4gb.emulator.cpu.{Cpu, Registers}
 import spire.math.{UByte, UShort}
 
@@ -101,8 +100,10 @@ object Instruction {
       case OpCode.RET_COND => RET_COND(input)
       case OpCode.RET => RET
       case OpCode.RETI => RETI
+      case OpCode.JP_HL => JP_HL
       case OpCode.POP_R16STK => POP_R16STK(input)
       case OpCode.PUSH_R16STK => PUSH_R16STK(input)
+      case OpCode.LD_SP_HL => LD_SP_HL
       case OpCode.DI => DI
       case OpCode.EI => EI
       // TODO: implement other instructions
@@ -297,21 +298,21 @@ object Instruction {
 
     protected def operandContents(operand: OpCode.Parameters.R16Stack, state: Cpu.State): UShort = {
       operand match
-        case R16Stack.BC => state.registers.bc
-        case R16Stack.DE => state.registers.de
-        case R16Stack.HL => state.registers.hl
-        case R16Stack.AF => state.registers.af
+        case OpCode.Parameters.R16Stack.BC => state.registers.bc
+        case OpCode.Parameters.R16Stack.DE => state.registers.de
+        case OpCode.Parameters.R16Stack.HL => state.registers.hl
+        case OpCode.Parameters.R16Stack.AF => state.registers.af
     }
 
     protected def writeToOperandLoLocation(operand: OpCode.Parameters.R16Stack, state: Cpu.State, value: UByte): Unit =
       operand match {
-        case R16Stack.AF => state.registers.f = value
+        case OpCode.Parameters.R16Stack.AF => state.registers.f = value
         case r16 => state.registers.update(r16.toRegister.lo, value)
       }
 
     protected def writeToOperandHiLocation(operand: OpCode.Parameters.R16Stack, state: Cpu.State, value: UByte): Unit =
       operand match {
-        case R16Stack.AF => state.registers.update(Registers.R8.A, value)
+        case OpCode.Parameters.R16Stack.AF => state.registers.update(Registers.R8.A, value)
         case r16 => state.registers.update(r16.toRegister.hi, value)
       }
   }
@@ -1475,6 +1476,20 @@ object Instruction {
     )
   }
 
+  /**
+   * JP_HL - Jump to address in HL; effectively, copy the value in register HL into PC.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#JP_HL]]
+   */
+  case object JP_HL extends Instruction(Array(OpCode.JP_HL.pattern)) {
+    override val cycles: MCycle = MCycle.Fixed(1)
+    override val bytes: Int = 1
+
+    override protected[instructions] def micro: Seq[Micro] = Seq(
+      Micro.fetchOpCode(bytes) { state => state.registers.pc = state.registers.hl },
+    )
+  }
+
   /*
    * Carry flag instructions
    * https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#Carry_flag_instructions
@@ -1595,6 +1610,20 @@ object Instruction {
       Micro.writeMemory { state =>
         state.memory.write(state.registers.sp, operandContents(operand, state).loByte)
       }
+    )
+  }
+
+  /**
+   * LD_SP_HL - Copy register HL into register SP.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD_SP,HL]]
+   */
+  case object LD_SP_HL extends Instruction(Array(OpCode.LD_SP_HL.pattern)) {
+    override val cycles: MCycle = MCycle.Fixed(2)
+    override val bytes: Int = 1
+
+    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+      Micro.iduOperation { state => state.registers.sp = state.registers.hl },
     )
   }
 

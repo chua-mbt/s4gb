@@ -81,9 +81,12 @@ enum OpCode(val pattern: UByte, val mask: UByte = 0xFF.toUByte) {
   case RET_COND extends OpCode(0xC0.toUByte, excludeBits43) // 110CC000
   case RET extends OpCode(0xC9.toUByte) // 11001001
   case RETI extends OpCode(0xD9.toUByte) // 11011001
+  case JP_HL extends OpCode(0xE9.toUByte) // 11101001
 
   case POP_R16STK extends OpCode(0xC1.toUByte, excludeBits54) // 11RR0001
   case PUSH_R16STK extends OpCode(0xC5.toUByte, excludeBits54) // 11RR0101
+
+  case LD_SP_HL extends OpCode(0xF9.toUByte) // 11111011
 
   case DI extends OpCode(0xF3.toUByte) // 11110011
   case EI extends OpCode(0xFB.toUByte) // 11111011
