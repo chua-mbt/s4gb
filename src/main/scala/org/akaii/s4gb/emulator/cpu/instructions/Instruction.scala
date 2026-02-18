@@ -100,6 +100,7 @@ object Instruction {
       case OpCode.RET_COND => RET_COND(input)
       case OpCode.RET => RET
       case OpCode.RETI => RETI
+      case OpCode.JP_IMM16 => JP_IMM16(input)
       case OpCode.JP_HL => JP_HL
       case OpCode.POP_R16STK => POP_R16STK(input)
       case OpCode.PUSH_R16STK => PUSH_R16STK(input)
@@ -1473,6 +1474,22 @@ object Instruction {
         state.registers.sp += 1.toUShort
         state.setIME(true)
       }
+    )
+  }
+
+  /**
+   * JP_IMM16 - Jump to address imm16 (n16); effectively, copy imm16 (n16) into PC.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#JP_n16]]
+   */
+  case class JP_IMM16(private val input: Array[UByte]) extends Instruction(input) with HasImm16 {
+    override val cycles: MCycle = MCycle.Fixed(4)
+    override val bytes: Int = 3
+
+    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+      Micro.readMemory(),
+      Micro.readMemory(),
+      Micro.modifyPC { state => state.registers.pc = imm16 }
     )
   }
 

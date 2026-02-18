@@ -283,6 +283,23 @@ class JumpInstructionsTests extends InstructionsTest {
     )
   }
 
+  test("JP_IMM16") {
+    val targetAddress: UShort = 0x1234.toUShort
+    val immLo: UByte = targetAddress.loByte
+    val immHi: UByte = targetAddress.hiByte
+
+    val instruction = Instruction.decode(Array(OpCode.JP_IMM16.pattern, immLo, immHi))
+    verifyInstruction[Instruction.JP_IMM16](OpCode.JP_IMM16.pattern, instruction) { jp =>
+      assertEquals(jp.imm16, targetAddress)
+    }
+
+    testInstruction(
+      instruction,
+      expectedRegister = regs => regs.pc = targetAddress,
+      expectedPC = Some(targetAddress),
+    )
+  }
+
   test("JP_HL") {
     val instruction = Instruction.decode(Array(OpCode.JP_HL.pattern))
     verifyInstructionOpCode[Instruction.JP_HL.type](OpCode.JP_HL.pattern, instruction)
