@@ -10,6 +10,7 @@ import org.akaii.s4gb.emulator.{TestMap, setParam}
 import spire.math.{UByte, UShort}
 
 class JumpInstructionsTests extends InstructionsTest {
+
   import JumpInstructionsTests.*
 
   test("JR_IMM8") {
@@ -232,7 +233,7 @@ class JumpInstructionsTests extends InstructionsTest {
           setupFlagToFailCondition(regs, cond)
         },
         expectedRegister = regs => regs.sp = initialSP, // SP unchanged
-        expectedPC = Some(instruction.bytes.toUShort),  // only advance past opcode
+        expectedPC = Some(instruction.bytes.toUShort), // only advance past opcode
         expectedElapsed = Some(2)
       )
     }
@@ -358,20 +359,107 @@ class JumpInstructionsTests extends InstructionsTest {
     )
   }
 
+  test("CALL_COND_IMM16 - condition met") {
+    val targetAddress: UShort = 0x1234.toUShort
+    val immLo: UByte = targetAddress.loByte
+    val immHi: UByte = targetAddress.hiByte
+    val initialSP: UShort = 0xFFFE.toUShort
+    val initialPC: UShort = 0x0100.toUShort
+    val returnAddress: UShort = initialPC + 3.toUShort
+
+    forCondOpCodeParams { cond =>
+      val opcode: UByte = OpCode.CALL_COND_IMM16.setParam(cond -> 3)
+      val instruction = Instruction.decode(Array(opcode, immLo, immHi))
+      verifyInstruction[Instruction.CALL_COND_IMM16](opcode, instruction) { call =>
+        assertEquals(call.condition, cond)
+        assertEquals(call.imm16, targetAddress)
+      }
+
+      testInstruction(
+        instruction,
+        setupRegister = regs => {
+          regs.pc = initialPC
+          regs.sp = initialSP
+          setupFlagForCondition(regs, cond)
+        },
+        expectedRegister = regs => {
+          regs.pc = targetAddress
+          regs.sp = initialSP - 2.toUShort
+        },
+        expectedMemory = memory => {
+          memory.write(initialSP - 1.toUShort, returnAddress.hiByte)
+          memory.write(initialSP - 2.toUShort, returnAddress.loByte)
+        },
+        expectedPC = Some(targetAddress),
+      )
+    }
+  }
+
+  test("CALL_COND_IMM16 - condition not met") {
+    val targetAddress: UShort = 0x1234.toUShort
+    val immLo: UByte = targetAddress.loByte
+    val immHi: UByte = targetAddress.hiByte
+
+    forCondOpCodeParams { cond =>
+      val opcode: UByte = OpCode.CALL_COND_IMM16.setParam(cond -> 3)
+      val instruction = Instruction.decode(Array(opcode, immLo, immHi))
+      verifyInstruction[Instruction.CALL_COND_IMM16](opcode, instruction) { call =>
+        assertEquals(call.condition, cond)
+        assertEquals(call.imm16, targetAddress)
+      }
+
+      testInstruction(
+        instruction,
+        setupRegister = regs => setupFlagToFailCondition(regs, cond),
+        expectedElapsed = Some(3)
+      )
+    }
+  }
+
+  test("CALL_IMM16") {
+    val targetAddress: UShort = 0x1234.toUShort
+    val immLo: UByte = targetAddress.loByte
+    val immHi: UByte = targetAddress.hiByte
+    val initialSP: UShort = 0xFFFE.toUShort
+    val initialPC: UShort = 0x0100.toUShort
+    val returnAddress: UShort = initialPC + 3.toUShort
+
+    val instruction = Instruction.decode(Array(OpCode.CALL_IMM16.pattern, immLo, immHi))
+    verifyInstruction[Instruction.CALL_IMM16](OpCode.CALL_IMM16.pattern, instruction) { call =>
+      assertEquals(call.imm16, targetAddress)
+    }
+
+    testInstruction(
+      instruction,
+      setupRegister = regs => {
+        regs.pc = initialPC
+        regs.sp = initialSP
+      },
+      expectedRegister = regs => {
+        regs.pc = targetAddress
+        regs.sp = initialSP - 2.toUShort
+      },
+      expectedMemory = memory => {
+        memory.write(initialSP - 1.toUShort, returnAddress.hiByte)
+        memory.write(initialSP - 2.toUShort, returnAddress.loByte)
+      },
+      expectedPC = Some(targetAddress),
+    )
+  }
 }
 
 object JumpInstructionsTests {
   def setupFlagForCondition(regs: Registers, cond: OpCode.Parameters.Condition): Unit = cond match {
     case OpCode.Parameters.Condition.NZ => regs.flags.z = false
-    case OpCode.Parameters.Condition.Z  => regs.flags.z = true
+    case OpCode.Parameters.Condition.Z => regs.flags.z = true
     case OpCode.Parameters.Condition.NC => regs.flags.c = false
-    case OpCode.Parameters.Condition.C  => regs.flags.c = true
+    case OpCode.Parameters.Condition.C => regs.flags.c = true
   }
 
   def setupFlagToFailCondition(regs: Registers, cond: OpCode.Parameters.Condition): Unit = cond match {
     case OpCode.Parameters.Condition.NZ => regs.flags.z = true
-    case OpCode.Parameters.Condition.Z  => regs.flags.z = false
+    case OpCode.Parameters.Condition.Z => regs.flags.z = false
     case OpCode.Parameters.Condition.NC => regs.flags.c = true
-    case OpCode.Parameters.Condition.C  => regs.flags.c = false
+    case OpCode.Parameters.Condition.C => regs.flags.c = false
   }
 }

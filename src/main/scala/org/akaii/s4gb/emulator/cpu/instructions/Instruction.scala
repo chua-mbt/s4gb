@@ -103,6 +103,8 @@ object Instruction {
       case OpCode.JP_COND_IMM16 => JP_COND_IMM16(input)
       case OpCode.JP_IMM16 => JP_IMM16(input)
       case OpCode.JP_HL => JP_HL
+      case OpCode.CALL_COND_IMM16 => CALL_COND_IMM16(input)
+      case OpCode.CALL_IMM16 => CALL_IMM16(input)
       case OpCode.POP_R16STK => POP_R16STK(input)
       case OpCode.PUSH_R16STK => PUSH_R16STK(input)
       case OpCode.LD_SP_HL => LD_SP_HL
@@ -1527,6 +1529,60 @@ object Instruction {
     )
   }
 
+  /**
+   * CALL_COND_IMM16 - Call address n16.
+   *
+   * This pushes the address of the instruction after the CALL on the stack, such that RET can pop it later;
+   * then, it executes an implicit JP n16.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#CALL_cc,n16]]
+   */
+  case class CALL_COND_IMM16(private val input: Array[UByte]) extends Instruction(input) with HasCondOperand with HasImm16 {
+    override val cycles: MCycle = MCycle.Varying(3 to 6)
+    override val bytes: Int = 3
+
+    private val operandStart = 4
+    lazy val condition: OpCode.Parameters.Condition = operand(operandStart)
+
+    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+      Micro.readMemory(),
+      Micro.readMemoryAndThen(continueIf(condition)),
+      Micro.iduOperation{ state => state.registers.sp -= 1.toUShort },
+      Micro.writeMemory { state =>
+        state.memory.write(state.registers.sp, state.registers.pc.hiByte)
+        state.registers.sp -= 1.toUShort
+      },
+      Micro.writeMemory { state =>
+        state.memory.write(state.registers.sp, state.registers.pc.loByte)
+        state.registers.pc = imm16
+      },
+    )
+  }
+
+  /**
+   * CALL_IMM16 - Call address imm16 (n16) if condition cc is met.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#CALL_n16]]
+   */
+  case class CALL_IMM16(private val input: Array[UByte]) extends Instruction(input) with HasImm16 {
+    override val cycles: MCycle = MCycle.Fixed(6)
+    override val bytes: Int = 3
+
+    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+      Micro.readMemory(),
+      Micro.readMemory(),
+      Micro.iduOperation{ state => state.registers.sp -= 1.toUShort },
+      Micro.writeMemory { state =>
+        state.memory.write(state.registers.sp, state.registers.pc.hiByte)
+        state.registers.sp -= 1.toUShort
+      },
+      Micro.writeMemory { state =>
+        state.memory.write(state.registers.sp, state.registers.pc.loByte)
+        state.registers.pc = imm16
+      },
+    )
+  }
+
   /*
    * Carry flag instructions
    * https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#Carry_flag_instructions
@@ -1799,5 +1855,6 @@ object Instruction {
     )
   }
 }
+
 
 
