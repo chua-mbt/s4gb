@@ -283,6 +283,50 @@ class JumpInstructionsTests extends InstructionsTest {
     )
   }
 
+  test("JP_COND_IMM16 - condition met") {
+    val targetAddress: UShort = 0x1234.toUShort
+    val immLo: UByte = targetAddress.loByte
+    val immHi: UByte = targetAddress.hiByte
+
+    forCondOpCodeParams { cond =>
+      val opcode: UByte = OpCode.JP_COND_IMM16.setParam(cond -> 3)
+      val instruction = Instruction.decode(Array(opcode, immLo, immHi))
+      verifyInstruction[Instruction.JP_COND_IMM16](opcode, instruction) { jp =>
+        assertEquals(jp.condition, cond)
+        assertEquals(jp.imm16, targetAddress)
+      }
+
+      testInstruction(
+        instruction,
+        setupRegister = regs => setupFlagForCondition(regs, cond),
+        expectedRegister = regs => regs.pc = targetAddress,
+        expectedPC = Some(targetAddress),
+        expectedElapsed = Some(4)
+      )
+    }
+  }
+
+  test("JP_COND_IMM16 - condition not met") {
+    val targetAddress: UShort = 0x1234.toUShort
+    val immLo: UByte = targetAddress.loByte
+    val immHi: UByte = targetAddress.hiByte
+
+    forCondOpCodeParams { cond =>
+      val opcode: UByte = OpCode.JP_COND_IMM16.setParam(cond -> 3)
+      val instruction = Instruction.decode(Array(opcode, immLo, immHi))
+      verifyInstruction[Instruction.JP_COND_IMM16](opcode, instruction) { jp =>
+        assertEquals(jp.condition, cond)
+        assertEquals(jp.imm16, targetAddress)
+      }
+
+      testInstruction(
+        instruction,
+        setupRegister = regs => setupFlagToFailCondition(regs, cond),
+        expectedElapsed = Some(3)
+      )
+    }
+  }
+
   test("JP_IMM16") {
     val targetAddress: UShort = 0x1234.toUShort
     val immLo: UByte = targetAddress.loByte

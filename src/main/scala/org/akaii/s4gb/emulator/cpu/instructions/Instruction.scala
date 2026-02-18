@@ -100,6 +100,7 @@ object Instruction {
       case OpCode.RET_COND => RET_COND(input)
       case OpCode.RET => RET
       case OpCode.RETI => RETI
+      case OpCode.JP_COND_IMM16 => JP_COND_IMM16(input)
       case OpCode.JP_IMM16 => JP_IMM16(input)
       case OpCode.JP_HL => JP_HL
       case OpCode.POP_R16STK => POP_R16STK(input)
@@ -1474,6 +1475,25 @@ object Instruction {
         state.registers.sp += 1.toUShort
         state.setIME(true)
       }
+    )
+  }
+
+  /**
+   * JP_COND_IMM16 - Jump to address imm16 (n16) if condition cc is met.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#JP_cc,n16]]
+   */
+  case class JP_COND_IMM16(private val input: Array[UByte]) extends Instruction(input) with HasCondOperand with HasImm16 {
+    override val cycles: MCycle = MCycle.Varying(3 to 4)
+    override val bytes: Int = 3
+
+    private val operandStart = 4
+    lazy val condition: OpCode.Parameters.Condition = operand(operandStart)
+
+    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+      Micro.readMemory(),
+      Micro.readMemoryAndThen(continueIf(condition)),
+      Micro.modifyPC { state => state.registers.pc = imm16 }
     )
   }
 
