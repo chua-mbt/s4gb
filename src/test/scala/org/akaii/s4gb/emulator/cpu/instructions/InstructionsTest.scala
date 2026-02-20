@@ -8,7 +8,7 @@ import org.akaii.s4gb.emulator.cpu.Registers.R16
 import org.akaii.s4gb.emulator.cpu.instructions.Instruction.MCycle
 import org.akaii.s4gb.emulator.cpu.instructions.{Instruction, OpCode}
 import org.akaii.s4gb.emulator.{MemoryMap, TestMap, copyTo}
-import spire.math.{UByte, UShort}
+import spire.math.{UByte, UShort, e}
 
 import scala.reflect.ClassTag
 
@@ -86,6 +86,7 @@ abstract class InstructionsTest extends FunSuite {
     assertEquals(finalState.registers.pc, expectedPC)
     assertEquals(finalState.registers, expectedState.registers)
     assertEquals(finalState.memory, expectedState.memory)
+    assertEquals(finalState.getIMEFlag, expectedState.getIMEFlag)
   }
 
   protected def testInstruction(

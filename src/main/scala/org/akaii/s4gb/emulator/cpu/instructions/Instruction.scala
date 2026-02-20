@@ -105,6 +105,7 @@ object Instruction {
       case OpCode.JP_HL => JP_HL
       case OpCode.CALL_COND_IMM16 => CALL_COND_IMM16(input)
       case OpCode.CALL_IMM16 => CALL_IMM16(input)
+      case OpCode.RST_TGT3 => RST_TGT3(input)
       case OpCode.POP_R16STK => POP_R16STK(input)
       case OpCode.PUSH_R16STK => PUSH_R16STK(input)
       case OpCode.LD_SP_HL => LD_SP_HL
@@ -1579,6 +1580,31 @@ object Instruction {
       Micro.writeMemory { state =>
         state.memory.write(state.registers.sp, state.registers.pc.loByte)
         state.registers.pc = imm16
+      },
+    )
+  }
+
+  /**
+   * RST_TGT3 - Call address vec. This is a shorter and faster equivalent to CALL for suitable values of vec.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#RST_vec]]
+   */
+  case class RST_TGT3(private val input: Array[UByte]) extends Instruction(input) {
+    override val cycles: MCycle = MCycle.Fixed(4)
+    override val bytes: Int = 1
+
+    private val operandMask = 0b00111000.toUByte
+    lazy val targetAddress: UByte = opCode & operandMask
+
+    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+      Micro.iduOperation{ state => state.registers.sp -= 1.toUShort },
+      Micro.writeMemory { state =>
+        state.memory.write(state.registers.sp, state.registers.pc.hiByte)
+        state.registers.sp -= 1.toUShort
+      },
+      Micro.writeMemory { state =>
+        state.memory.write(state.registers.sp, state.registers.pc.loByte)
+        state.registers.pc = targetAddress.toUShort
       },
     )
   }

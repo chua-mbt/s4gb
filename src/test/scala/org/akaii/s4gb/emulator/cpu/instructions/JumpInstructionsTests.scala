@@ -2,7 +2,7 @@ package org.akaii.s4gb.emulator.cpu.instructions
 
 import munit.*
 import org.akaii.s4gb.emulator.byteops.*
-import org.akaii.s4gb.emulator.cpu.Cpu.IMEEnabled
+import org.akaii.s4gb.emulator.cpu.Cpu.*
 import org.akaii.s4gb.emulator.cpu.Registers
 import org.akaii.s4gb.emulator.cpu.Registers.R16
 import org.akaii.s4gb.emulator.cpu.instructions.{Instruction, OpCode}
@@ -265,8 +265,8 @@ class JumpInstructionsTests extends InstructionsTest {
     val returnAddress: UShort = 0x1234.toUShort
     val initialSP: UShort = 0xFFFE.toUShort
 
-    val instruction = Instruction.decode(Array(OpCode.RET.pattern))
-    verifyInstructionOpCode[Instruction.RET.type](OpCode.RET.pattern, instruction)
+    val instruction = Instruction.decode(Array(OpCode.RETI.pattern))
+    verifyInstructionOpCode[Instruction.RETI.type](OpCode.RETI.pattern, instruction)
 
     testInstruction(
       instruction,
@@ -275,12 +275,13 @@ class JumpInstructionsTests extends InstructionsTest {
         memory.write(initialSP, returnAddress.loByte)
         memory.write(initialSP + 1.toUShort, returnAddress.hiByte)
       },
+      setupIME = IMEDisabled,
       expectedRegister = regs => {
         regs.pc = returnAddress
         regs.sp = 0x0000.toUShort // incremented twice
       },
       expectedPC = Some(returnAddress),
-      expectedIME = IMEEnabled
+      expectedIME = IMEEnabling
     )
   }
 
@@ -445,6 +446,39 @@ class JumpInstructionsTests extends InstructionsTest {
       },
       expectedPC = Some(targetAddress),
     )
+  }
+
+  test("RST_TGT3") {
+    val initialSP: UShort = 0xFFFE.toUShort
+    val initialPC: UShort = 0x0100.toUShort
+    val returnAddress: UShort = initialPC + 1.toUShort
+
+    val targets: Seq[UByte] = (0x00 to 0x38 by 8).map(_.toUByte)
+
+    targets.foreach { target =>
+      val opcode: UByte = OpCode.RST_TGT3.pattern | target
+      val instruction = Instruction.decode(Array(opcode))
+      verifyInstruction[Instruction.RST_TGT3](opcode, instruction) { rst =>
+        assertEquals(rst.targetAddress, target)
+      }
+
+      testInstruction(
+        instruction,
+        setupRegister = regs => {
+          regs.pc = initialPC
+          regs.sp = initialSP
+        },
+        expectedRegister = regs => {
+          regs.pc = target.toUShort
+          regs.sp = initialSP - 2.toUShort
+        },
+        expectedMemory = memory => {
+          memory.write(initialSP - 1.toUShort, returnAddress.hiByte)
+          memory.write(initialSP - 2.toUShort, returnAddress.loByte)
+        },
+        expectedPC = Some(target.toUShort)
+      )
+    }
   }
 }
 
