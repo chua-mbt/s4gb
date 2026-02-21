@@ -108,6 +108,8 @@ object Instruction {
       case OpCode.RST_TGT3 => RST_TGT3(input)
       case OpCode.POP_R16STK => POP_R16STK(input)
       case OpCode.PUSH_R16STK => PUSH_R16STK(input)
+      case OpCode.ADD_SP_IMM8 => ADD_SP_IMM8(input)
+      case OpCode.LD_HL_ADD_SP_IMM8 => LD_HL_ADD_SP_IMM8(input)
       case OpCode.LD_SP_HL => LD_SP_HL
       case OpCode.DI => DI
       case OpCode.EI => EI
@@ -380,6 +382,25 @@ object Instruction {
       state.registers.flags.n = false
       state.registers.flags.h = true
       state.registers.flags.c = false
+    }
+  }
+
+  trait AddToHLOperation {
+    self: Instruction =>
+
+    def addLoBytes(left: UShort, right: UShort, state: Cpu.State): UByte = {
+      val lSum = left.loByte.toInt + right.loByte.toInt
+      val carry = if (lSum > UByte.MaxValue.toInt) 1.toUByte else 0.toUByte
+      state.registers.l = lSum.toUByte
+      state.registers.flags.h = left.overflowFromBit11(right)
+      carry
+    }
+
+    def addHiBytes(left: UShort, right: UShort, carryFromLow: UByte, state: Cpu.State): Unit = {
+      val hSum = left.hiByte.toInt + right.hiByte.toInt + carryFromLow.toInt
+      state.registers.h = hSum.toUByte
+      state.registers.flags.c = hSum > UByte.MaxValue.toInt
+      state.registers.flags.n = false
     }
   }
 
@@ -871,7 +892,7 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#ADD_HL,SP]]
    */
-  case object ADD_HL_SP extends Instruction(Array(OpCode.ADD_HL_SP.pattern)) with HasR16Operand {
+  case object ADD_HL_SP extends Instruction(Array(OpCode.ADD_HL_SP.pattern)) with HasR16Operand with AddToHLOperation {
     override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 1
 
@@ -880,21 +901,10 @@ object Instruction {
     override protected[instructions] def micro: Seq[Micro] =
       Seq(
         Micro.fetchOpCode(bytes) { state =>
-          val hl = state.registers.hl
-          val sp = state.registers.sp
-          val lSum = hl.loByte.toInt + sp.loByte.toInt
-          carryFromLow = if (lSum > UByte.MaxValue.toInt) 1.toUByte else 0.toUByte
-          state.registers.l = lSum.toUByte
-          state.registers.flags.h = hl.overflowFromBit11(sp)
+          carryFromLow = addLoBytes(state.registers.hl, state.registers.sp, state)
         },
         Micro.aluOperation { state =>
-          val hSum = state.registers.hl.hiByte.toInt +
-            state.registers.sp.hiByte.toInt +
-            carryFromLow.toInt
-
-          state.registers.h = hSum.toUByte
-          state.registers.flags.c = hSum > UByte.MaxValue.toInt
-          state.registers.flags.n = false
+          addHiBytes(state.registers.hl, state.registers.sp, carryFromLow, state)
         }
       )
   }
@@ -908,7 +918,7 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#ADD_HL,r16]]
    * @see [[https://gist.github.com/SonoSooS/c0055300670d678b5ae8433e20bea595?utm_source=chatgpt.com#add-hl-r16]]
    */
-  case class ADD_HL_R16(private val input: Array[UByte]) extends Instruction(input) with HasR16Operand {
+  case class ADD_HL_R16(private val input: Array[UByte]) extends Instruction(input) with HasR16Operand with AddToHLOperation {
     override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 1
 
@@ -921,19 +931,10 @@ object Instruction {
       Micro.fetchOpCode(bytes) { state =>
         val hl = state.registers.hl
         val op = operandContents(operandStart, state)
-        val lSum = hl.loByte.toInt + op.loByte.toInt
-        carryFromLow = if (lSum > UByte.MaxValue.toInt) 1.toUByte else 0.toUByte
-        state.registers.l = lSum.toUByte
-        state.registers.flags.h = hl.overflowFromBit11(op)
+        carryFromLow = addLoBytes(hl, op, state)
       },
       Micro.aluOperation { state =>
-        val hSum = state.registers.hl.hiByte.toInt +
-          operandContents(operandStart, state).hiByte.toInt +
-          carryFromLow.toInt
-
-        state.registers.h = hSum.toUByte
-        state.registers.flags.c = hSum > UByte.MaxValue.toInt
-        state.registers.flags.n = false
+        addHiBytes(state.registers.hl, operandContents(operandStart, state), carryFromLow, state)
       }
     )
   }
@@ -1733,6 +1734,61 @@ object Instruction {
   }
 
   /**
+   * ADD_SP_IMM8 - Add the signed value e8 to SP.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#ADD_SP,e8]]
+   */
+  case class ADD_SP_IMM8(private val input: Array[UByte]) extends Instruction(input) with HasImm8 {
+    override val cycles: MCycle = MCycle.Fixed(4)
+    override val bytes: Int = 2
+
+    private var sum: UShort = 0.toUShort
+    private var sp: UShort = 0.toUShort
+
+    override protected[instructions] def micro: Seq[Micro] = Seq(
+      Micro.fetchOpCode(bytes) { state =>
+        sp = state.registers.sp
+        sum = (sp.toInt + imm8.toByte.toInt).toUShort
+      },
+      Micro.readMemory(),
+      Micro.aluOperation { state =>
+        state.registers.updateSPLo(sum.loByte)
+        state.registers.flags.z = false
+        state.registers.flags.n = false
+        // The flags are set from unsigned addition, even though imm8 is signed
+        state.registers.flags.h = sp.loByte.overflowFromBit3(imm8)
+        state.registers.flags.c = sp.loByte.overflowFromBit7(imm8)
+      },
+      Micro.aluOperation { state =>
+        state.registers.updateSPHi(sum.hiByte)
+      },
+    )
+  }
+
+  /**
+   * LD_HL_ADD_SP_IMM8 - Add the signed value e8 to SP and copy the result in HL.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD_HL,SP+e8]]
+   */
+  case class LD_HL_ADD_SP_IMM8(private val input: Array[UByte]) extends Instruction(input) with HasImm8 {
+    override val cycles: MCycle = MCycle.Fixed(3)
+    override val bytes: Int = 2
+
+    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+      Micro.readMemory(),
+      Micro.aluOperation { state =>
+        val sp = state.registers.sp
+        state.registers.hl = (sp.toInt + imm8.toByte.toInt).toUShort
+        state.registers.flags.z = false
+        state.registers.flags.n = false
+        // The flags are set from unsigned addition, even though imm8 is signed
+        state.registers.flags.h = sp.loByte.overflowFromBit3(imm8)
+        state.registers.flags.c = sp.loByte.overflowFromBit7(imm8)
+      },
+    )
+  }
+
+  /**
    * LD_SP_HL - Copy register HL into register SP.
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD_SP,HL]]
@@ -1743,6 +1799,28 @@ object Instruction {
 
     override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
       Micro.iduOperation { state => state.registers.sp = state.registers.hl },
+    )
+  }
+
+  /**
+   * ADD_HL_SP - Add the value in SP to HL.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#ADD_HL,SP]]
+   */
+  case class ADD_HL_SP(private val input: Array[UByte]) extends Instruction(input) {
+    override val cycles: MCycle = MCycle.Fixed(2)
+    override val bytes: Int = 1
+
+    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+      Micro.iduOperation { state =>
+        val hl = state.registers.hl
+        val sp = state.registers.sp
+        val result = hl + sp
+        state.registers.hl = result
+        state.registers.flags.n = false
+        state.registers.flags.h = (hl & 0x0FFF.toUShort) + (sp & 0x0FFF.toUShort) > 0x0FFF.toUShort
+        state.registers.flags.c = result < hl // overflow means result wrapped around, making it smaller than hl
+      },
     )
   }
 

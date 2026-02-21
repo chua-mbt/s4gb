@@ -59,18 +59,20 @@ abstract class InstructionsTest extends FunSuite {
 
   protected def verifyInstruction[T <: Instruction : ClassTag](
     opCode: UByte,
-    instruction: Instruction
+    instruction: Instruction,
+    clue: String = ""
   )(verifications: T => Unit = (_: T) => ())(implicit loc: Location): Unit = {
-    assert(summon[ClassTag[T]].runtimeClass.isInstance(instruction))
-    assertEquals(instruction.opCode, opCode)
+    assert(summon[ClassTag[T]].runtimeClass.isInstance(instruction), clue)
+    assertEquals(instruction.opCode, opCode, clue)
     if (instruction.cycles != MCycle.Undefined) assertEquals(instruction.micro.length, instruction.cycles.maxCost)
     verifications(instruction.asInstanceOf[T])
   }
 
   protected def verifyInstructionOpCode[T <: Instruction : ClassTag](
     opCode: UByte,
-    instruction: Instruction
-  )(implicit loc: Location): Unit = verifyInstruction[T](opCode, instruction)()
+    instruction: Instruction,
+    clue: String = ""
+  )(implicit loc: Location): Unit = verifyInstruction[T](opCode, instruction, clue)()
 
   protected def verifyFinalState(
     finalState: Cpu.State,
@@ -78,15 +80,16 @@ abstract class InstructionsTest extends FunSuite {
     expectedPC: UShort,
     expectedExecutionMode: Cpu.ExecutionMode,
     expectedElapsed: Option[Int],
-    expectedState: Cpu.State
+    expectedState: Cpu.State,
+    clue: String
   )(implicit loc: Location): Unit = {
-    assert(instruction.cycles.withinCost(finalState.getElapsed))
-    expectedElapsed.foreach(expected => assertEquals(finalState.getElapsed, expected))
-    assertEquals(finalState.getExecutionMode, expectedExecutionMode)
-    assertEquals(finalState.registers.pc, expectedPC)
-    assertEquals(finalState.registers, expectedState.registers)
-    assertEquals(finalState.memory, expectedState.memory)
-    assertEquals(finalState.getIMEFlag, expectedState.getIMEFlag)
+    assert(instruction.cycles.withinCost(finalState.getElapsed), clue)
+    expectedElapsed.foreach(expected => assertEquals(finalState.getElapsed, expected, clue))
+    assertEquals(finalState.getExecutionMode, expectedExecutionMode, clue)
+    assertEquals(finalState.registers.pc, expectedPC, clue)
+    assertEquals(finalState.registers, expectedState.registers, clue)
+    assertEquals(finalState.memory, expectedState.memory, clue)
+    assertEquals(finalState.getIMEFlag, expectedState.getIMEFlag, clue)
   }
 
   protected def testInstruction(
@@ -99,13 +102,14 @@ abstract class InstructionsTest extends FunSuite {
     expectedIME: IMEFlag = IMEEnabled,
     expectedExecutionMode: Cpu.ExecutionMode = Cpu.ExecutionMode.Running,
     expectedPC: Option[UShort] = None,
-    expectedElapsed: Option[Int] = None
+    expectedElapsed: Option[Int] = None,
+    clue: String = ""
   )(implicit loc: Location): Unit = {
     val initialState = setupTest(setupRegister, setupMemory, setupIME)
     val expectedState = setupExpected(initialState, instruction, expectedRegister, expectedMemory, expectedIME)
     val finalState = exhaustInstruction(instruction, initialState)
     verifyFinalState(finalState, instruction, expectedPC.getOrElse(instruction.bytes.toUShort), expectedExecutionMode,
-      expectedElapsed, expectedState)
+      expectedElapsed, expectedState, clue)
   }
 
   protected def forNonSPR16OpCodeParams(test: OpCode.Parameters.R16 => Unit): Unit =

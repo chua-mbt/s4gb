@@ -14,14 +14,14 @@ class StackInstructionsTests extends InstructionsTest {
 
     testMemoryLocations.foreach { memoryLocation =>
       val imm16 = memoryLocation
-      
+
       val input: Array[UByte] = Array(OpCode.LD_MEM_IMM16_SP.pattern, imm16.loByte, imm16.hiByte)
       val instruction = Instruction.decode(input)
 
       assertEquals(
-        instruction.toString, 
+        instruction.toString,
         f"LD_MEM_IMM16_SP(0x${OpCode.LD_MEM_IMM16_SP.pattern.toInt}%02X" +
-        f"${imm16.loByte.toInt}%02X${imm16.hiByte.toInt}%02X)"
+          f"${imm16.loByte.toInt}%02X${imm16.hiByte.toInt}%02X)"
       )
       verifyInstruction[Instruction.LD_MEM_IMM16_SP](OpCode.LD_MEM_IMM16_SP.pattern, instruction) { ld =>
         assertEquals(ld.imm16, imm16)
@@ -106,10 +106,88 @@ class StackInstructionsTests extends InstructionsTest {
         },
         expectedRegister = regs => regs.sp = initialSP - 2.toUShort,
         expectedMemory = memory => {
-          val loByte = if(operandParam == OpCode.Parameters.R16Stack.AF) value.loByte & 0xF0.toUByte else value.loByte
+          val loByte = if (operandParam == OpCode.Parameters.R16Stack.AF) value.loByte & 0xF0.toUByte else value.loByte
           memory.write(initialSP - 1.toUShort, value.hiByte)
           memory.write(initialSP - 2.toUShort, loByte)
         }
+      )
+    }
+  }
+
+  test("ADD_SP_IMM8") {
+    val testCases = Seq(
+      // (description, SP initial, imm8 signed, expected SP, expected H, expected C)
+      ("Regular positive addition", 0x1000.toUShort, 0x0F, 0x100F.toUShort, false, false),
+      ("Half-carry only (H=1, C=0)", 0x100F.toUShort, 0x01, 0x1010.toUShort, true, false),
+      ("Carry only (H=0, C=1)", 0x10F0.toUShort, 0x10, 0x1100.toUShort, false, true),
+      ("Both half-carry and carry (H=1, C=1)", 0x10F8.toUShort, 0x08, 0x1100.toUShort, true, true),
+      ("Negative addition (no wrap)", 0x1008.toUShort, -0x08, 0x1000.toUShort, true, true),
+      ("Overflow past 0xFFFF", 0xFFF8.toUShort, 0x10, 0x0008.toUShort, false, true),
+      ("Underflow below 0x0000", 0x0008.toUShort, -0x10, 0xFFF8.toUShort, false, false)
+    )
+
+    testCases.foreach { case (description, sp, imm, expectedSP, h, c) =>
+      val input = Array(OpCode.ADD_SP_IMM8.pattern, imm.toUByte)
+      val instruction = Instruction.decode(input)
+
+      verifyInstructionOpCode(OpCode.ADD_SP_IMM8.pattern, instruction)
+
+      testInstruction(
+        instruction,
+        setupRegister = regs => {
+          regs.sp = sp
+          regs.flags.z = true   // should always be cleared
+          regs.flags.n = true   // should always be cleared
+          regs.flags.h = false
+          regs.flags.c = false
+        },
+        expectedRegister = regs => {
+          regs.sp = expectedSP
+          regs.flags.z = false
+          regs.flags.n = false
+          regs.flags.h = h
+          regs.flags.c = c
+        },
+        expectedElapsed = Some(instruction.cycles.maxCost),
+        clue = description
+      )
+    }
+  }
+
+  test("LD_HL_ADD_SP_IMM8") {
+    val testCases = Seq(
+      // (SP initial, imm8 signed, expected HL, expected H, expected C)
+      ("Regular positive addition", 0x1000.toUShort, 0x0F, 0x100F.toUShort, false, false),
+      ("Half-carry only (H=1, C=0)", 0x100F.toUShort, 0x01, 0x1010.toUShort, true, false),
+      ("Carry only (H=0, C=1)", 0x10F0.toUShort, 0x10, 0x1100.toUShort, false, true),
+      ("Both half-carry and carry (H=1, C=1)", 0x10F8.toUShort, 0x08, 0x1100.toUShort, true, true),
+      ("Negative addition (no wrap)", 0x1008.toUShort, -0x08, 0x1000.toUShort, true, true),
+      ("Overflow past 0xFFFF", 0xFFF8.toUShort, 0x10, 0x0008.toUShort, false, true),
+      ("Underflow below 0x0000", 0x0008.toUShort, -0x10, 0xFFF8.toUShort, false, false)
+    )
+
+    testCases.foreach { case (description, sp, imm, expectedHL, h, c) =>
+      val input = Array(OpCode.LD_HL_ADD_SP_IMM8.pattern, imm.toUByte)
+      val instr = Instruction.decode(input)
+      verifyInstructionOpCode(OpCode.LD_HL_ADD_SP_IMM8.pattern, instr)
+
+      testInstruction(
+        instr,
+        setupRegister = regs => {
+          regs.sp = sp
+          regs.flags.z = true  // should always be cleared
+          regs.flags.n = true
+          regs.flags.h = false
+          regs.flags.c = false
+        },
+        expectedRegister = regs => {
+          regs.hl = expectedHL
+          regs.flags.z = false
+          regs.flags.n = false
+          regs.flags.h = h
+          regs.flags.c = c
+        },
+        clue = description
       )
     }
   }
@@ -124,6 +202,4 @@ class StackInstructionsTests extends InstructionsTest {
       expectedRegister = regs => regs.sp = 0x1234.toUShort
     )
   }
-
-
 }
