@@ -2,8 +2,6 @@
 target/
 project/target/
 project/project/
-.history
-.cache
 
 # IDE
 .idea/
@@ -21,4 +19,8 @@ Thumbs.db
 *.class
 *.log
 
+# Generated
+docs/
+
+# Build
 .bsp
