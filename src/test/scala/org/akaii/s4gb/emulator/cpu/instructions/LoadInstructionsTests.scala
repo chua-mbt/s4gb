@@ -1,5 +1,6 @@
 package org.akaii.s4gb.emulator.cpu.instructions
 
+import org.akaii.s4gb.emulator.MemoryMap
 import org.akaii.s4gb.emulator.byteops.*
 import org.akaii.s4gb.emulator.cpu.Registers
 import org.akaii.s4gb.emulator.cpu.Registers.R16
@@ -211,6 +212,44 @@ class LoadInstructionsTests extends InstructionsTest {
     }
   }
 
+  test("LDH_MEM_C_A") {
+    val opcode: UByte = OpCode.LDH_MEM_C_A.pattern
+    val input: Array[UByte] = Array(opcode)
+    val instruction = Instruction.decode(input)
+
+    assertEquals(instruction.toString, f"LDH_MEM_C_A(0x${opcode.toInt}%02X)")
+    verifyInstructionOpCode[Instruction.LDH_MEM_C_A.type](opcode, instruction)
+
+    testInstruction(
+      instruction = instruction,
+      setupRegister = registers => {
+        registers.a = 0x42.toUByte
+        registers.c = 0x10.toUByte
+      },
+      expectedMemory = memory => {
+        memory.write(MemoryMap.IO_REGISTERS_START + 0x10.toUShort, 0x42.toUByte)
+      }
+    )
+  }
+
+  test("LDH_MEM_IMM8_A") {
+    val imm8: UByte = 0x20.toUByte
+    val opcode: UByte = OpCode.LDH_MEM_IMM8_A.pattern
+    val input: Array[UByte] = Array(opcode, imm8)
+    val instruction = Instruction.decode(input)
+
+    assertEquals(instruction.toString, f"LDH_MEM_IMM8_A(0x${opcode.toInt}%02X${imm8.toInt}%02X)")
+    verifyInstruction[Instruction.LDH_MEM_IMM8_A](opcode, instruction) { ld =>
+      assertEquals(ld.imm8, imm8)
+    }
+
+    testInstruction(
+      instruction = instruction,
+      setupRegister = registers => registers.a = 0x42.toUByte,
+      expectedMemory = memory => memory.write(MemoryMap.IO_REGISTERS_START + imm8.toUShort, 0x42.toUByte)
+    )
+  }
+
   test("LD_MEM_IMM16_A") {
     val imm16 = 0x1234.toUShort
     val opcode: UByte = OpCode.LD_MEM_IMM16_A.pattern
@@ -228,6 +267,40 @@ class LoadInstructionsTests extends InstructionsTest {
       instruction = instruction,
       setupRegister = registers => registers.a = 0x42.toUByte,
       expectedMemory = memory => memory.write(imm16, 0x42.toUByte)
+    )
+  }
+
+  test("LDH_A_MEM_C") {
+    val opcode: UByte = OpCode.LDH_A_MEM_C.pattern
+    val input: Array[UByte] = Array(opcode)
+    val instruction = Instruction.decode(input)
+
+    assertEquals(instruction.toString, f"LDH_A_MEM_C(0x${opcode.toInt}%02X)")
+    verifyInstructionOpCode[Instruction.LDH_A_MEM_C.type](opcode, instruction)
+
+    testInstruction(
+      instruction = instruction,
+      setupRegister = registers => registers.c = 0x10.toUByte,
+      setupMemory = (registers, memory) => memory.write(MemoryMap.IO_REGISTERS_START + 0x10.toUShort, 0x42.toUByte),
+      expectedRegister = registers => registers.a = 0x42.toUByte
+    )
+  }
+
+  test("LDH_A_MEM_IMM8") {
+    val imm8: UByte = 0x20.toUByte
+    val opcode: UByte = OpCode.LDH_A_MEM_IMM8.pattern
+    val input: Array[UByte] = Array(opcode, imm8)
+    val instruction = Instruction.decode(input)
+
+    assertEquals(instruction.toString, f"LDH_A_MEM_IMM8(0x${opcode.toInt}%02X${imm8.toInt}%02X)")
+    verifyInstruction[Instruction.LDH_A_MEM_IMM8](opcode, instruction) { ld =>
+      assertEquals(ld.imm8, imm8)
+    }
+
+    testInstruction(
+      instruction = instruction,
+      setupMemory = (registers, memory) => memory.write(MemoryMap.IO_REGISTERS_START + imm8.toUShort, 0x42.toUByte),
+      expectedRegister = registers => registers.a = 0x42.toUByte
     )
   }
 

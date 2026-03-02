@@ -15,4 +15,10 @@ trait MemoryMap() {
 
 object MemoryMap {
   val MEMORY_SIZE: Int = 0x10000 // 64KB
+
+  /**
+   * IO Registers
+   * @see [[https://gbdev.io/pandocs/Memory_Map.html#io-ranges]]
+   **/
+  val IO_REGISTERS_START: UShort = UShort(0xFF00)
 }

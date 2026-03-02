@@ -115,7 +115,11 @@ object Instruction {
       case OpCode.RST_TGT3 => RST_TGT3(input)
       case OpCode.POP_R16STK => POP_R16STK(input)
       case OpCode.PUSH_R16STK => PUSH_R16STK(input)
+      case OpCode.LDH_MEM_C_A => LDH_MEM_C_A
+      case OpCode.LDH_MEM_IMM8_A => LDH_MEM_IMM8_A(input)
       case OpCode.LD_MEM_IMM16_A => LD_MEM_IMM16_A(input)
+      case OpCode.LDH_A_MEM_C => LDH_A_MEM_C
+      case OpCode.LDH_A_MEM_IMM8 => LDH_A_MEM_IMM8(input)
       case OpCode.LD_A_MEM_IMM16 => LD_A_MEM_IMM16(input)
       case OpCode.ADD_SP_IMM8 => ADD_SP_IMM8(input)
       case OpCode.LD_HL_ADD_SP_IMM8 => LD_HL_ADD_SP_IMM8(input)
@@ -588,6 +592,43 @@ object Instruction {
     )
   }
 
+  /**
+   * LDH_MEM_C_A - Copy the value in register A into the byte at address $FF00+C.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LDH__C_,A]]
+   */
+  case object LDH_MEM_C_A extends Instruction(Array(OpCode.LDH_MEM_C_A.pattern)) {
+    override val cycles: MCycle = MCycle.Fixed(2)
+    override val bytes: Int = 1
+
+    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+      Micro.writeMemory { state =>
+        val address = MemoryMap.IO_REGISTERS_START + state.registers.c.toUShort
+        state.memory.write(address, state.registers.a)
+      }
+    )
+  }
+
+  /**
+   * LDH_MEM_IMM8_A - Copy the value in register A into the byte at address imm8 (n16).
+   *
+   * The destination address n16 is encoded as its 8-bit low byte and assumes a high byte of $FF,
+   * so it must be between $FF00 and $FFFF.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LDH__n16_,A]]
+   */
+  case class LDH_MEM_IMM8_A(private val input: Array[UByte]) extends Instruction(input) with HasImm8 {
+    override val cycles: MCycle = MCycle.Fixed(3)
+    override val bytes: Int = 2
+
+    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+      Micro.fetchImm8(),
+      Micro.writeMemory { state =>
+        val address = MemoryMap.IO_REGISTERS_START + imm8.toUShort
+        state.memory.write(address, state.registers.a)
+      }
+    )
+  }
 
   /**
    * LD_MEM_IMM16_A - Copy the value in register A into the byte at address imm16 (n16).
@@ -602,6 +643,44 @@ object Instruction {
       Micro.fetchImm8(),
       Micro.fetchImm8(),
       Micro.writeMemory { state => state.memory.write(imm16, state.registers.a) }
+    )
+  }
+
+  /**
+   * LDH_A_MEM_C - Copy the byte at address $FF00+C into register A.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LDH_A,_C_]]
+   */
+  case object LDH_A_MEM_C extends Instruction(Array(OpCode.LDH_A_MEM_C.pattern)) {
+    override val cycles: MCycle = MCycle.Fixed(2)
+    override val bytes: Int = 1
+
+    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+      Micro.readMemory { state =>
+        val address = MemoryMap.IO_REGISTERS_START + state.registers.c.toUShort
+        state.registers.a = state.memory(address)
+      }
+    )
+  }
+
+  /**
+   * LDH_A_MEM_IMM8 - Copy the byte at address n16 into register A.
+   *
+   * The source address n16 is encoded as its 8-bit low byte and assumes a high byte of $FF,
+   * so it must be between $FF00 and $FFFF.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LDH_A,_n16_]]
+   */
+  case class LDH_A_MEM_IMM8(private val input: Array[UByte]) extends Instruction(input) with HasImm8 {
+    override val cycles: MCycle = MCycle.Fixed(3)
+    override val bytes: Int = 2
+
+    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+      Micro.fetchImm8(),
+      Micro.readMemory { state =>
+        val address = MemoryMap.IO_REGISTERS_START + imm8.toUShort
+        state.registers.a = state.memory(address)
+      }
     )
   }
 
