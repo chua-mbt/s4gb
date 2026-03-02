@@ -91,6 +91,9 @@ enum OpCode(val pattern: UByte, val mask: UByte = 0xFF.toUByte) {
   case POP_R16STK extends OpCode(0xC1.toUByte, excludeBits54) // 11RR0001
   case PUSH_R16STK extends OpCode(0xC5.toUByte, excludeBits54) // 11RR0101
 
+  case LD_MEM_IMM16_A extends OpCode(0xEA.toUByte) // 11101010
+  case LD_A_MEM_IMM16 extends OpCode(0xFA.toUByte) // 11111010
+
   case ADD_SP_IMM8 extends OpCode(0xE8.toUByte) // 11101000
   case LD_HL_ADD_SP_IMM8 extends OpCode(0xF8.toUByte) // 11111000
   case LD_SP_HL extends OpCode(0xF9.toUByte) // 11111011

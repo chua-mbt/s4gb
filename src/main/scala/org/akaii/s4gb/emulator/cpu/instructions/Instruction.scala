@@ -108,6 +108,8 @@ object Instruction {
       case OpCode.RST_TGT3 => RST_TGT3(input)
       case OpCode.POP_R16STK => POP_R16STK(input)
       case OpCode.PUSH_R16STK => PUSH_R16STK(input)
+      case OpCode.LD_MEM_IMM16_A => LD_MEM_IMM16_A(input)
+      case OpCode.LD_A_MEM_IMM16 => LD_A_MEM_IMM16(input)
       case OpCode.ADD_SP_IMM8 => ADD_SP_IMM8(input)
       case OpCode.LD_HL_ADD_SP_IMM8 => LD_HL_ADD_SP_IMM8(input)
       case OpCode.LD_SP_HL => LD_SP_HL
@@ -574,6 +576,39 @@ object Instruction {
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
       Micro.fetchOpCode { state => writeToOperandLocation(destStart, state, operandContents(srcStart, state)) }
+    )
+  }
+
+
+  /**
+   * LD_MEM_IMM16_A - Copy the value in register A into the byte at address imm16 (n16).
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD__n16_,A]]
+   */
+  case class LD_MEM_IMM16_A(private val input: Array[UByte]) extends Instruction(input) with HasImm16 {
+    override val cycles: MCycle = MCycle.Fixed(4)
+    override val bytes: Int = 3
+
+    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+      Micro.fetchImm8(),
+      Micro.fetchImm8(),
+      Micro.writeMemory { state => state.memory.write(imm16, state.registers.a) }
+    )
+  }
+
+  /**
+   * LD_A_MEM_IMM16 - Copy the byte at address imm16 (n16) into register A.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD_A,_n16_]]
+   */
+  case class LD_A_MEM_IMM16(private val input: Array[UByte]) extends Instruction(input) with HasImm16 {
+    override val cycles: MCycle = MCycle.Fixed(4)
+    override val bytes: Int = 3
+
+    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+      Micro.fetchImm8(),
+      Micro.fetchImm8(),
+      Micro.readMemory { state => state.registers.a = state.memory(imm16) }
     )
   }
 
