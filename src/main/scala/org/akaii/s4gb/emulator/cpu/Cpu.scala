@@ -29,6 +29,8 @@ case class Cpu(state: Cpu.State, initialInstruction: Instruction) {
         () // TODO: Depends on IME
       case Cpu.ExecutionMode.Stopped =>
         () // TODO: Wake up
+      case Cpu.ExecutionMode.HardLock =>
+        ()
     }
   }
 }
@@ -72,5 +74,6 @@ object Cpu {
     case object Running extends ExecutionMode
     case object Halted extends ExecutionMode
     case object Stopped extends ExecutionMode
+    case object HardLock extends ExecutionMode
   }
 }

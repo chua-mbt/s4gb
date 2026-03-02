@@ -3,10 +3,10 @@ package org.akaii.s4gb.emulator.cpu.instructions
 import munit.*
 import org.akaii.s4gb.emulator.byteops.*
 import org.akaii.s4gb.emulator.cpu.Cpu.{IMEEnabled, IMEFlag}
-import org.akaii.s4gb.emulator.cpu.{Cpu, Registers}
 import org.akaii.s4gb.emulator.cpu.Registers.R16
 import org.akaii.s4gb.emulator.cpu.instructions.Instruction.MCycle
 import org.akaii.s4gb.emulator.cpu.instructions.{Instruction, OpCode}
+import org.akaii.s4gb.emulator.cpu.{Cpu, Registers}
 import org.akaii.s4gb.emulator.{MemoryMap, TestMap, copyTo}
 import spire.math.{UByte, UShort, e}
 

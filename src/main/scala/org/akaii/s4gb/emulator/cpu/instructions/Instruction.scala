@@ -39,7 +39,14 @@ sealed abstract class Instruction(protected val value: Array[UByte]) extends Pro
 }
 
 object Instruction {
-  def decode(input: Array[UByte]): Instruction = {
+  def decode(input: Array[UByte]): Instruction =
+    input.head match {
+      case opCode if OpCode.HOLES.contains(opCode) => HOLE(input)
+      case OpCode.PREFIXED => decodePrefixed(input.tail)
+      case _ => decodeStandard(input)
+    }
+
+  private def decodeStandard(input: Array[UByte]): Instruction =
     OpCode.decode(input.head) match {
       // Block 0 (0b00)  https://gbdev.io/pandocs/CPU_Instruction_Set.html#block-0
       case OpCode.NOP => NOP
@@ -115,9 +122,11 @@ object Instruction {
       case OpCode.LD_SP_HL => LD_SP_HL
       case OpCode.DI => DI
       case OpCode.EI => EI
-      // TODO: implement other instructions
+      // TODO: Implement other instructions
     }
-  }
+
+  private def decodePrefixed(input: Array[UByte]): Instruction =
+    ??? // TODO: Implement CB prefixed instructions
 
   sealed trait MCycle {
     def withinCost(elapsed: Int): Boolean
@@ -1980,6 +1989,33 @@ object Instruction {
       Micro.fetchImm8(),
     )
   }
+
+  /*
+   * Pseudo-instructions
+   **/
+
+  /**
+   * Opcode holes (not implemented opcodes)
+   *
+   * Why non-implemented opcodes hang is simple: they never fetch (in fact, their decode ROM yields all zeroes, which
+   * makes it hang in all zeroes due to state s000 having no fetch, or any jump to fetch).
+   *
+   * Because they never fetch, they effectively wedge the CPU, including interrupts, and even NMI, as ISR and NMI
+   * servicing is done at fetch-time!
+   *
+   * Implemented in this emulator as an instruction that sets CPU state to hard-lock.
+   *
+   * @see [[https://gist.github.com/SonoSooS/c0055300670d678b5ae8433e20bea595#opcode-holes-not-implemented-opcodes]]
+   */
+  case class HOLE(private val input: Array[UByte]) extends Instruction(input) {
+    override val cycles: MCycle = MCycle.Undefined
+    override val bytes: Int = 1
+
+    override protected[instructions] def micro: Seq[Micro] = Seq(
+      Micro.fetchOpCode { state => state.changeExecutionMode(Cpu.ExecutionMode.HardLock) }
+    )
+  }
+
 }
 
 

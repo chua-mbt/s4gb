@@ -104,6 +104,18 @@ enum OpCode(val pattern: UByte, val mask: UByte = 0xFF.toUByte) {
 
 object OpCode {
 
+  /**
+   * The following opcodes are invalid, and hard-lock the CPU until the console is powered off:
+   * $D3, $DB, $DD, $E3, $E4, $EB, $EC, $ED, $F4, $FC, and $FD.
+   *
+   * @see [[https://gbdev.io/pandocs/CPU_Instruction_Set.html]]
+   */
+  val HOLES: Seq[UByte] =
+    Seq(0xD3.toUByte, 0xDB.toUByte, 0xDD.toUByte, 0xE3.toUByte, 0xE4.toUByte, 0xEB.toUByte, 0xEC.toUByte,
+      0xED.toUByte, 0xF4.toUByte, 0xFC.toUByte, 0xFD.toUByte)
+
+  val PREFIXED: UByte = 0xCB.toUByte
+
   def decode(byteValue: UByte): OpCode = {
     // mask out opcode parameters, and then compare with pattern
     values.find(op => (byteValue & op.mask) == op.pattern)

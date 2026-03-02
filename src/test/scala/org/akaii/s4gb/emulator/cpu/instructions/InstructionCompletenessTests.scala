@@ -2,9 +2,10 @@ package org.akaii.s4gb.emulator.cpu.instructions
 
 import munit.*
 import org.akaii.s4gb.emulator.byteops.*
-import scala.util.{Try, Success, Failure}
 import spire.math.UByte
 import spire.syntax.literals.*
+
+import scala.util.{Failure, Success, Try}
 
 class InstructionCompletenessTests extends FunSuite {
 
