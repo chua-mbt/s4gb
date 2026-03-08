@@ -11,7 +11,7 @@ import spire.math.{UByte, UShort}
 class LoadInstructionsTests extends InstructionsTest {
   test("LD_SP_IMM16") {
     val imm16 = 0x1234.toUShort
-    val opcode: UByte = OpCode.LD_SP_IMM16.pattern
+    val opcode: UByte = OpCode.Base.LD_SP_IMM16.pattern
     val immLo: UByte = imm16.loByte
     val immHi: UByte = imm16.hiByte
     val input: Array[UByte] = Array(opcode, immLo, immHi)
@@ -31,7 +31,7 @@ class LoadInstructionsTests extends InstructionsTest {
   test("LD_R16_IMM16") {
     val imm16 = 0x1234.toUShort
     forNonSPR16OpCodeParams { destParam =>
-      val opcode: UByte = OpCode.LD_R16_IMM16.setParam(destParam -> 4)
+      val opcode: UByte = OpCode.Base.LD_R16_IMM16.setParam(destParam -> 4)
       val immLo: UByte = imm16.loByte
       val immHi: UByte = imm16.hiByte
 
@@ -53,7 +53,7 @@ class LoadInstructionsTests extends InstructionsTest {
 
   test("LD_R16MEM_A") {
     forR16MemOpCodeParams { destRefParam =>
-      val opcode: UByte = OpCode.LD_R16MEM_A.setParam(destRefParam -> 4)
+      val opcode: UByte = OpCode.Base.LD_R16MEM_A.setParam(destRefParam -> 4)
       val input: Array[UByte] = Array(opcode)
       val instruction = Instruction.decode(input)
 
@@ -81,7 +81,7 @@ class LoadInstructionsTests extends InstructionsTest {
 
   test("LD_A_R16MEM") {
     forR16MemOpCodeParams { srcParam =>
-      val opcode: UByte = OpCode.LD_A_R16MEM.setParam(srcParam -> 4)
+      val opcode: UByte = OpCode.Base.LD_A_R16MEM.setParam(srcParam -> 4)
       val input: Array[UByte] = Array(opcode)
       val instruction = Instruction.decode(input)
 
@@ -106,7 +106,7 @@ class LoadInstructionsTests extends InstructionsTest {
 
   test("LD_MEM_HL_IMM8") {
     val imm8: UByte = 0x42.toUByte
-    val opcode: UByte = OpCode.LD_MEM_HL_IMM8.pattern
+    val opcode: UByte = OpCode.Base.LD_MEM_HL_IMM8.pattern
     val input: Array[UByte] = Array(opcode, imm8)
     val instruction = Instruction.decode(input)
 
@@ -125,7 +125,7 @@ class LoadInstructionsTests extends InstructionsTest {
   test("LD_R8_IMM8") {
     val imm8: UByte = 0x42.toUByte
     forNonMemHLR8OpCodeParams { destParam =>
-      val opcode: UByte = OpCode.LD_R8_IMM8.setParam(destParam -> 3)
+      val opcode: UByte = OpCode.Base.LD_R8_IMM8.setParam(destParam -> 3)
       val input: Array[UByte] = Array(opcode, imm8)
       val instruction = Instruction.decode(input)
 
@@ -144,7 +144,7 @@ class LoadInstructionsTests extends InstructionsTest {
 
   test("LD_MEM_HL_R8") {
     forNonMemHLR8OpCodeParams { srcParam =>
-      val opcode: UByte = OpCode.LD_MEM_HL_R8.setParam(srcParam -> 0)
+      val opcode: UByte = OpCode.Base.LD_MEM_HL_R8.setParam(srcParam -> 0)
       val input: Array[UByte] = Array(opcode)
       val instruction = Instruction.decode(input)
 
@@ -173,7 +173,7 @@ class LoadInstructionsTests extends InstructionsTest {
   test("LD_R8_MEM_HL") {
     val value: UByte = 0x42.toUByte
     forNonMemHLR8OpCodeParams { destParam =>
-      val opcode: UByte = OpCode.LD_R8_MEM_HL.setParam(destParam -> 3)
+      val opcode: UByte = OpCode.Base.LD_R8_MEM_HL.setParam(destParam -> 3)
       val input: Array[UByte] = Array(opcode)
       val instruction = Instruction.decode(input)
 
@@ -194,7 +194,7 @@ class LoadInstructionsTests extends InstructionsTest {
   test("LD_R8_R8") {
     val value: UByte = 0x33.toUByte
     forNonMemHLR8OpCodeParamPairs { (srcParam, destParam) =>
-      val opcode: UByte = OpCode.LD_R8_R8.setParam(destParam -> 3, srcParam -> 0)
+      val opcode: UByte = OpCode.Base.LD_R8_R8.setParam(destParam -> 3, srcParam -> 0)
       val input: Array[UByte] = Array(opcode)
       val instruction = Instruction.decode(input)
 
@@ -213,7 +213,7 @@ class LoadInstructionsTests extends InstructionsTest {
   }
 
   test("LDH_MEM_C_A") {
-    val opcode: UByte = OpCode.LDH_MEM_C_A.pattern
+    val opcode: UByte = OpCode.Base.LDH_MEM_C_A.pattern
     val input: Array[UByte] = Array(opcode)
     val instruction = Instruction.decode(input)
 
@@ -234,7 +234,7 @@ class LoadInstructionsTests extends InstructionsTest {
 
   test("LDH_MEM_IMM8_A") {
     val imm8: UByte = 0x20.toUByte
-    val opcode: UByte = OpCode.LDH_MEM_IMM8_A.pattern
+    val opcode: UByte = OpCode.Base.LDH_MEM_IMM8_A.pattern
     val input: Array[UByte] = Array(opcode, imm8)
     val instruction = Instruction.decode(input)
 
@@ -252,7 +252,7 @@ class LoadInstructionsTests extends InstructionsTest {
 
   test("LD_MEM_IMM16_A") {
     val imm16 = 0x1234.toUShort
-    val opcode: UByte = OpCode.LD_MEM_IMM16_A.pattern
+    val opcode: UByte = OpCode.Base.LD_MEM_IMM16_A.pattern
     val immLo: UByte = imm16.loByte
     val immHi: UByte = imm16.hiByte
     val input: Array[UByte] = Array(opcode, immLo, immHi)
@@ -271,7 +271,7 @@ class LoadInstructionsTests extends InstructionsTest {
   }
 
   test("LDH_A_MEM_C") {
-    val opcode: UByte = OpCode.LDH_A_MEM_C.pattern
+    val opcode: UByte = OpCode.Base.LDH_A_MEM_C.pattern
     val input: Array[UByte] = Array(opcode)
     val instruction = Instruction.decode(input)
 
@@ -288,7 +288,7 @@ class LoadInstructionsTests extends InstructionsTest {
 
   test("LDH_A_MEM_IMM8") {
     val imm8: UByte = 0x20.toUByte
-    val opcode: UByte = OpCode.LDH_A_MEM_IMM8.pattern
+    val opcode: UByte = OpCode.Base.LDH_A_MEM_IMM8.pattern
     val input: Array[UByte] = Array(opcode, imm8)
     val instruction = Instruction.decode(input)
 
@@ -306,7 +306,7 @@ class LoadInstructionsTests extends InstructionsTest {
 
   test("LD_A_MEM_IMM16") {
     val imm16 = 0x1234.toUShort
-    val opcode: UByte = OpCode.LD_A_MEM_IMM16.pattern
+    val opcode: UByte = OpCode.Base.LD_A_MEM_IMM16.pattern
     val immLo: UByte = imm16.loByte
     val immHi: UByte = imm16.hiByte
     val input: Array[UByte] = Array(opcode, immLo, immHi)

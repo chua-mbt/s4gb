@@ -9,7 +9,7 @@ import spire.math.UByte
 class ShortArithmeticInstructionsTests extends InstructionsTest {
 
   test("ADD_HL_SP - normal addition") {
-    val opcode: UByte = OpCode.ADD_HL_SP.pattern
+    val opcode: UByte = OpCode.Base.ADD_HL_SP.pattern
     val instruction = Instruction.decode(Array(opcode))
 
     assertEquals(instruction.toString, "ADD_HL_SP(0x39)")
@@ -36,7 +36,7 @@ class ShortArithmeticInstructionsTests extends InstructionsTest {
   }
 
   test("ADD_HL_SP - half-carry") {
-    val opcode: UByte = OpCode.ADD_HL_SP.pattern
+    val opcode: UByte = OpCode.Base.ADD_HL_SP.pattern
     val instruction = Instruction.decode(Array(opcode))
 
     val (hlValue, spValue, expectedHl) = (0x0800.toUShort, 0x0800.toUShort, 0x1000.toUShort)
@@ -60,7 +60,7 @@ class ShortArithmeticInstructionsTests extends InstructionsTest {
   }
 
   test("ADD_HL_SP - carry / overflow") {
-    val opcode: UByte = OpCode.ADD_HL_SP.pattern
+    val opcode: UByte = OpCode.Base.ADD_HL_SP.pattern
     val instruction = Instruction.decode(Array(opcode))
 
     val (hlValue, spValue, expectedHl) = (0x8000.toUShort, 0x8000.toUShort, 0x0000.toUShort)
@@ -85,7 +85,7 @@ class ShortArithmeticInstructionsTests extends InstructionsTest {
 
   test("ADD_HL_R16 - normal addition") {
     forNonSPR16OpCodeParams { operandParam =>
-      val opcode: UByte = OpCode.ADD_HL_R16.setParam(operandParam -> 4)
+      val opcode: UByte = OpCode.Base.ADD_HL_R16.setParam(operandParam -> 4)
       val instruction = Instruction.decode(Array(opcode))
 
       assertEquals(instruction.toString, f"ADD_HL_R16(0x${opcode.toInt}%02X)")
@@ -132,7 +132,7 @@ class ShortArithmeticInstructionsTests extends InstructionsTest {
 
   test("ADD_HL_R16 - half-carry") {
     forNonSPR16OpCodeParams { operandParam =>
-      val opcode: UByte = OpCode.ADD_HL_R16.setParam(operandParam -> 4)
+      val opcode: UByte = OpCode.Base.ADD_HL_R16.setParam(operandParam -> 4)
       val instruction = Instruction.decode(Array(opcode))
 
       val (hlValue, opValue, expectedSum) =
@@ -163,7 +163,7 @@ class ShortArithmeticInstructionsTests extends InstructionsTest {
 
   test("ADD_HL_R16 - carry / overflow") {
     forNonSPR16OpCodeParams { operandParam =>
-      val opcode: UByte = OpCode.ADD_HL_R16.setParam(operandParam -> 4)
+      val opcode: UByte = OpCode.Base.ADD_HL_R16.setParam(operandParam -> 4)
       val instruction = Instruction.decode(Array(opcode))
 
       val (hlValue, opValue, expectedSum) =
@@ -193,7 +193,7 @@ class ShortArithmeticInstructionsTests extends InstructionsTest {
   }
 
   test("INC_SP - normal increment") {
-    val opcode: UByte = OpCode.INC_SP.pattern
+    val opcode: UByte = OpCode.Base.INC_SP.pattern
     val instruction = Instruction.decode(Array(opcode))
 
     assertEquals(instruction.toString, "INC_SP(0x33)")
@@ -207,7 +207,7 @@ class ShortArithmeticInstructionsTests extends InstructionsTest {
   }
 
   test("INC_SP - overflow") {
-    val opcode: UByte = OpCode.INC_SP.pattern
+    val opcode: UByte = OpCode.Base.INC_SP.pattern
     val instruction = Instruction.decode(Array(opcode))
 
     testInstruction(
@@ -219,7 +219,7 @@ class ShortArithmeticInstructionsTests extends InstructionsTest {
 
   test("INC_R16 - normal increment") {
     forNonSPR16OpCodeParams { operandParam =>
-      val opcode: UByte = OpCode.INC_R16.setParam(operandParam -> 4)
+      val opcode: UByte = OpCode.Base.INC_R16.setParam(operandParam -> 4)
       val instruction = Instruction.decode(Array(opcode))
 
       assertEquals(instruction.toString, f"INC_R16(0x${opcode.toInt}%02X)")
@@ -237,7 +237,7 @@ class ShortArithmeticInstructionsTests extends InstructionsTest {
 
   test("INC_R16 - overflow") {
     forNonSPR16OpCodeParams { operandParam =>
-      val opcode: UByte = OpCode.INC_R16.setParam(operandParam -> 4)
+      val opcode: UByte = OpCode.Base.INC_R16.setParam(operandParam -> 4)
       val instruction = Instruction.decode(Array(opcode))
 
       testInstruction(
@@ -249,7 +249,7 @@ class ShortArithmeticInstructionsTests extends InstructionsTest {
   }
 
   test("DEC_SP - normal decrement") {
-    val opcode: UByte = OpCode.DEC_SP.pattern
+    val opcode: UByte = OpCode.Base.DEC_SP.pattern
       val instruction = Instruction.decode(Array(opcode))
 
       assertEquals(instruction.toString, "DEC_SP(0x3B)")
@@ -263,7 +263,7 @@ class ShortArithmeticInstructionsTests extends InstructionsTest {
   }
 
   test("DEC_SP - underflow") {
-    val opcode: UByte = OpCode.DEC_SP.pattern
+    val opcode: UByte = OpCode.Base.DEC_SP.pattern
     val instruction = Instruction.decode(Array(opcode))
 
     testInstruction(
@@ -275,7 +275,7 @@ class ShortArithmeticInstructionsTests extends InstructionsTest {
 
   test("DEC_R16 - normal decrement") {
     forNonSPR16OpCodeParams { operandParam =>
-      val opcode: UByte = OpCode.DEC_R16.setParam(operandParam -> 4)
+      val opcode: UByte = OpCode.Base.DEC_R16.setParam(operandParam -> 4)
       val instruction = Instruction.decode(Array(opcode))
 
       assertEquals(instruction.toString, f"DEC_R16(0x${opcode.toInt}%02X)")
@@ -293,7 +293,7 @@ class ShortArithmeticInstructionsTests extends InstructionsTest {
 
   test("DEC_R16 - underflow") {
     forNonSPR16OpCodeParams { operandParam =>
-      val opcode: UByte = OpCode.DEC_R16.setParam(operandParam -> 4)
+      val opcode: UByte = OpCode.Base.DEC_R16.setParam(operandParam -> 4)
       val instruction = Instruction.decode(Array(opcode))
 
       testInstruction(

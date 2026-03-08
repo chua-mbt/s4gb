@@ -2,6 +2,7 @@ package org.akaii.s4gb.emulator.cpu.instructions
 
 import org.akaii.s4gb.emulator.MemoryMap
 import org.akaii.s4gb.emulator.byteops.*
+import org.akaii.s4gb.emulator.cpu.instructions.OpCode
 import org.akaii.s4gb.emulator.cpu.instructions.OpCode.Extract.*
 import org.akaii.s4gb.emulator.cpu.{Cpu, Registers}
 import spire.math.{UByte, UShort}
@@ -43,94 +44,98 @@ object Instruction {
     input.head match {
       case opCode if OpCode.HOLES.contains(opCode) => HOLE(input)
       case OpCode.PREFIXED => decodePrefixed(input.tail)
-      case _ => decodeStandard(input)
+      case _ => decodeBase(input)
     }
 
-  private def decodeStandard(input: Array[UByte]): Instruction =
-    OpCode.decode(input.head) match {
+  private def decodeBase(input: Array[UByte]): Instruction =
+    OpCode.decode(OpCode.Base.values, input.head) match {
       // Block 0 (0b00)  https://gbdev.io/pandocs/CPU_Instruction_Set.html#block-0
-      case OpCode.NOP => NOP
-      case OpCode.LD_SP_IMM16 => LD_SP_IMM16(input)
-      case OpCode.LD_R16_IMM16 => LD_R16_IMM16(input)
-      case OpCode.LD_R16MEM_A => LD_R16MEM_A(input)
-      case OpCode.LD_A_R16MEM => LD_A_R16MEM(input)
-      case OpCode.LD_MEM_IMM16_SP => LD_MEM_IMM16_SP(input)
-      case OpCode.INC_SP => INC_SP
-      case OpCode.INC_R16 => INC_R16(input)
-      case OpCode.DEC_SP => DEC_SP
-      case OpCode.DEC_R16 => DEC_R16(input)
-      case OpCode.ADD_HL_SP => ADD_HL_SP
-      case OpCode.ADD_HL_R16 => ADD_HL_R16(input)
-      case OpCode.INC_MEM_HL => INC_MEM_HL
-      case OpCode.INC_R8 => INC_R8(input)
-      case OpCode.DEC_MEM_HL => DEC_MEM_HL
-      case OpCode.DEC_R8 => DEC_R8(input)
-      case OpCode.LD_MEM_HL_IMM8 => LD_MEM_HL_IMM8(input)
-      case OpCode.LD_R8_IMM8 => LD_R8_IMM8(input)
-      case OpCode.RLCA => RLCA
-      case OpCode.RRCA => RRCA
-      case OpCode.RLA => RLA
-      case OpCode.RRA => RRA
-      case OpCode.DAA => DAA
-      case OpCode.CPL => CPL
-      case OpCode.SCF => SCF
-      case OpCode.CCF => CCF
-      case OpCode.JR_IMM8 => JR_IMM8(input)
-      case OpCode.JR_COND_IMM8 => JR_COND_IMM8(input)
-      case OpCode.STOP => STOP(input)
+      case OpCode.Base.NOP => NOP
+      case OpCode.Base.LD_SP_IMM16 => LD_SP_IMM16(input)
+      case OpCode.Base.LD_R16_IMM16 => LD_R16_IMM16(input)
+      case OpCode.Base.LD_R16MEM_A => LD_R16MEM_A(input)
+      case OpCode.Base.LD_A_R16MEM => LD_A_R16MEM(input)
+      case OpCode.Base.LD_MEM_IMM16_SP => LD_MEM_IMM16_SP(input)
+      case OpCode.Base.INC_SP => INC_SP
+      case OpCode.Base.INC_R16 => INC_R16(input)
+      case OpCode.Base.DEC_SP => DEC_SP
+      case OpCode.Base.DEC_R16 => DEC_R16(input)
+      case OpCode.Base.ADD_HL_SP => ADD_HL_SP
+      case OpCode.Base.ADD_HL_R16 => ADD_HL_R16(input)
+      case OpCode.Base.INC_MEM_HL => INC_MEM_HL
+      case OpCode.Base.INC_R8 => INC_R8(input)
+      case OpCode.Base.DEC_MEM_HL => DEC_MEM_HL
+      case OpCode.Base.DEC_R8 => DEC_R8(input)
+      case OpCode.Base.LD_MEM_HL_IMM8 => LD_MEM_HL_IMM8(input)
+      case OpCode.Base.LD_R8_IMM8 => LD_R8_IMM8(input)
+      case OpCode.Base.RLCA => RLCA
+      case OpCode.Base.RRCA => RRCA
+      case OpCode.Base.RLA => RLA
+      case OpCode.Base.RRA => RRA
+      case OpCode.Base.DAA => DAA
+      case OpCode.Base.CPL => CPL
+      case OpCode.Base.SCF => SCF
+      case OpCode.Base.CCF => CCF
+      case OpCode.Base.JR_IMM8 => JR_IMM8(input)
+      case OpCode.Base.JR_COND_IMM8 => JR_COND_IMM8(input)
+      case OpCode.Base.STOP => STOP(input)
       // Block 1 (0b01) https://gbdev.io/pandocs/CPU_Instruction_Set.html#block-1-8-bit-register-to-register-loads
-      case OpCode.HALT => HALT
-      case OpCode.LD_MEM_HL_R8 => LD_MEM_HL_R8(input)
-      case OpCode.LD_R8_MEM_HL => LD_R8_MEM_HL(input)
-      case OpCode.LD_R8_R8 => LD_R8_R8(input)
+      case OpCode.Base.HALT => HALT
+      case OpCode.Base.LD_MEM_HL_R8 => LD_MEM_HL_R8(input)
+      case OpCode.Base.LD_R8_MEM_HL => LD_R8_MEM_HL(input)
+      case OpCode.Base.LD_R8_R8 => LD_R8_R8(input)
       // Block 2 (0b10) https://gbdev.io/pandocs/CPU_Instruction_Set.html#block-2-8-bit-arithmetic
-      case OpCode.ADD_A_R8 => ADD_A_R8(input)
-      case OpCode.ADC_A_R8 => ADC_A_R8(input)
-      case OpCode.SUB_A_R8 => SUB_A_R8(input)
-      case OpCode.SBC_A_R8 => SBC_A_R8(input)
-      case OpCode.AND_A_MEM_HL => AND_A_MEM_HL
-      case OpCode.AND_A_R8 => AND_A_R8(input)
-      case OpCode.XOR_A_MEM_HL => XOR_A_MEM_HL
-      case OpCode.XOR_A_R8 => XOR_A_R8(input)
-      case OpCode.OR_A_MEM_HL => OR_A_MEM_HL
-      case OpCode.OR_A_R8 => OR_A_R8(input)
-      case OpCode.CP_A_R8 => CP_A_R8(input)
+      case OpCode.Base.ADD_A_R8 => ADD_A_R8(input)
+      case OpCode.Base.ADC_A_R8 => ADC_A_R8(input)
+      case OpCode.Base.SUB_A_R8 => SUB_A_R8(input)
+      case OpCode.Base.SBC_A_R8 => SBC_A_R8(input)
+      case OpCode.Base.AND_A_MEM_HL => AND_A_MEM_HL
+      case OpCode.Base.AND_A_R8 => AND_A_R8(input)
+      case OpCode.Base.XOR_A_MEM_HL => XOR_A_MEM_HL
+      case OpCode.Base.XOR_A_R8 => XOR_A_R8(input)
+      case OpCode.Base.OR_A_MEM_HL => OR_A_MEM_HL
+      case OpCode.Base.OR_A_R8 => OR_A_R8(input)
+      case OpCode.Base.CP_A_R8 => CP_A_R8(input)
       // Block 3 (0b11) https://gbdev.io/pandocs/CPU_Instruction_Set.html#block-3
-      case OpCode.ADD_A_IMM8 => ADD_A_IMM8(input)
-      case OpCode.ADC_A_IMM8 => ADC_A_IMM8(input)
-      case OpCode.SUB_A_IMM8 => SUB_A_IMM8(input)
-      case OpCode.SBC_A_IMM8 => SBC_A_IMM8(input)
-      case OpCode.AND_A_IMM8 => AND_A_IMM8(input)
-      case OpCode.XOR_A_IMM8 => XOR_A_IMM8(input)
-      case OpCode.OR_A_IMM8 => OR_A_IMM8(input)
-      case OpCode.CP_A_IMM8 => CP_A_IMM8(input)
-      case OpCode.RET_COND => RET_COND(input)
-      case OpCode.RET => RET
-      case OpCode.RETI => RETI
-      case OpCode.JP_COND_IMM16 => JP_COND_IMM16(input)
-      case OpCode.JP_IMM16 => JP_IMM16(input)
-      case OpCode.JP_HL => JP_HL
-      case OpCode.CALL_COND_IMM16 => CALL_COND_IMM16(input)
-      case OpCode.CALL_IMM16 => CALL_IMM16(input)
-      case OpCode.RST_TGT3 => RST_TGT3(input)
-      case OpCode.POP_R16STK => POP_R16STK(input)
-      case OpCode.PUSH_R16STK => PUSH_R16STK(input)
-      case OpCode.LDH_MEM_C_A => LDH_MEM_C_A
-      case OpCode.LDH_MEM_IMM8_A => LDH_MEM_IMM8_A(input)
-      case OpCode.LD_MEM_IMM16_A => LD_MEM_IMM16_A(input)
-      case OpCode.LDH_A_MEM_C => LDH_A_MEM_C
-      case OpCode.LDH_A_MEM_IMM8 => LDH_A_MEM_IMM8(input)
-      case OpCode.LD_A_MEM_IMM16 => LD_A_MEM_IMM16(input)
-      case OpCode.ADD_SP_IMM8 => ADD_SP_IMM8(input)
-      case OpCode.LD_HL_ADD_SP_IMM8 => LD_HL_ADD_SP_IMM8(input)
-      case OpCode.LD_SP_HL => LD_SP_HL
-      case OpCode.DI => DI
-      case OpCode.EI => EI
-      // TODO: Implement other instructions
+      case OpCode.Base.ADD_A_IMM8 => ADD_A_IMM8(input)
+      case OpCode.Base.ADC_A_IMM8 => ADC_A_IMM8(input)
+      case OpCode.Base.SUB_A_IMM8 => SUB_A_IMM8(input)
+      case OpCode.Base.SBC_A_IMM8 => SBC_A_IMM8(input)
+      case OpCode.Base.AND_A_IMM8 => AND_A_IMM8(input)
+      case OpCode.Base.XOR_A_IMM8 => XOR_A_IMM8(input)
+      case OpCode.Base.OR_A_IMM8 => OR_A_IMM8(input)
+      case OpCode.Base.CP_A_IMM8 => CP_A_IMM8(input)
+      case OpCode.Base.RET_COND => RET_COND(input)
+      case OpCode.Base.RET => RET
+      case OpCode.Base.RETI => RETI
+      case OpCode.Base.JP_COND_IMM16 => JP_COND_IMM16(input)
+      case OpCode.Base.JP_IMM16 => JP_IMM16(input)
+      case OpCode.Base.JP_HL => JP_HL
+      case OpCode.Base.CALL_COND_IMM16 => CALL_COND_IMM16(input)
+      case OpCode.Base.CALL_IMM16 => CALL_IMM16(input)
+      case OpCode.Base.RST_TGT3 => RST_TGT3(input)
+      case OpCode.Base.POP_R16STK => POP_R16STK(input)
+      case OpCode.Base.PUSH_R16STK => PUSH_R16STK(input)
+      case OpCode.Base.LDH_MEM_C_A => LDH_MEM_C_A
+      case OpCode.Base.LDH_MEM_IMM8_A => LDH_MEM_IMM8_A(input)
+      case OpCode.Base.LD_MEM_IMM16_A => LD_MEM_IMM16_A(input)
+      case OpCode.Base.LDH_A_MEM_C => LDH_A_MEM_C
+      case OpCode.Base.LDH_A_MEM_IMM8 => LDH_A_MEM_IMM8(input)
+      case OpCode.Base.LD_A_MEM_IMM16 => LD_A_MEM_IMM16(input)
+      case OpCode.Base.ADD_SP_IMM8 => ADD_SP_IMM8(input)
+      case OpCode.Base.LD_HL_ADD_SP_IMM8 => LD_HL_ADD_SP_IMM8(input)
+      case OpCode.Base.LD_SP_HL => LD_SP_HL
+      case OpCode.Base.DI => DI
+      case OpCode.Base.EI => EI
     }
 
   private def decodePrefixed(input: Array[UByte]): Instruction =
-    ??? // TODO: Implement CB prefixed instructions
+    OpCode.decode(OpCode.CB.values, input.head) match {
+      case OpCode.CB.RLC_MEM_HL => RLC_MEM_HL(input)
+      case OpCode.CB.RLC_R8 => RLC_R8(input)
+      case OpCode.CB.RRC_MEM_HL => RRC_MEM_HL(input)
+      case OpCode.CB.RRC_R8 => RRC_R8(input)
+    }
 
   sealed trait MCycle {
     def withinCost(elapsed: Int): Boolean
@@ -179,7 +184,7 @@ object Instruction {
    *
    * @see [[https://gist.github.com/SonoSooS/c0055300670d678b5ae8433e20bea595?utm_source=chatgpt.com#fetch-and-stuff]]
    * */
-  object Micro {
+  private object Micro {
 
     private def advancePC(bytes: Int, state: Cpu.State): Unit = state.registers.advancePC(bytes)
 
@@ -203,6 +208,19 @@ object Instruction {
     def aluOperation(execute: MicroStep = _ => ()): Micro = microOp(execute)
 
     def modifyPC(execute: MicroStep = _ => ()): Micro = microOp(execute)
+  }
+
+  /**
+   * 16-bit extended instructions prefixed by 0xCB. Require 2 fetches rather than 1.
+   *
+   * @see [[https://gist.github.com/SonoSooS/c0055300670d678b5ae8433e20bea595#cb-prefix]]
+   * @see [[https://gbdev.io/pandocs/CPU_Instruction_Set.html#cb-prefix-instructions]]
+   */
+  abstract class CBExtension(private val extension: Array[UByte]) extends Instruction(extension) {
+    override def toString: String = f"$productPrefix(0xCB${opCode.toInt}%02X)"
+
+    override protected[instructions] def micro: Seq[Instruction.Micro] =
+      super.micro ++ Seq(Instruction.Micro.fetchOpCode())
   }
 
   trait HasImm8 {
@@ -419,6 +437,17 @@ object Instruction {
     }
   }
 
+  trait RotateOperation {
+    self: Instruction =>
+
+    def setFlags(state: Cpu.State, carry: UByte, resultForZero: Option[UByte] = None): Unit = {
+      state.registers.flags.z = resultForZero.contains(0.toUByte)
+      state.registers.flags.n = false
+      state.registers.flags.h = false
+      state.registers.flags.c = carry == 1.toUByte
+    }
+  }
+
   /*
    * Load instructions
    * https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#Load_instructions
@@ -597,7 +626,7 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LDH__C_,A]]
    */
-  case object LDH_MEM_C_A extends Instruction(Array(OpCode.LDH_MEM_C_A.pattern)) {
+  case object LDH_MEM_C_A extends Instruction(Array(OpCode.Base.LDH_MEM_C_A.pattern)) {
     override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 1
 
@@ -651,7 +680,7 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LDH_A,_C_]]
    */
-  case object LDH_A_MEM_C extends Instruction(Array(OpCode.LDH_A_MEM_C.pattern)) {
+  case object LDH_A_MEM_C extends Instruction(Array(OpCode.Base.LDH_A_MEM_C.pattern)) {
     override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 1
 
@@ -710,7 +739,7 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#INC__HL_]]
    */
-  case object INC_MEM_HL extends Instruction(Array(OpCode.INC_MEM_HL.pattern)) with HasR8Operand {
+  case object INC_MEM_HL extends Instruction(Array(OpCode.Base.INC_MEM_HL.pattern)) with HasR8Operand {
     override val cycles: MCycle = MCycle.Fixed(3)
     override val bytes: Int = 1
 
@@ -756,7 +785,7 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#DEC__HL_]]
    */
-  case object DEC_MEM_HL extends Instruction(Array(OpCode.DEC_MEM_HL.pattern)) with HasR8Operand {
+  case object DEC_MEM_HL extends Instruction(Array(OpCode.Base.DEC_MEM_HL.pattern)) with HasR8Operand {
     override val cycles: MCycle = MCycle.Fixed(3)
     override val bytes: Int = 1
 
@@ -1010,7 +1039,7 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#ADD_HL,SP]]
    */
-  case object ADD_HL_SP extends Instruction(Array(OpCode.ADD_HL_SP.pattern)) with HasR16Operand with AddToHLOperation {
+  case object ADD_HL_SP extends Instruction(Array(OpCode.Base.ADD_HL_SP.pattern)) with HasR16Operand with AddToHLOperation {
     override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 1
 
@@ -1064,7 +1093,7 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#INC_SP]]
    */
-  case object INC_SP extends Instruction(Array(OpCode.INC_SP.pattern)) with HasR16Operand {
+  case object INC_SP extends Instruction(Array(OpCode.Base.INC_SP.pattern)) with HasR16Operand {
     override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 1
 
@@ -1109,7 +1138,7 @@ object Instruction {
    *
    * See INC_R16 for why this takes 2 cycles.
    */
-  case object DEC_SP extends Instruction(Array(OpCode.DEC_SP.pattern)) with HasR16Operand {
+  case object DEC_SP extends Instruction(Array(OpCode.Base.DEC_SP.pattern)) with HasR16Operand {
     override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 1
 
@@ -1155,7 +1184,7 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#CPL]]
    */
-  case object CPL extends Instruction(Array(OpCode.CPL.pattern)) {
+  case object CPL extends Instruction(Array(OpCode.Base.CPL.pattern)) {
     override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
 
@@ -1173,7 +1202,7 @@ object Instruction {
    *
    * @see[[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#AND_A,_HL_]]
    */
-  case object AND_A_MEM_HL extends Instruction(Array(OpCode.AND_A_MEM_HL.pattern)) with HasR8Operand with AndOperation {
+  case object AND_A_MEM_HL extends Instruction(Array(OpCode.Base.AND_A_MEM_HL.pattern)) with HasR8Operand with AndOperation {
     override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 1
 
@@ -1216,7 +1245,7 @@ object Instruction {
    *
    * @see[[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#XOR_A,_HL_]]
    */
-  case object XOR_A_MEM_HL extends Instruction(Array(OpCode.XOR_A_MEM_HL.pattern)) with HasR8Operand with OrOperation {
+  case object XOR_A_MEM_HL extends Instruction(Array(OpCode.Base.XOR_A_MEM_HL.pattern)) with HasR8Operand with OrOperation {
     override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 1
 
@@ -1259,7 +1288,7 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#OR_A,_HL_]]
    */
-  case object OR_A_MEM_HL extends Instruction(Array(OpCode.OR_A_MEM_HL.pattern)) with HasR8Operand with OrOperation {
+  case object OR_A_MEM_HL extends Instruction(Array(OpCode.Base.OR_A_MEM_HL.pattern)) with HasR8Operand with OrOperation {
     override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 1
 
@@ -1372,7 +1401,7 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#RLCA]]
    */
-  case object RLCA extends Instruction(Array(OpCode.RLCA.pattern)) {
+  case object RLCA extends Instruction(Array(OpCode.Base.RLCA.pattern)) with RotateOperation {
     override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
 
@@ -1382,10 +1411,7 @@ object Instruction {
         val carry = (a & 0x80.toUByte) >> 7
         val result = (a << 1) | carry
         state.registers.a = result
-        state.registers.flags.z = false
-        state.registers.flags.n = false
-        state.registers.flags.h = false
-        state.registers.flags.c = carry == 1.toUByte
+        setFlags(state, carry)
       }
     )
   }
@@ -1395,7 +1421,7 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#RRCA]]
    */
-  case object RRCA extends Instruction(Array(OpCode.RRCA.pattern)) {
+  case object RRCA extends Instruction(Array(OpCode.Base.RRCA.pattern)) with RotateOperation {
     override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
 
@@ -1405,10 +1431,7 @@ object Instruction {
         val carry = a & 0x01.toUByte
         val result = (a >> 1) | (carry << 7)
         state.registers.a = result
-        state.registers.flags.z = false
-        state.registers.flags.n = false
-        state.registers.flags.h = false
-        state.registers.flags.c = carry == 1.toUByte
+        setFlags(state, carry)
       }
     )
   }
@@ -1418,7 +1441,7 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#RLA]]
    */
-  case object RLA extends Instruction(Array(OpCode.RLA.pattern)) {
+  case object RLA extends Instruction(Array(OpCode.Base.RLA.pattern)) with RotateOperation {
     override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
 
@@ -1429,10 +1452,7 @@ object Instruction {
         val carryOut = (a & 0x80.toUByte) >> 7
         val result = (a << 1) | carryIn
         state.registers.a = result
-        state.registers.flags.z = false
-        state.registers.flags.n = false
-        state.registers.flags.h = false
-        state.registers.flags.c = carryOut == 1.toUByte
+        setFlags(state, carryOut)
       }
     )
   }
@@ -1442,7 +1462,7 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#RRA]]
    */
-  case object RRA extends Instruction(Array(OpCode.RRA.pattern)) {
+  case object RRA extends Instruction(Array(OpCode.Base.RRA.pattern)) with RotateOperation {
     override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
 
@@ -1453,10 +1473,99 @@ object Instruction {
         val carryOut = a & 0x01.toUByte
         val result = (a >> 1) | carryIn
         state.registers.a = result
-        state.registers.flags.z = false
-        state.registers.flags.n = false
-        state.registers.flags.h = false
-        state.registers.flags.c = carryOut == 1.toUByte
+        setFlags(state, carryOut)
+      }
+    )
+  }
+
+  /**
+   * RLC_MEM_HL - Rotate the byte pointed to by HL left.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#RLC__HL_]]
+   */
+  case class RLC_MEM_HL(private val input: Array[UByte]) extends CBExtension(input) with HasR8Operand with RotateOperation {
+    override val cycles: MCycle = MCycle.Fixed(4)
+    override val bytes: Int = 2
+
+    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+      Micro.readMemory(),
+      Micro.writeMemory { state =>
+        val hl = state.registers.hl
+        val value = state.memory(hl)
+        val carry = (value & 0x80.toUByte) >> 7
+        val result = (value << 1) | carry
+        state.memory.write(hl, result)
+        setFlags(state, carry, resultForZero = Some(result))
+      },
+    )
+  }
+
+  /**
+   * RLC_R8 - Rotate register r8 left.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#RLC_r8]]
+   */
+  case class RLC_R8(private val input: Array[UByte]) extends CBExtension(input) with HasR8Operand with RotateOperation {
+    override val cycles: MCycle = MCycle.Fixed(2)
+    override val bytes: Int = 2
+
+    private val operandStart = 2
+    lazy val operand: OpCode.Parameters.R8 = operand(operandStart)
+
+    override protected[instructions] def micro: Seq[Micro] = Seq(
+      Micro.fetchOpCode(),
+      Micro.fetchOpCode { state =>
+        val value = operandContents(operandStart, state)
+        val carry = (value & 0x80.toUByte) >> 7
+        val result = (value << 1) | carry
+        writeToOperandLocation(operandStart, state, result)
+        setFlags(state, carry, resultForZero = Some(result))
+      }
+    )
+  }
+
+  /**
+   * RRC_MEM_HL - Rotate the byte pointed to by HL right.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#RRC__HL_]]
+   */
+  case class RRC_MEM_HL(private val input: Array[UByte]) extends CBExtension(input) with HasR8Operand with RotateOperation {
+    override val cycles: MCycle = MCycle.Fixed(4)
+    override val bytes: Int = 2
+
+    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+      Micro.readMemory(),
+      Micro.writeMemory { state =>
+        val hl = state.registers.hl
+        val value = state.memory(hl)
+        val carry = value & 0x01.toUByte
+        val result = (value >> 1) | (carry << 7)
+        state.memory.write(hl, result)
+        setFlags(state, carry, resultForZero = Some(result))
+      }
+    )
+  }
+
+  /**
+   * RRC_R8 - Rotate register r8 right.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#RRC_r8]]
+   */
+  case class RRC_R8(private val input: Array[UByte]) extends CBExtension(input) with HasR8Operand with RotateOperation {
+    override val cycles: MCycle = MCycle.Fixed(2)
+    override val bytes: Int = 2
+
+    private val operandStart = 2
+    lazy val operand: OpCode.Parameters.R8 = operand(operandStart)
+
+    override protected[instructions] def micro: Seq[Micro] = Seq(
+      Micro.fetchOpCode(),
+      Micro.fetchOpCode { state =>
+        val value = operandContents(operandStart, state)
+        val carry = value & 0x01.toUByte
+        val result = (value >> 1) | (carry << 7)
+        writeToOperandLocation(operandStart, state, result)
+        setFlags(state, carry, resultForZero = Some(result))
       }
     )
   }
@@ -1551,7 +1660,7 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#RET]]
    */
-  case object RET extends Instruction(Array(OpCode.RET.pattern)) {
+  case object RET extends Instruction(Array(OpCode.Base.RET.pattern)) {
     override val cycles: MCycle = MCycle.Fixed(4)
     override val bytes: Int = 1
 
@@ -1574,7 +1683,7 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#RETI]]
    */
-  case object RETI extends Instruction(Array(OpCode.RETI.pattern)) {
+  case object RETI extends Instruction(Array(OpCode.Base.RETI.pattern)) {
     override val cycles: MCycle = MCycle.Fixed(4)
     override val bytes: Int = 1
 
@@ -1632,7 +1741,7 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#JP_HL]]
    */
-  case object JP_HL extends Instruction(Array(OpCode.JP_HL.pattern)) {
+  case object JP_HL extends Instruction(Array(OpCode.Base.JP_HL.pattern)) {
     override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
 
@@ -1659,7 +1768,7 @@ object Instruction {
     override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
       Micro.fetchImm8(),
       Micro.fetchImm8AndThen(continueIf(condition)),
-      Micro.iduOperation{ state => state.registers.sp -= 1.toUShort },
+      Micro.iduOperation { state => state.registers.sp -= 1.toUShort },
       Micro.writeMemory { state =>
         state.memory.write(state.registers.sp, state.registers.pc.hiByte)
         state.registers.sp -= 1.toUShort
@@ -1683,7 +1792,7 @@ object Instruction {
     override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
       Micro.fetchImm8(),
       Micro.fetchImm8(),
-      Micro.iduOperation{ state => state.registers.sp -= 1.toUShort },
+      Micro.iduOperation { state => state.registers.sp -= 1.toUShort },
       Micro.writeMemory { state =>
         state.memory.write(state.registers.sp, state.registers.pc.hiByte)
         state.registers.sp -= 1.toUShort
@@ -1708,7 +1817,7 @@ object Instruction {
     lazy val targetAddress: UByte = opCode & operandMask
 
     override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
-      Micro.iduOperation{ state => state.registers.sp -= 1.toUShort },
+      Micro.iduOperation { state => state.registers.sp -= 1.toUShort },
       Micro.writeMemory { state =>
         state.memory.write(state.registers.sp, state.registers.pc.hiByte)
         state.registers.sp -= 1.toUShort
@@ -1730,7 +1839,7 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#SCF]]
    */
-  case object SCF extends Instruction(Array(OpCode.SCF.pattern)) {
+  case object SCF extends Instruction(Array(OpCode.Base.SCF.pattern)) {
     override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
 
@@ -1743,7 +1852,7 @@ object Instruction {
     )
   }
 
-  case object CCF extends Instruction(Array(OpCode.CCF.pattern)) {
+  case object CCF extends Instruction(Array(OpCode.Base.CCF.pattern)) {
     override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
 
@@ -1903,7 +2012,7 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD_SP,HL]]
    */
-  case object LD_SP_HL extends Instruction(Array(OpCode.LD_SP_HL.pattern)) {
+  case object LD_SP_HL extends Instruction(Array(OpCode.Base.LD_SP_HL.pattern)) {
     override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 1
 
@@ -1944,7 +2053,7 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#DI]]
    */
-  case object DI extends Instruction(Array(OpCode.DI.pattern)) {
+  case object DI extends Instruction(Array(OpCode.Base.DI.pattern)) {
     override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
 
@@ -1960,7 +2069,7 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#EI]]
    */
-  case object EI extends Instruction(Array(OpCode.EI.pattern)) {
+  case object EI extends Instruction(Array(OpCode.Base.EI.pattern)) {
     override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
 
@@ -1990,7 +2099,7 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#HALT]]
    * @see [[https://gist.github.com/SonoSooS/c0055300670d678b5ae8433e20bea595#halt]]
    */
-  case object HALT extends Instruction(Array(OpCode.HALT.pattern)) {
+  case object HALT extends Instruction(Array(OpCode.Base.HALT.pattern)) {
     override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
 
@@ -2022,7 +2131,7 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#DAA]]
    */
-  case object DAA extends Instruction(Array(OpCode.DAA.pattern)) {
+  case object DAA extends Instruction(Array(OpCode.Base.DAA.pattern)) {
     override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
 
@@ -2074,7 +2183,7 @@ object Instruction {
    **/
 
   /**
-   * Opcode holes (not implemented opcodes)
+   * OpCode holes (not implemented opcodes)
    *
    * Why non-implemented opcodes hang is simple: they never fetch (in fact, their decode ROM yields all zeroes, which
    * makes it hang in all zeroes due to state s000 having no fetch, or any jump to fetch).

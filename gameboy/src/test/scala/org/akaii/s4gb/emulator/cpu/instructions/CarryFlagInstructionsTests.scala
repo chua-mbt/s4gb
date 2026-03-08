@@ -10,9 +10,9 @@ import spire.math.{UByte, UShort}
 
 class CarryFlagInstructionsTests extends InstructionsTest {
   test("SCF") {
-    val instruction = Instruction.decode(Array(OpCode.SCF.pattern))
+    val instruction = Instruction.decode(Array(OpCode.Base.SCF.pattern))
     assertEquals(instruction.toString, "SCF(0x37)")
-    verifyInstruction[Instruction.SCF.type](OpCode.SCF.pattern, instruction)
+    verifyInstruction[Instruction.SCF.type](OpCode.Base.SCF.pattern, instruction)
 
     testInstruction(
       instruction,
@@ -43,9 +43,9 @@ class CarryFlagInstructionsTests extends InstructionsTest {
   }
 
   test("CCF") {
-    val instruction = Instruction.decode(Array(OpCode.CCF.pattern))
+    val instruction = Instruction.decode(Array(OpCode.Base.CCF.pattern))
     assertEquals(instruction.toString, "CCF(0x3F)")
-    verifyInstruction[Instruction.CCF.type](OpCode.CCF.pattern, instruction)
+    verifyInstruction[Instruction.CCF.type](OpCode.Base.CCF.pattern, instruction)
 
     testInstruction(
       instruction,

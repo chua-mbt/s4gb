@@ -10,9 +10,9 @@ import spire.math.{UByte, UShort}
 
 class BitwiseLogicInstructionsTests extends InstructionsTest {
   test("CPL") {
-    val instruction = Instruction.decode(Array(OpCode.CPL.pattern))
+    val instruction = Instruction.decode(Array(OpCode.Base.CPL.pattern))
     assertEquals(instruction.toString, "CPL(0x2F)")
-    verifyInstruction[Instruction.CPL.type](OpCode.CPL.pattern, instruction)
+    verifyInstruction[Instruction.CPL.type](OpCode.Base.CPL.pattern, instruction)
 
     testInstruction(
       instruction,
@@ -40,9 +40,9 @@ class BitwiseLogicInstructionsTests extends InstructionsTest {
   }
 
   test("AND_A_MEM_HL") {
-    val instruction = Instruction.decode(Array(OpCode.AND_A_MEM_HL.pattern))
+    val instruction = Instruction.decode(Array(OpCode.Base.AND_A_MEM_HL.pattern))
     assertEquals(instruction.toString, "AND_A_MEM_HL(0xA6)")
-    verifyInstruction[Instruction.AND_A_MEM_HL.type](OpCode.AND_A_MEM_HL.pattern, instruction)
+    verifyInstruction[Instruction.AND_A_MEM_HL.type](OpCode.Base.AND_A_MEM_HL.pattern, instruction)
 
     testInstruction(
       instruction,
@@ -79,7 +79,7 @@ class BitwiseLogicInstructionsTests extends InstructionsTest {
 
   test("AND_A_R8") {
     forNonMemHLR8OpCodeParams { operandParam =>
-      val opcode: UByte = OpCode.AND_A_R8.setParam(operandParam -> 0)
+      val opcode: UByte = OpCode.Base.AND_A_R8.setParam(operandParam -> 0)
       val instruction = Instruction.decode(Array(opcode))
 
       assertEquals(instruction.toString, f"AND_A_R8(0x${opcode.toInt}%02X)")
@@ -130,9 +130,9 @@ class BitwiseLogicInstructionsTests extends InstructionsTest {
   }
 
   test("XOR_A_MEM_HL") {
-    val instruction = Instruction.decode(Array(OpCode.XOR_A_MEM_HL.pattern))
+    val instruction = Instruction.decode(Array(OpCode.Base.XOR_A_MEM_HL.pattern))
     assertEquals(instruction.toString, "XOR_A_MEM_HL(0xAE)")
-    verifyInstruction[Instruction.XOR_A_MEM_HL.type](OpCode.XOR_A_MEM_HL.pattern, instruction)
+    verifyInstruction[Instruction.XOR_A_MEM_HL.type](OpCode.Base.XOR_A_MEM_HL.pattern, instruction)
 
     testInstruction(
       instruction,
@@ -169,7 +169,7 @@ class BitwiseLogicInstructionsTests extends InstructionsTest {
 
   test("XOR_A_R8") {
     forNonMemHLR8OpCodeParams { operandParam =>
-      val opcode: UByte = OpCode.XOR_A_R8.setParam(operandParam -> 0)
+      val opcode: UByte = OpCode.Base.XOR_A_R8.setParam(operandParam -> 0)
       val instruction = Instruction.decode(Array(opcode))
 
       assertEquals(instruction.toString, f"XOR_A_R8(0x${opcode.toInt}%02X)")
@@ -220,9 +220,9 @@ class BitwiseLogicInstructionsTests extends InstructionsTest {
   }
 
   test("OR_A_MEM_HL") {
-    val instruction = Instruction.decode(Array(OpCode.OR_A_MEM_HL.pattern))
+    val instruction = Instruction.decode(Array(OpCode.Base.OR_A_MEM_HL.pattern))
     assertEquals(instruction.toString, "OR_A_MEM_HL(0xB6)")
-    verifyInstruction[Instruction.OR_A_MEM_HL.type](OpCode.OR_A_MEM_HL.pattern, instruction)
+    verifyInstruction[Instruction.OR_A_MEM_HL.type](OpCode.Base.OR_A_MEM_HL.pattern, instruction)
 
     testInstruction(
       instruction,
@@ -259,7 +259,7 @@ class BitwiseLogicInstructionsTests extends InstructionsTest {
 
   test("OR_A_R8") {
     forNonMemHLR8OpCodeParams { operandParam =>
-      val opcode: UByte = OpCode.OR_A_R8.setParam(operandParam -> 0)
+      val opcode: UByte = OpCode.Base.OR_A_R8.setParam(operandParam -> 0)
       val instruction = Instruction.decode(Array(opcode))
 
       assertEquals(instruction.toString, f"OR_A_R8(0x${opcode.toInt}%02X)")
@@ -310,9 +310,9 @@ class BitwiseLogicInstructionsTests extends InstructionsTest {
   }
 
   test("AND_A_IMM8") {
-    val instructionZero = Instruction.decode(Array(OpCode.AND_A_IMM8.pattern, 0xAA.toUByte))
+    val instructionZero = Instruction.decode(Array(OpCode.Base.AND_A_IMM8.pattern, 0xAA.toUByte))
     assertEquals(instructionZero.toString, f"AND_A_IMM8(0xE6AA)")
-    verifyInstruction[Instruction.AND_A_IMM8](OpCode.AND_A_IMM8.pattern, instructionZero) { and =>
+    verifyInstruction[Instruction.AND_A_IMM8](OpCode.Base.AND_A_IMM8.pattern, instructionZero) { and =>
       assertEquals(and.imm8, 0xAA.toUByte)
     }
 
@@ -328,8 +328,8 @@ class BitwiseLogicInstructionsTests extends InstructionsTest {
       }
     )
 
-    val instructionNonZero = Instruction.decode(Array(OpCode.AND_A_IMM8.pattern, 0x0F.toUByte))
-    verifyInstruction[Instruction.AND_A_IMM8](OpCode.AND_A_IMM8.pattern, instructionNonZero) { and =>
+    val instructionNonZero = Instruction.decode(Array(OpCode.Base.AND_A_IMM8.pattern, 0x0F.toUByte))
+    verifyInstruction[Instruction.AND_A_IMM8](OpCode.Base.AND_A_IMM8.pattern, instructionNonZero) { and =>
       assertEquals(and.imm8, 0x0F.toUByte)
     }
 
@@ -347,9 +347,9 @@ class BitwiseLogicInstructionsTests extends InstructionsTest {
   }
 
   test("XOR_A_IMM8") {
-    val instructionZero = Instruction.decode(Array(OpCode.XOR_A_IMM8.pattern, 0xFF.toUByte))
+    val instructionZero = Instruction.decode(Array(OpCode.Base.XOR_A_IMM8.pattern, 0xFF.toUByte))
     assertEquals(instructionZero.toString, f"XOR_A_IMM8(0xEEFF)")
-    verifyInstruction[Instruction.XOR_A_IMM8](OpCode.XOR_A_IMM8.pattern, instructionZero) { xor =>
+    verifyInstruction[Instruction.XOR_A_IMM8](OpCode.Base.XOR_A_IMM8.pattern, instructionZero) { xor =>
       assertEquals(xor.imm8, 0xFF.toUByte)
     }
 
@@ -365,8 +365,8 @@ class BitwiseLogicInstructionsTests extends InstructionsTest {
       }
     )
 
-    val instructionNonZero = Instruction.decode(Array(OpCode.XOR_A_IMM8.pattern, 0xF0.toUByte))
-    verifyInstruction[Instruction.XOR_A_IMM8](OpCode.XOR_A_IMM8.pattern, instructionNonZero) { xor =>
+    val instructionNonZero = Instruction.decode(Array(OpCode.Base.XOR_A_IMM8.pattern, 0xF0.toUByte))
+    verifyInstruction[Instruction.XOR_A_IMM8](OpCode.Base.XOR_A_IMM8.pattern, instructionNonZero) { xor =>
       assertEquals(xor.imm8, 0xF0.toUByte)
     }
 
@@ -384,9 +384,9 @@ class BitwiseLogicInstructionsTests extends InstructionsTest {
   }
 
   test("OR_A_IMM8") {
-    val instructionZero = Instruction.decode(Array(OpCode.OR_A_IMM8.pattern, 0x00.toUByte))
+    val instructionZero = Instruction.decode(Array(OpCode.Base.OR_A_IMM8.pattern, 0x00.toUByte))
     assertEquals(instructionZero.toString, f"OR_A_IMM8(0xF600)")
-    verifyInstruction[Instruction.OR_A_IMM8](OpCode.OR_A_IMM8.pattern, instructionZero) { or =>
+    verifyInstruction[Instruction.OR_A_IMM8](OpCode.Base.OR_A_IMM8.pattern, instructionZero) { or =>
       assertEquals(or.imm8, 0x00.toUByte)
     }
 
@@ -402,8 +402,8 @@ class BitwiseLogicInstructionsTests extends InstructionsTest {
       }
     )
 
-    val instructionNonZero = Instruction.decode(Array(OpCode.OR_A_IMM8.pattern, 0x02.toUByte))
-    verifyInstruction[Instruction.OR_A_IMM8](OpCode.OR_A_IMM8.pattern, instructionNonZero) { or =>
+    val instructionNonZero = Instruction.decode(Array(OpCode.Base.OR_A_IMM8.pattern, 0x02.toUByte))
+    verifyInstruction[Instruction.OR_A_IMM8](OpCode.Base.OR_A_IMM8.pattern, instructionNonZero) { or =>
       assertEquals(or.imm8, 0x02.toUByte)
     }
 

@@ -19,8 +19,8 @@ class JumpInstructionsTests extends InstructionsTest {
 
     def jrInstruction(offset: Byte) = {
       val unsigned = offset.toUByte
-      val instruction = Instruction.decode(Array(OpCode.JR_IMM8.pattern, unsigned))
-      verifyInstruction[Instruction.JR_IMM8](OpCode.JR_IMM8.pattern, instruction) { jr => assertEquals(jr.imm8, unsigned) }
+      val instruction = Instruction.decode(Array(OpCode.Base.JR_IMM8.pattern, unsigned))
+      verifyInstruction[Instruction.JR_IMM8](OpCode.Base.JR_IMM8.pattern, instruction) { jr => assertEquals(jr.imm8, unsigned) }
       instruction
     }
 
@@ -80,7 +80,7 @@ class JumpInstructionsTests extends InstructionsTest {
     forCondOpCodeParams { cond =>
       def jrInstruction(offset: Byte) = {
         val unsigned = offset.toUByte
-        val opcode: UByte = OpCode.JR_COND_IMM8.setParam(cond -> 3)
+        val opcode: UByte = OpCode.Base.JR_COND_IMM8.setParam(cond -> 3)
         val instruction = Instruction.decode(Array(opcode, unsigned))
         verifyInstruction[Instruction.JR_COND_IMM8](opcode, instruction) { jr =>
           assertEquals(jr.condition, cond)
@@ -168,7 +168,7 @@ class JumpInstructionsTests extends InstructionsTest {
     val offset: Byte = 5
 
     forCondOpCodeParams { cond =>
-      val opcode: UByte = OpCode.JR_COND_IMM8.setParam(cond -> 3)
+      val opcode: UByte = OpCode.Base.JR_COND_IMM8.setParam(cond -> 3)
       val instruction = Instruction.decode(Array(opcode, offset.toUByte))
 
       testInstruction(
@@ -188,7 +188,7 @@ class JumpInstructionsTests extends InstructionsTest {
     val initialSP: UShort = 0xFFFE.toUShort
 
     forCondOpCodeParams { cond =>
-      val opcode: UByte = OpCode.RET_COND.setParam(cond -> 3)
+      val opcode: UByte = OpCode.Base.RET_COND.setParam(cond -> 3)
       val instruction = Instruction.decode(Array(opcode))
 
       verifyInstruction[Instruction.RET_COND](opcode, instruction) { ret =>
@@ -219,7 +219,7 @@ class JumpInstructionsTests extends InstructionsTest {
     val initialSP: UShort = 0xFFFE.toUShort
 
     forCondOpCodeParams { cond =>
-      val opcode: UByte = OpCode.RET_COND.setParam(cond -> 3)
+      val opcode: UByte = OpCode.Base.RET_COND.setParam(cond -> 3)
       val instruction = Instruction.decode(Array(opcode))
 
       verifyInstruction[Instruction.RET_COND](opcode, instruction) { ret =>
@@ -243,8 +243,8 @@ class JumpInstructionsTests extends InstructionsTest {
     val returnAddress: UShort = 0x1234.toUShort
     val initialSP: UShort = 0xFFFE.toUShort
 
-    val instruction = Instruction.decode(Array(OpCode.RET.pattern))
-    verifyInstructionOpCode[Instruction.RET.type](OpCode.RET.pattern, instruction)
+    val instruction = Instruction.decode(Array(OpCode.Base.RET.pattern))
+    verifyInstructionOpCode[Instruction.RET.type](OpCode.Base.RET.pattern, instruction)
 
     testInstruction(
       instruction,
@@ -265,8 +265,8 @@ class JumpInstructionsTests extends InstructionsTest {
     val returnAddress: UShort = 0x1234.toUShort
     val initialSP: UShort = 0xFFFE.toUShort
 
-    val instruction = Instruction.decode(Array(OpCode.RETI.pattern))
-    verifyInstructionOpCode[Instruction.RETI.type](OpCode.RETI.pattern, instruction)
+    val instruction = Instruction.decode(Array(OpCode.Base.RETI.pattern))
+    verifyInstructionOpCode[Instruction.RETI.type](OpCode.Base.RETI.pattern, instruction)
 
     testInstruction(
       instruction,
@@ -291,7 +291,7 @@ class JumpInstructionsTests extends InstructionsTest {
     val immHi: UByte = targetAddress.hiByte
 
     forCondOpCodeParams { cond =>
-      val opcode: UByte = OpCode.JP_COND_IMM16.setParam(cond -> 3)
+      val opcode: UByte = OpCode.Base.JP_COND_IMM16.setParam(cond -> 3)
       val instruction = Instruction.decode(Array(opcode, immLo, immHi))
       verifyInstruction[Instruction.JP_COND_IMM16](opcode, instruction) { jp =>
         assertEquals(jp.condition, cond)
@@ -314,7 +314,7 @@ class JumpInstructionsTests extends InstructionsTest {
     val immHi: UByte = targetAddress.hiByte
 
     forCondOpCodeParams { cond =>
-      val opcode: UByte = OpCode.JP_COND_IMM16.setParam(cond -> 3)
+      val opcode: UByte = OpCode.Base.JP_COND_IMM16.setParam(cond -> 3)
       val instruction = Instruction.decode(Array(opcode, immLo, immHi))
       verifyInstruction[Instruction.JP_COND_IMM16](opcode, instruction) { jp =>
         assertEquals(jp.condition, cond)
@@ -334,8 +334,8 @@ class JumpInstructionsTests extends InstructionsTest {
     val immLo: UByte = targetAddress.loByte
     val immHi: UByte = targetAddress.hiByte
 
-    val instruction = Instruction.decode(Array(OpCode.JP_IMM16.pattern, immLo, immHi))
-    verifyInstruction[Instruction.JP_IMM16](OpCode.JP_IMM16.pattern, instruction) { jp =>
+    val instruction = Instruction.decode(Array(OpCode.Base.JP_IMM16.pattern, immLo, immHi))
+    verifyInstruction[Instruction.JP_IMM16](OpCode.Base.JP_IMM16.pattern, instruction) { jp =>
       assertEquals(jp.imm16, targetAddress)
     }
 
@@ -347,8 +347,8 @@ class JumpInstructionsTests extends InstructionsTest {
   }
 
   test("JP_HL") {
-    val instruction = Instruction.decode(Array(OpCode.JP_HL.pattern))
-    verifyInstructionOpCode[Instruction.JP_HL.type](OpCode.JP_HL.pattern, instruction)
+    val instruction = Instruction.decode(Array(OpCode.Base.JP_HL.pattern))
+    verifyInstructionOpCode[Instruction.JP_HL.type](OpCode.Base.JP_HL.pattern, instruction)
 
     val targetAddress = 0x1234.toUShort
 
@@ -369,7 +369,7 @@ class JumpInstructionsTests extends InstructionsTest {
     val returnAddress: UShort = initialPC + 3.toUShort
 
     forCondOpCodeParams { cond =>
-      val opcode: UByte = OpCode.CALL_COND_IMM16.setParam(cond -> 3)
+      val opcode: UByte = OpCode.Base.CALL_COND_IMM16.setParam(cond -> 3)
       val instruction = Instruction.decode(Array(opcode, immLo, immHi))
       verifyInstruction[Instruction.CALL_COND_IMM16](opcode, instruction) { call =>
         assertEquals(call.condition, cond)
@@ -402,7 +402,7 @@ class JumpInstructionsTests extends InstructionsTest {
     val immHi: UByte = targetAddress.hiByte
 
     forCondOpCodeParams { cond =>
-      val opcode: UByte = OpCode.CALL_COND_IMM16.setParam(cond -> 3)
+      val opcode: UByte = OpCode.Base.CALL_COND_IMM16.setParam(cond -> 3)
       val instruction = Instruction.decode(Array(opcode, immLo, immHi))
       verifyInstruction[Instruction.CALL_COND_IMM16](opcode, instruction) { call =>
         assertEquals(call.condition, cond)
@@ -425,8 +425,8 @@ class JumpInstructionsTests extends InstructionsTest {
     val initialPC: UShort = 0x0100.toUShort
     val returnAddress: UShort = initialPC + 3.toUShort
 
-    val instruction = Instruction.decode(Array(OpCode.CALL_IMM16.pattern, immLo, immHi))
-    verifyInstruction[Instruction.CALL_IMM16](OpCode.CALL_IMM16.pattern, instruction) { call =>
+    val instruction = Instruction.decode(Array(OpCode.Base.CALL_IMM16.pattern, immLo, immHi))
+    verifyInstruction[Instruction.CALL_IMM16](OpCode.Base.CALL_IMM16.pattern, instruction) { call =>
       assertEquals(call.imm16, targetAddress)
     }
 
@@ -456,7 +456,7 @@ class JumpInstructionsTests extends InstructionsTest {
     val targets: Seq[UByte] = (0x00 to 0x38 by 8).map(_.toUByte)
 
     targets.foreach { target =>
-      val opcode: UByte = OpCode.RST_TGT3.pattern | target
+      val opcode: UByte = OpCode.Base.RST_TGT3.pattern | target
       val instruction = Instruction.decode(Array(opcode))
       verifyInstruction[Instruction.RST_TGT3](opcode, instruction) { rst =>
         assertEquals(rst.targetAddress, target)

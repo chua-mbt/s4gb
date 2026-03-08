@@ -15,15 +15,15 @@ class StackInstructionsTests extends InstructionsTest {
     testMemoryLocations.foreach { memoryLocation =>
       val imm16 = memoryLocation
 
-      val input: Array[UByte] = Array(OpCode.LD_MEM_IMM16_SP.pattern, imm16.loByte, imm16.hiByte)
+      val input: Array[UByte] = Array(OpCode.Base.LD_MEM_IMM16_SP.pattern, imm16.loByte, imm16.hiByte)
       val instruction = Instruction.decode(input)
 
       assertEquals(
         instruction.toString,
-        f"LD_MEM_IMM16_SP(0x${OpCode.LD_MEM_IMM16_SP.pattern.toInt}%02X" +
+        f"LD_MEM_IMM16_SP(0x${OpCode.Base.LD_MEM_IMM16_SP.pattern.toInt}%02X" +
           f"${imm16.loByte.toInt}%02X${imm16.hiByte.toInt}%02X)"
       )
-      verifyInstruction[Instruction.LD_MEM_IMM16_SP](OpCode.LD_MEM_IMM16_SP.pattern, instruction) { ld =>
+      verifyInstruction[Instruction.LD_MEM_IMM16_SP](OpCode.Base.LD_MEM_IMM16_SP.pattern, instruction) { ld =>
         assertEquals(ld.imm16, imm16)
       }
 
@@ -44,7 +44,7 @@ class StackInstructionsTests extends InstructionsTest {
     val initialSP: UShort = 0xFFFE.toUShort
 
     forR16StackOpCodeParams { operandParam =>
-      val opcode: UByte = OpCode.POP_R16STK.setParam(operandParam -> 4)
+      val opcode: UByte = OpCode.Base.POP_R16STK.setParam(operandParam -> 4)
       val instruction = Instruction.decode(Array(opcode))
 
       verifyInstruction[Instruction.POP_R16STK](opcode, instruction) { pop =>
@@ -85,7 +85,7 @@ class StackInstructionsTests extends InstructionsTest {
     val initialSP: UShort = 0xFFFE.toUShort
 
     forR16StackOpCodeParams { operandParam =>
-      val opcode: UByte = OpCode.PUSH_R16STK.setParam(operandParam -> 4)
+      val opcode: UByte = OpCode.Base.PUSH_R16STK.setParam(operandParam -> 4)
       val instruction = Instruction.decode(Array(opcode))
 
       verifyInstruction[Instruction.PUSH_R16STK](opcode, instruction) { push =>
@@ -127,10 +127,10 @@ class StackInstructionsTests extends InstructionsTest {
     )
 
     testCases.foreach { case (description, sp, imm, expectedSP, h, c) =>
-      val input = Array(OpCode.ADD_SP_IMM8.pattern, imm.toUByte)
+      val input = Array(OpCode.Base.ADD_SP_IMM8.pattern, imm.toUByte)
       val instruction = Instruction.decode(input)
 
-      verifyInstructionOpCode(OpCode.ADD_SP_IMM8.pattern, instruction)
+      verifyInstructionOpCode(OpCode.Base.ADD_SP_IMM8.pattern, instruction)
 
       testInstruction(
         instruction,
@@ -167,9 +167,9 @@ class StackInstructionsTests extends InstructionsTest {
     )
 
     testCases.foreach { case (description, sp, imm, expectedHL, h, c) =>
-      val input = Array(OpCode.LD_HL_ADD_SP_IMM8.pattern, imm.toUByte)
+      val input = Array(OpCode.Base.LD_HL_ADD_SP_IMM8.pattern, imm.toUByte)
       val instr = Instruction.decode(input)
-      verifyInstructionOpCode(OpCode.LD_HL_ADD_SP_IMM8.pattern, instr)
+      verifyInstructionOpCode(OpCode.Base.LD_HL_ADD_SP_IMM8.pattern, instr)
 
       testInstruction(
         instr,
@@ -193,8 +193,8 @@ class StackInstructionsTests extends InstructionsTest {
   }
 
   test("LD_SP_HL") {
-    val instruction = Instruction.decode(Array(OpCode.LD_SP_HL.pattern))
-    verifyInstructionOpCode[Instruction.LD_SP_HL.type](OpCode.LD_SP_HL.pattern, instruction)
+    val instruction = Instruction.decode(Array(OpCode.Base.LD_SP_HL.pattern))
+    verifyInstructionOpCode[Instruction.LD_SP_HL.type](OpCode.Base.LD_SP_HL.pattern, instruction)
 
     testInstruction(
       instruction,

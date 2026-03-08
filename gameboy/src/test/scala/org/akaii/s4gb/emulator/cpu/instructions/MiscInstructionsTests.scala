@@ -11,7 +11,7 @@ import spire.math.{UByte, UShort}
 
 class MiscInstructionsTests extends InstructionsTest {
   test("NOP") {
-    val instruction = Instruction.decode(Array(OpCode.NOP.pattern))
+    val instruction = Instruction.decode(Array(OpCode.Base.NOP.pattern))
     assertEquals(instruction.toString, "NOP(0x00)")
     assertEquals(instruction, Instruction.NOP)
 
@@ -20,8 +20,8 @@ class MiscInstructionsTests extends InstructionsTest {
 
   test("DAA - flags[N]") {
     val baseA: UByte = 0x15.toUByte
-    val instruction = Instruction.decode(Array(OpCode.DAA.pattern))
-    verifyInstructionOpCode[Instruction.DAA.type](OpCode.DAA.pattern, instruction)
+    val instruction = Instruction.decode(Array(OpCode.Base.DAA.pattern))
+    verifyInstructionOpCode[Instruction.DAA.type](OpCode.Base.DAA.pattern, instruction)
     testInstruction(
       instruction,
       setupRegister = regs => {
@@ -37,7 +37,7 @@ class MiscInstructionsTests extends InstructionsTest {
 
   test("DAA - flags[NH]") {
     val baseA: UByte = 0x15.toUByte
-    val instruction = Instruction.decode(Array(OpCode.DAA.pattern))
+    val instruction = Instruction.decode(Array(OpCode.Base.DAA.pattern))
     testInstruction(
       instruction,
       setupRegister = regs => {
@@ -54,7 +54,7 @@ class MiscInstructionsTests extends InstructionsTest {
 
   test("DAA - flags[NHC]") {
     val baseA: UByte = 0x15.toUByte
-    val instruction = Instruction.decode(Array(OpCode.DAA.pattern))
+    val instruction = Instruction.decode(Array(OpCode.Base.DAA.pattern))
     testInstruction(
       instruction,
       setupRegister = regs => {
@@ -72,7 +72,7 @@ class MiscInstructionsTests extends InstructionsTest {
 
   test("DAA - flags[H]") {
     val baseA: UByte = 0x15.toUByte
-    val instruction = Instruction.decode(Array(OpCode.DAA.pattern))
+    val instruction = Instruction.decode(Array(OpCode.Base.DAA.pattern))
     testInstruction(
       instruction,
       setupRegister = regs => {
@@ -88,7 +88,7 @@ class MiscInstructionsTests extends InstructionsTest {
 
   test("DAA - flags[HC]") {
     val baseA: UByte = 0x15.toUByte
-    val instruction = Instruction.decode(Array(OpCode.DAA.pattern))
+    val instruction = Instruction.decode(Array(OpCode.Base.DAA.pattern))
     testInstruction(
       instruction,
       setupRegister = regs => {
@@ -106,7 +106,7 @@ class MiscInstructionsTests extends InstructionsTest {
 
   test("DAA - flags[NH] zero result") {
     val baseA: UByte = 0x06.toUByte
-    val instruction = Instruction.decode(Array(OpCode.DAA.pattern))
+    val instruction = Instruction.decode(Array(OpCode.Base.DAA.pattern))
     testInstruction(
       instruction,
       setupRegister = regs => {
@@ -124,9 +124,9 @@ class MiscInstructionsTests extends InstructionsTest {
   }
 
   test("STOP") {
-    val instruction = Instruction.decode(Array(OpCode.STOP.pattern, 0x00.toUByte))
+    val instruction = Instruction.decode(Array(OpCode.Base.STOP.pattern, 0x00.toUByte))
     assertEquals(instruction.toString, "STOP(0x1000)")
-    verifyInstructionOpCode[Instruction.STOP](OpCode.STOP.pattern, instruction)
+    verifyInstructionOpCode[Instruction.STOP](OpCode.Base.STOP.pattern, instruction)
     testInstruction(instruction = instruction, expectedExecutionMode = ExecutionMode.Stopped)
   }
 }

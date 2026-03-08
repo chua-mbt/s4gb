@@ -6,19 +6,20 @@ import scala.util.Try
 
 object OpcodeTableGenerator {
 
-  def generateHtml(): String = {
-    val grid = Array.ofDim[String](16, 16)
+  def main(args: Array[String]): Unit = {
+    val outputDir = args.headOption.getOrElse("docs")
+    val outputPath = s"$outputDir/opcode-table.html"
+    val file = java.io.File(outputPath)
+    file.getParentFile.mkdirs()
+    val pw = PrintWriter(file)
+    pw.write(html)
+    pw.close()
+    println(s"Generated opcode table: $outputPath")
+  }
 
-    for {
-      row <- 0 until 16
-      col <- 0 until 16
-    } do {
-      val opcode = UByte((row << 4) | col)
-      val input = Array(opcode)
-      grid(row)(col) = Try(Instruction.decode(input))
-        .map(instr => renderCell(opcode, instr))
-        .getOrElse(s"""<td class="hole"></td>""")
-    }
+  private def html: String = {
+    val baseGrid = generateGrid(None)
+    val cbGrid = generateGrid(Some(OpCode.PREFIXED))
 
     val headerCols = (0 until 16).map(i => s"+${i.toHexString.toUpperCase}").mkString("<th>", "</th><th>", "</th>")
 
@@ -31,6 +32,7 @@ object OpcodeTableGenerator {
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: monospace; padding: 10px; overflow-x: auto; background: #1a1a2e; }
     h1 { margin-bottom: 10px; font-size: 18px; color: #eee; }
+    h2 { margin: 20px 0 10px; font-size: 14px; color: #ccc; }
     table { border-collapse: collapse; width: 100%; table-layout: fixed; }
     th, td { border: 1px solid #444; padding: 0; }
     td { width: calc(100% / 17); min-width: 70px; height: 50px; }
@@ -39,13 +41,15 @@ object OpcodeTableGenerator {
     tbody th { width: 40px; min-width: 40px; background: #3d3d5c; color: #ccc; font-weight: normal; font-size: 11px; }
     td.instr { background: #2a2a40; }
     td.hole { background: #1e1e2a; }
+    td.prefix { background: #3d3d5c; }
     .cell-content { display: flex; flex-direction: column; height: 100%; justify-content: center; }
     .instr-name { text-align: center; font-weight: bold; font-size: 10px; padding: 2px; color: #b8b8d0; }
-    .meta { display: flex; justify-content: space-between; font-size: 8px; color: #6a6a80; padding: 0 4px; }
+    .meta { display: flex; justify-content: space-between; font-size: 8px; color: #b8b8d0; padding: 0 4px; }
   </style>
 </head>
 <body>
   <h1>s4gb Opcode Table</h1>
+  <h2>Base</h2>
   <table>
     <thead>
       <tr>
@@ -54,11 +58,49 @@ object OpcodeTableGenerator {
       </tr>
     </thead>
     <tbody>
-      ${renderGrid(grid)}
+      ${renderGrid(baseGrid)}
+    </tbody>
+  </table>
+  <h2>0xCB Extensions</h2>
+  <table>
+    <thead>
+      <tr>
+        <th></th>
+        $headerCols
+      </tr>
+    </thead>
+    <tbody>
+      ${renderGrid(cbGrid)}
     </tbody>
   </table>
 </body>
 </html>"""
+  }
+
+  private def generateGrid(prefix: Option[UByte]): Array[Array[String]] = {
+    val grid = Array.ofDim[String](16, 16)
+
+    for {
+      row <- 0 until 16
+      col <- 0 until 16
+    } do {
+      val opcode = UByte((row << 4) | col)
+      val input = prefix match
+        case Some(p) => Array(p, opcode)
+        case None => Array(opcode)
+      
+      val cell = (prefix, opcode) match
+        case (None, op) if op == OpCode.PREFIXED => 
+          """<td class="prefix"><div class="cell-content"><span class="instr-name">EXTENSIONS<br>PREFIX</span></div></td>"""
+        case _ =>
+          Try(Instruction.decode(input))
+            .map(instr => renderCell(opcode, instr))
+            .getOrElse(s"""<td class="hole"></td>""")
+      
+      grid(row)(col) = cell
+    }
+
+    grid
   }
 
   private def renderCell(opcode: UByte, instruction: Instruction): String = {
@@ -87,17 +129,5 @@ object OpcodeTableGenerator {
         ${row.mkString}
       </tr>"""
     }.mkString("\n")
-  }
-
-  def main(args: Array[String]): Unit = {
-    val outputDir = args.headOption.getOrElse("docs")
-    val outputPath = s"$outputDir/opcode-table.html"
-    val html = generateHtml()
-    val file = java.io.File(outputPath)
-    file.getParentFile.mkdirs()
-    val pw = PrintWriter(file)
-    pw.write(html)
-    pw.close()
-    println(s"Generated opcode table: $outputPath")
   }
 }
