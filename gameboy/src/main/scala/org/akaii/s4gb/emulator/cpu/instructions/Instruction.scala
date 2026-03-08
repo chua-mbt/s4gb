@@ -139,6 +139,10 @@ object Instruction {
       case OpCode.CB.RL_R8 => RL_R8(input)
       case OpCode.CB.RR_MEM_HL => RR_MEM_HL(input)
       case OpCode.CB.RR_R8 => RR_R8(input)
+      case OpCode.CB.SLA_MEM_HL => SLA_MEM_HL(input)
+      case OpCode.CB.SLA_R8 => SLA_R8(input)
+      case OpCode.CB.SRA_MEM_HL => SRA_MEM_HL(input)
+      case OpCode.CB.SRA_R8 => SRA_R8(input)
     }
 
   sealed trait MCycle {
@@ -1670,6 +1674,100 @@ object Instruction {
     )
   }
 
+  /**
+   * SLA_MEM_HL - Shift the byte pointed to by HL left arithmetic.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#SLA__HL_]]
+   */
+  case class SLA_MEM_HL(private val input: Array[UByte]) extends CBExtension(input) with HasR8Operand with RotateOperation {
+    override val cycles: MCycle = MCycle.Fixed(4)
+    override val bytes: Int = 2
+
+    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+      Micro.readMemory(),
+      Micro.writeMemory { state =>
+        val hl = state.registers.hl
+        val value = state.memory(hl)
+        val carryOut = (value & 0x80.toUByte) >> 7
+        val result = value << 1
+        state.memory.write(hl, result)
+        setFlags(state, carryOut, resultForZero = Some(result))
+      }
+    )
+  }
+
+  /**
+   * SLA_R8 - Shift register r8 left arithmetic.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#SLA_r8]]
+   */
+  case class SLA_R8(private val input: Array[UByte]) extends CBExtension(input) with HasR8Operand with RotateOperation {
+    override val cycles: MCycle = MCycle.Fixed(2)
+    override val bytes: Int = 2
+
+    private val operandStart = 2
+    lazy val operand: OpCode.Parameters.R8 = operand(operandStart)
+
+    override protected[instructions] def micro: Seq[Micro] = Seq(
+      Micro.fetchOpCode(),
+      Micro.fetchOpCode { state =>
+        val value = operandContents(operandStart, state)
+        val carryOut = (value & 0x80.toUByte) >> 7
+        val result = value << 1
+        writeToOperandLocation(operandStart, state, result)
+        setFlags(state, carryOut, resultForZero = Some(result))
+      }
+    )
+  }
+
+  /**
+   * SRA_MEM_HL - Shift the byte pointed to by HL right arithmetic.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#SRA__HL_]]
+   */
+  case class SRA_MEM_HL(private val input: Array[UByte]) extends CBExtension(input) with HasR8Operand with RotateOperation {
+    override val cycles: MCycle = MCycle.Fixed(4)
+    override val bytes: Int = 2
+
+    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+      Micro.readMemory(),
+      Micro.writeMemory { state =>
+        val hl = state.registers.hl
+        val value = state.memory(hl)
+        val carryOut = value & 0x01.toUByte
+        val msb = value & 0x80.toUByte
+        val result = (value >> 1) | msb
+        state.memory.write(hl, result)
+        setFlags(state, carryOut, Some(result))
+      }
+    )
+  }
+
+  /**
+   * SRA_R8 - Shift register r8 right arithmetic.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#SRA_r8]]
+   */
+  case class SRA_R8(private val input: Array[UByte]) extends CBExtension(input) with HasR8Operand with RotateOperation {
+    override val cycles: MCycle = MCycle.Fixed(2)
+    override val bytes: Int = 2
+
+    private val operandStart = 2
+    lazy val operand: OpCode.Parameters.R8 = operand(operandStart)
+
+    override protected[instructions] def micro: Seq[Micro] = Seq(
+      Micro.fetchOpCode(),
+      Micro.fetchOpCode { state =>
+        val value = operandContents(operandStart, state)
+        val carryOut = value & 0x01.toUByte
+        val msb = value & 0x80.toUByte
+        val result = (value >> 1) | msb
+        writeToOperandLocation(operandStart, state, result)
+        setFlags(state, carryOut, Some(result))
+      }
+    )
+  }
+
   /*
    * Jumps and subroutine instructions
    * https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#Jumps_and_subroutine_instructions
@@ -2290,11 +2388,12 @@ object Instruction {
    *
    * Because they never fetch, they effectively wedge the CPU, including interrupts, and even NMI, as ISR and NMI
    * servicing is done at fetch-time!
-   *
-   * Implemented in this emulator as an instruction that sets CPU state to hard-lock.
-   *
-   * @see [[https://gist.github.com/SonoSooS/c0055300670d678b5ae8433e20bea595#opcode-holes-not-implemented-opcodes]]
-   */
+    *
+    * Implemented in this emulator as an instruction that sets CPU state to hard-lock.
+    *
+    * @see [[https://gist.github.com/SonoSooS/c0055300670d678b5ae8433e20bea595#opcode-holes-not-implemented-opcodes]]
+    */
+
   case class HOLE(private val input: Array[UByte]) extends Instruction(input) {
     override val cycles: MCycle = MCycle.Undefined
     override val bytes: Int = 1

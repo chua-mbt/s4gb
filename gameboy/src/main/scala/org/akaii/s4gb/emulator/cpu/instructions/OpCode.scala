@@ -133,6 +133,10 @@ object OpCode {
     case RL_R8 extends CB(0x10.toUByte, excludeBits210) // 00010OOO
     case RR_MEM_HL extends CB(0x1E.toUByte) // 00011110
     case RR_R8 extends CB(0x18.toUByte, excludeBits210) // 00011OOO
+    case SLA_MEM_HL extends CB(0x26.toUByte) // 00100110
+    case SLA_R8 extends CB(0x20.toUByte, excludeBits210) // 00100OOO
+    case SRA_MEM_HL extends CB(0x2E.toUByte) // 00101110
+    case SRA_R8 extends CB(0x28.toUByte, excludeBits210) // 00101OOO
   }
 
   /**

@@ -8,7 +8,7 @@ import spire.math.UByte
 
 class BitShiftInstructionsTests extends InstructionsTest {
 
-  test("RLCA - carry") {
+  test("RLCA - C=1") {
     val opcode: UByte = OpCode.Base.RLCA.pattern
     val instruction = Instruction.decode(Array(opcode))
 
@@ -25,7 +25,7 @@ class BitShiftInstructionsTests extends InstructionsTest {
     )
   }
 
-  test("RLCA - no carry") {
+  test("RLCA - C=0") {
     val opcode: UByte = OpCode.Base.RLCA.pattern
     val instruction = Instruction.decode(Array(opcode))
 
@@ -39,7 +39,7 @@ class BitShiftInstructionsTests extends InstructionsTest {
     )
   }
 
-  test("RRCA - carry") {
+  test("RRCA - C=1") {
     val opcode: UByte = OpCode.Base.RRCA.pattern
     val instruction = Instruction.decode(Array(opcode))
 
@@ -56,7 +56,7 @@ class BitShiftInstructionsTests extends InstructionsTest {
     )
   }
 
-  test("RRCA - no carry") {
+  test("RRCA - C=0") {
     val opcode: UByte = OpCode.Base.RRCA.pattern
     val instruction = Instruction.decode(Array(opcode))
 
@@ -70,7 +70,7 @@ class BitShiftInstructionsTests extends InstructionsTest {
     )
   }
 
-  test("RLA - carry") {
+  test("RLA - C=1") {
     val opcode: UByte = OpCode.Base.RLA.pattern
     val instruction = Instruction.decode(Array(opcode))
 
@@ -90,7 +90,7 @@ class BitShiftInstructionsTests extends InstructionsTest {
     )
   }
 
-  test("RLA - no carry") {
+  test("RLA - C=0") {
     val opcode: UByte = OpCode.Base.RLA.pattern
     val instruction = Instruction.decode(Array(opcode))
 
@@ -107,7 +107,24 @@ class BitShiftInstructionsTests extends InstructionsTest {
     )
   }
 
-  test("RRA - carry") {
+  test("RLA - carry in") {
+    val opcode: UByte = OpCode.Base.RLA.pattern
+    val instruction = Instruction.decode(Array(opcode))
+
+    testInstruction(
+      instruction,
+      setupRegister = regs => {
+        regs.a = 0x01.toUByte // 00000001
+        regs.f = 0x10.toUByte // old C=1
+      },
+      expectedRegister = regs => {
+        regs.a = 0x03.toUByte // 00000011 (bit 0 got old carry)
+        regs.f = 0x00.toUByte // Z=0, N=0, H=0, C=0 (carry out from bit 7)
+      }
+    )
+  }
+
+  test("RRA - C=1") {
     val opcode: UByte = OpCode.Base.RRA.pattern
     val instruction = Instruction.decode(Array(opcode))
 
@@ -127,7 +144,7 @@ class BitShiftInstructionsTests extends InstructionsTest {
     )
   }
 
-  test("RRA - no carry") {
+  test("RRA - C=0") {
     val opcode: UByte = OpCode.Base.RRA.pattern
     val instruction = Instruction.decode(Array(opcode))
 
@@ -144,7 +161,24 @@ class BitShiftInstructionsTests extends InstructionsTest {
     )
   }
 
-  test("RLC_MEM_HL - carry, non-zero") {
+  test("RRA - carry in") {
+    val opcode: UByte = OpCode.Base.RRA.pattern
+    val instruction = Instruction.decode(Array(opcode))
+
+    testInstruction(
+      instruction,
+      setupRegister = regs => {
+        regs.a = 0x80.toUByte // 10000000
+        regs.f = 0x10.toUByte // old C=1
+      },
+      expectedRegister = regs => {
+        regs.a = 0xC0.toUByte // 11000000 (old carry shifted into bit 7)
+        regs.f = 0x00.toUByte // Z=0, N=0, H=0, C=0 (carry out from bit 0)
+      }
+    )
+  }
+
+  test("RLC_MEM_HL - C=1 Z=0") {
     val opcode: UByte = OpCode.CB.RLC_MEM_HL.pattern
     val instruction = Instruction.decode(Array(0xCB.toUByte, opcode))
 
@@ -160,7 +194,7 @@ class BitShiftInstructionsTests extends InstructionsTest {
     )
   }
 
-  test("RLC_MEM_HL - zero, no carry") {
+  test("RLC_MEM_HL - C=0 Z=1") {
     val opcode: UByte = OpCode.CB.RLC_MEM_HL.pattern
     val instruction = Instruction.decode(Array(0xCB.toUByte, opcode))
 
@@ -176,7 +210,7 @@ class BitShiftInstructionsTests extends InstructionsTest {
     )
   }
 
-  test("RLC_R8 - carry, non-zero") {
+  test("RLC_R8 - C=1 Z=0") {
     forNonMemHLR8OpCodeParams { operandParam =>
       val opcode: UByte = OpCode.CB.RLC_R8.setParam(operandParam -> 0)
       val instruction = Instruction.decode(Array(0xCB.toUByte, opcode))
@@ -197,7 +231,7 @@ class BitShiftInstructionsTests extends InstructionsTest {
     }
   }
 
-  test("RLC_R8 - zero, no carry") {
+  test("RLC_R8 - C=0 Z=1") {
     forNonMemHLR8OpCodeParams { operandParam =>
       val opcode: UByte = OpCode.CB.RLC_R8.setParam(operandParam -> 0)
       val instruction = Instruction.decode(Array(0xCB.toUByte, opcode))
@@ -218,7 +252,7 @@ class BitShiftInstructionsTests extends InstructionsTest {
     }
   }
 
-  test("RRC_MEM_HL - carry, non-zero") {
+  test("RRC_MEM_HL - C=1 Z=0") {
     val opcode: UByte = OpCode.CB.RRC_MEM_HL.pattern
     val instruction = Instruction.decode(Array(0xCB.toUByte, opcode))
 
@@ -234,7 +268,7 @@ class BitShiftInstructionsTests extends InstructionsTest {
     )
   }
 
-  test("RRC_MEM_HL - zero, no carry") {
+  test("RRC_MEM_HL - C=0 Z=1") {
     val opcode: UByte = OpCode.CB.RRC_MEM_HL.pattern
     val instruction = Instruction.decode(Array(0xCB.toUByte, opcode))
 
@@ -250,7 +284,7 @@ class BitShiftInstructionsTests extends InstructionsTest {
     )
   }
 
-  test("RRC_R8 - carry, non-zero") {
+  test("RRC_R8 - C=1 Z=0") {
     forNonMemHLR8OpCodeParams { operandParam =>
       val opcode: UByte = OpCode.CB.RRC_R8.setParam(operandParam -> 0)
       val instruction = Instruction.decode(Array(0xCB.toUByte, opcode))
@@ -271,7 +305,7 @@ class BitShiftInstructionsTests extends InstructionsTest {
     }
   }
 
-  test("RRC_R8 - zero, no carry") {
+  test("RRC_R8 - C=0 Z=1") {
     forNonMemHLR8OpCodeParams { operandParam =>
       val opcode: UByte = OpCode.CB.RRC_R8.setParam(operandParam -> 0)
       val instruction = Instruction.decode(Array(0xCB.toUByte, opcode))
@@ -292,7 +326,7 @@ class BitShiftInstructionsTests extends InstructionsTest {
     }
   }
 
-  test("RL_MEM_HL - carry in, carry out") {
+  test("RL_MEM_HL - C=1 Z=0") {
     val opcode: UByte = OpCode.CB.RL_MEM_HL.pattern
     val instruction = Instruction.decode(Array(0xCB.toUByte, opcode))
 
@@ -301,17 +335,27 @@ class BitShiftInstructionsTests extends InstructionsTest {
 
     testInstruction(
       instruction,
-      setupRegister = regs => {
-        regs.hl = 0xC000.toUShort
-        regs.f = 0x10.toUByte // C=1
-      },
+      setupRegister = regs => regs.hl = 0xC000.toUShort,
       setupMemory = (_, mem) => mem.write(0xC000.toUShort, 0x85.toUByte), // 10000101
       expectedRegister = regs => regs.f = 0x10.toUByte, // Z=0, N=0, H=0, C=1 (carry out from bit 7)
-      expectedMemory = mem => mem.write(0xC000.toUShort, 0x0B.toUByte), // 00001011, carry in becomes bit 0
+      expectedMemory = mem => mem.write(0xC000.toUShort, 0x0A.toUByte), // 00001010
     )
   }
 
-  test("RL_MEM_HL - zero, no carry") {
+  test("RL_MEM_HL - C=0 Z=1") {
+    val opcode: UByte = OpCode.CB.RL_MEM_HL.pattern
+    val instruction = Instruction.decode(Array(0xCB.toUByte, opcode))
+
+    testInstruction(
+      instruction,
+      setupRegister = regs => regs.hl = 0xC000.toUShort,
+      setupMemory = (_, mem) => mem.write(0xC000.toUShort, 0x00.toUByte),
+      expectedRegister = regs => regs.f = 0x80.toUByte, // Z=1, C=0
+      expectedMemory = mem => mem.write(0xC000.toUShort, 0x00.toUByte)
+    )
+  }
+
+  test("RL_MEM_HL - carry-in") {
     val opcode: UByte = OpCode.CB.RL_MEM_HL.pattern
     val instruction = Instruction.decode(Array(0xCB.toUByte, opcode))
 
@@ -319,15 +363,15 @@ class BitShiftInstructionsTests extends InstructionsTest {
       instruction,
       setupRegister = regs => {
         regs.hl = 0xC000.toUShort
-        regs.f = 0x00.toUByte // C=0
+        regs.f = 0x10.toUByte // C=1
       },
-      setupMemory = (_, mem) => mem.write(0xC000.toUShort, 0x00.toUByte),
-      expectedRegister = regs => regs.f = 0x80.toUByte, // Z=1, C=0
-      expectedMemory = mem => mem.write(0xC000.toUShort, 0x00.toUByte)
+      setupMemory = (_, mem) => mem.write(0xC000.toUShort, 0x40.toUByte), // 01000000
+      expectedRegister = regs => regs.f = 0x00.toUByte, // C=0, Z=0
+      expectedMemory = mem => mem.write(0xC000.toUShort, 0x81.toUByte) // 10000001 (carry-in applied)
     )
   }
 
-  test("RL_R8 - carry in, carry out") {
+  test("RL_R8 - C=1 Z=0") {
     forNonMemHLR8OpCodeParams { operandParam =>
       val opcode: UByte = OpCode.CB.RL_R8.setParam(operandParam -> 0)
       val instruction = Instruction.decode(Array(0xCB.toUByte, opcode))
@@ -351,7 +395,7 @@ class BitShiftInstructionsTests extends InstructionsTest {
     }
   }
 
-  test("RL_R8 - zero, no carry") {
+  test("RL_R8 - C=0 Z=1") {
     forNonMemHLR8OpCodeParams { operandParam =>
       val opcode: UByte = OpCode.CB.RL_R8.setParam(operandParam -> 0)
       val instruction = Instruction.decode(Array(0xCB.toUByte, opcode))
@@ -370,7 +414,26 @@ class BitShiftInstructionsTests extends InstructionsTest {
     }
   }
 
-  test("RR_MEM_HL - carry in, carry out") {
+  test("RL_R8 - carry-in") {
+    forNonMemHLR8OpCodeParams { operandParam =>
+      val opcode: UByte = OpCode.CB.RL_R8.setParam(operandParam -> 0)
+      val instruction = Instruction.decode(Array(0xCB.toUByte, opcode))
+
+      testInstruction(
+        instruction,
+        setupRegister = regs => {
+          regs(operandParam.toRegister) = 0x40.toUByte // 01000000
+          regs.f = 0x10.toUByte // C=1
+        },
+        expectedRegister = regs => {
+          regs(operandParam.toRegister) = 0x81.toUByte // 10000001 (carry-in applied)
+          regs.f = 0x00.toUByte // C=0, Z=0
+        }
+      )
+    }
+  }
+
+  test("RR_MEM_HL - C=1 Z=0") {
     val opcode: UByte = OpCode.CB.RR_MEM_HL.pattern
     val instruction = Instruction.decode(Array(0xCB.toUByte, opcode))
 
@@ -389,7 +452,20 @@ class BitShiftInstructionsTests extends InstructionsTest {
     )
   }
 
-  test("RR_MEM_HL - zero, no carry") {
+  test("RR_MEM_HL - C=0 Z=1") {
+    val opcode: UByte = OpCode.CB.RR_MEM_HL.pattern
+    val instruction = Instruction.decode(Array(0xCB.toUByte, opcode))
+
+    testInstruction(
+      instruction,
+      setupRegister = regs => regs.hl = 0xC000.toUShort,
+      setupMemory = (_, mem) => mem.write(0xC000.toUShort, 0x00.toUByte),
+      expectedRegister = regs => regs.f = 0x80.toUByte, // Z=1, C=0
+      expectedMemory = mem => mem.write(0xC000.toUShort, 0x00.toUByte)
+    )
+  }
+
+  test("RR_MEM_HL - carry-in") {
     val opcode: UByte = OpCode.CB.RR_MEM_HL.pattern
     val instruction = Instruction.decode(Array(0xCB.toUByte, opcode))
 
@@ -397,15 +473,15 @@ class BitShiftInstructionsTests extends InstructionsTest {
       instruction,
       setupRegister = regs => {
         regs.hl = 0xC000.toUShort
-        regs.f = 0x00.toUByte // C=0
+        regs.f = 0x10.toUByte // C=1
       },
-      setupMemory = (_, mem) => mem.write(0xC000.toUShort, 0x00.toUByte),
-      expectedRegister = regs => regs.f = 0x80.toUByte, // Z=1, C=0
-      expectedMemory = mem => mem.write(0xC000.toUShort, 0x00.toUByte)
+      setupMemory = (_, mem) => mem.write(0xC000.toUShort, 0x02.toUByte), // 00000010
+      expectedRegister = regs => regs.f = 0x00.toUByte, // C=0 (original bit 0)
+      expectedMemory = mem => mem.write(0xC000.toUShort, 0x81.toUByte) // 10000001 (carry-in applied)
     )
   }
 
-  test("RR_R8 - carry in, carry out") {
+  test("RR_R8 - C=1 Z=0") {
     forNonMemHLR8OpCodeParams { operandParam =>
       val opcode: UByte = OpCode.CB.RR_R8.setParam(operandParam -> 0)
       val instruction = Instruction.decode(Array(0xCB.toUByte, opcode))
@@ -429,20 +505,165 @@ class BitShiftInstructionsTests extends InstructionsTest {
     }
   }
 
-  test("RR_R8 - zero, no carry") {
+  test("RR_R8 - C=0 Z=1") {
     forNonMemHLR8OpCodeParams { operandParam =>
       val opcode: UByte = OpCode.CB.RR_R8.setParam(operandParam -> 0)
       val instruction = Instruction.decode(Array(0xCB.toUByte, opcode))
 
       testInstruction(
         instruction,
-        setupRegister = regs => {
-          regs(operandParam.toRegister) = 0x00.toUByte // zero value
-          regs.f = 0x00.toUByte // C=0
-        },
+        setupRegister = regs => regs(operandParam.toRegister) = 0x00.toUByte,
         expectedRegister = regs => {
           regs(operandParam.toRegister) = 0x00.toUByte
           regs.f = 0x80.toUByte // Z=1, N=0, H=0, C=0
+        }
+      )
+    }
+  }
+
+  test("RR_MEM_HL - carry-in") {
+    val opcode: UByte = OpCode.CB.RR_MEM_HL.pattern
+    val instruction = Instruction.decode(Array(0xCB.toUByte, opcode))
+
+    testInstruction(
+      instruction,
+      setupRegister = regs => {
+        regs.hl = 0xC000.toUShort
+        regs.f = 0x10.toUByte // C=1
+      },
+      setupMemory = (_, mem) => mem.write(0xC000.toUShort, 0x02.toUByte), // 00000010
+      expectedRegister = regs => regs.f = 0x00.toUByte, // C=0 (original bit 0)
+      expectedMemory = mem => mem.write(0xC000.toUShort, 0x81.toUByte) // 10000001 (carry-in applied)
+    )
+  }
+
+  test("SLA_MEM_HL - C=1 Z=0") {
+    val opcode: UByte = OpCode.CB.SLA_MEM_HL.pattern
+    val instruction = Instruction.decode(Array(0xCB.toUByte, opcode))
+
+    assertEquals(instruction.toString, f"SLA_MEM_HL(0xCB${opcode.toInt}%02X)")
+    verifyInstruction[Instruction.SLA_MEM_HL](opcode, instruction)
+
+    testInstruction(
+      instruction,
+      setupRegister = regs => regs.hl = 0xC000.toUShort,
+      setupMemory = (_, mem) => mem.write(0xC000.toUShort, 0xC0.toUByte), // 11000000
+      expectedRegister = regs => regs.f = 0x10.toUByte, // Z=0, C=1
+      expectedMemory = mem => mem.write(0xC000.toUShort, 0x80.toUByte) // 10000000
+    )
+  }
+
+  test("SLA_MEM_HL - C=0 Z=1") {
+    val opcode: UByte = OpCode.CB.SLA_MEM_HL.pattern
+    val instruction = Instruction.decode(Array(0xCB.toUByte, opcode))
+
+    testInstruction(
+      instruction,
+      setupRegister = regs => regs.hl = 0xC000.toUShort,
+      setupMemory = (_, mem) => mem.write(0xC000.toUShort, 0x00.toUByte),
+      expectedRegister = regs => regs.f = 0x80.toUByte, // Z=1, C=0
+      expectedMemory = mem => mem.write(0xC000.toUShort, 0x00.toUByte)
+    )
+  }
+
+  test("SLA_R8 - C=1 Z=0") {
+    forNonMemHLR8OpCodeParams { operandParam =>
+      val opcode: UByte = OpCode.CB.SLA_R8.setParam(operandParam -> 0)
+      val instruction = Instruction.decode(Array(0xCB.toUByte, opcode))
+
+      assertEquals(instruction.toString, f"SLA_R8(0xCB${opcode.toInt}%02X)")
+      verifyInstruction[Instruction.SLA_R8](opcode, instruction) { shift =>
+        assertEquals(shift.operand, operandParam)
+      }
+
+      testInstruction(
+        instruction,
+        setupRegister = regs => regs(operandParam.toRegister) = 0xC0.toUByte, // 11000000
+        expectedRegister = regs => {
+          regs(operandParam.toRegister) = 0x80.toUByte // 10000000
+          regs.f = 0x10.toUByte // Z=0, C=1
+        }
+      )
+    }
+  }
+
+  test("SLA_R8 - C=0 Z=1") {
+    forNonMemHLR8OpCodeParams { operandParam =>
+      val opcode: UByte = OpCode.CB.SLA_R8.setParam(operandParam -> 0)
+      val instruction = Instruction.decode(Array(0xCB.toUByte, opcode))
+
+      testInstruction(
+        instruction,
+        setupRegister = regs => regs(operandParam.toRegister) = 0x00.toUByte,
+        expectedRegister = regs => {
+          regs(operandParam.toRegister) = 0x00.toUByte
+          regs.f = 0x80.toUByte // Z=1, C=0
+        }
+      )
+    }
+  }
+
+  test("SRA_MEM_HL - C=1 Z=0") {
+    val opcode: UByte = OpCode.CB.SRA_MEM_HL.pattern
+    val instruction = Instruction.decode(Array(0xCB.toUByte, opcode))
+
+    assertEquals(instruction.toString, f"SRA_MEM_HL(0xCB${opcode.toInt}%02X)")
+    verifyInstruction[Instruction.SRA_MEM_HL](opcode, instruction)
+
+    testInstruction(
+      instruction,
+      setupRegister = regs => regs.hl = 0xC000.toUShort,
+      setupMemory = (_, mem) => mem.write(0xC000.toUShort, 0x03.toUByte), // 00000011
+      expectedRegister = regs => regs.f = 0x10.toUByte, // Z=0, C=1
+      expectedMemory = mem => mem.write(0xC000.toUShort, 0x01.toUByte) // 00000001
+    )
+  }
+
+  test("SRA_MEM_HL - C=0 Z=1") {
+    val opcode: UByte = OpCode.CB.SRA_MEM_HL.pattern
+    val instruction = Instruction.decode(Array(0xCB.toUByte, opcode))
+
+    testInstruction(
+      instruction,
+      setupRegister = regs => regs.hl = 0xC000.toUShort,
+      setupMemory = (_, mem) => mem.write(0xC000.toUShort, 0x00.toUByte),
+      expectedRegister = regs => regs.f = 0x80.toUByte, // Z=1, C=0
+      expectedMemory = mem => mem.write(0xC000.toUShort, 0x00.toUByte)
+    )
+  }
+
+  test("SRA_R8 - C=1 Z=0") {
+    forNonMemHLR8OpCodeParams { operandParam =>
+      val opcode: UByte = OpCode.CB.SRA_R8.setParam(operandParam -> 0)
+      val instruction = Instruction.decode(Array(0xCB.toUByte, opcode))
+
+      assertEquals(instruction.toString, f"SRA_R8(0xCB${opcode.toInt}%02X)")
+      verifyInstruction[Instruction.SRA_R8](opcode, instruction) { shift =>
+        assertEquals(shift.operand, operandParam)
+      }
+
+      testInstruction(
+        instruction,
+        setupRegister = regs => regs(operandParam.toRegister) = 0x03.toUByte, // 00000011
+        expectedRegister = regs => {
+          regs(operandParam.toRegister) = 0x01.toUByte // 00000001
+          regs.f = 0x10.toUByte // Z=0, C=1
+        }
+      )
+    }
+  }
+
+  test("SRA_R8 - C=0 Z=1") {
+    forNonMemHLR8OpCodeParams { operandParam =>
+      val opcode: UByte = OpCode.CB.SRA_R8.setParam(operandParam -> 0)
+      val instruction = Instruction.decode(Array(0xCB.toUByte, opcode))
+
+      testInstruction(
+        instruction,
+        setupRegister = regs => regs(operandParam.toRegister) = 0x00.toUByte,
+        expectedRegister = regs => {
+          regs(operandParam.toRegister) = 0x00.toUByte
+          regs.f = 0x80.toUByte // Z=1, C=0
         }
       )
     }
