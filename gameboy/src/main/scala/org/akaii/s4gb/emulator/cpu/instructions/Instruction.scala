@@ -135,6 +135,10 @@ object Instruction {
       case OpCode.CB.RLC_R8 => RLC_R8(input)
       case OpCode.CB.RRC_MEM_HL => RRC_MEM_HL(input)
       case OpCode.CB.RRC_R8 => RRC_R8(input)
+      case OpCode.CB.RL_MEM_HL => RL_MEM_HL(input)
+      case OpCode.CB.RL_R8 => RL_R8(input)
+      case OpCode.CB.RR_MEM_HL => RR_MEM_HL(input)
+      case OpCode.CB.RR_R8 => RR_R8(input)
     }
 
   sealed trait MCycle {
@@ -1566,6 +1570,102 @@ object Instruction {
         val result = (value >> 1) | (carry << 7)
         writeToOperandLocation(operandStart, state, result)
         setFlags(state, carry, resultForZero = Some(result))
+      }
+    )
+  }
+
+  /**
+   * RL_MEM_HL - Rotate the byte pointed to by HL left, through the carry flag.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#RL__HL_]]
+   */
+  case class RL_MEM_HL(private val input: Array[UByte]) extends CBExtension(input) with HasR8Operand with RotateOperation {
+    override val cycles: MCycle = MCycle.Fixed(4)
+    override val bytes: Int = 2
+
+    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+      Micro.readMemory(),
+      Micro.writeMemory { state =>
+        val hl = state.registers.hl
+        val value = state.memory(hl)
+        val carryIn = if (state.registers.flags.c) 1.toUByte else 0.toUByte
+        val carryOut = (value & 0x80.toUByte) >> 7
+        val result = (value << 1) | carryIn
+        state.memory.write(hl, result)
+        setFlags(state, carryOut, resultForZero = Some(result))
+      }
+    )
+  }
+
+  /**
+   * RL_R8 - Rotate register r8 left, through the carry flag.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#RL_r8]]
+   */
+  case class RL_R8(private val input: Array[UByte]) extends CBExtension(input) with HasR8Operand with RotateOperation {
+    override val cycles: MCycle = MCycle.Fixed(2)
+    override val bytes: Int = 2
+
+    private val operandStart = 2
+    lazy val operand: OpCode.Parameters.R8 = operand(operandStart)
+
+    override protected[instructions] def micro: Seq[Micro] = Seq(
+      Micro.fetchOpCode(),
+      Micro.fetchOpCode { state =>
+        val value = operandContents(operandStart, state)
+        val carryIn = if (state.registers.flags.c) 1.toUByte else 0.toUByte
+        val carryOut = (value & 0x80.toUByte) >> 7
+        val result = (value << 1) | carryIn
+        writeToOperandLocation(operandStart, state, result)
+        setFlags(state, carryOut, resultForZero = Some(result))
+      }
+    )
+  }
+
+  /**
+   * RR_MEM_HL - Rotate the byte pointed to by HL right, through the carry flag.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#RR__HL_]]
+   */
+  case class RR_MEM_HL(private val input: Array[UByte]) extends CBExtension(input) with HasR8Operand with RotateOperation {
+    override val cycles: MCycle = MCycle.Fixed(4)
+    override val bytes: Int = 2
+
+    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+      Micro.readMemory(),
+      Micro.writeMemory { state =>
+        val hl = state.registers.hl
+        val value = state.memory(hl)
+        val carryIn = if (state.registers.flags.c) 0x80.toUByte else 0.toUByte
+        val carryOut = value & 0x01.toUByte
+        val result = (value >> 1) | carryIn
+        state.memory.write(hl, result)
+        setFlags(state, carryOut, resultForZero = Some(result))
+      }
+    )
+  }
+
+  /**
+   * RR_R8 - Rotate register r8 right, through the carry flag.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#RR_r8]]
+   */
+  case class RR_R8(private val input: Array[UByte]) extends CBExtension(input) with HasR8Operand with RotateOperation {
+    override val cycles: MCycle = MCycle.Fixed(2)
+    override val bytes: Int = 2
+
+    private val operandStart = 2
+    lazy val operand: OpCode.Parameters.R8 = operand(operandStart)
+
+    override protected[instructions] def micro: Seq[Micro] = Seq(
+      Micro.fetchOpCode(),
+      Micro.fetchOpCode { state =>
+        val value = operandContents(operandStart, state)
+        val carryIn = if (state.registers.flags.c) 0x80.toUByte else 0.toUByte
+        val carryOut = value & 0x01.toUByte
+        val result = (value >> 1) | carryIn
+        writeToOperandLocation(operandStart, state, result)
+        setFlags(state, carryOut, resultForZero = Some(result))
       }
     )
   }

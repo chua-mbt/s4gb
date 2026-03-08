@@ -129,10 +129,10 @@ object OpCode {
     case RLC_R8 extends CB(0x00.toUByte, excludeBits210) // 00000OOO
     case RRC_MEM_HL extends CB(0x0E.toUByte) // 00001110
     case RRC_R8 extends CB(0x08.toUByte, excludeBits210) // 00001OOO
-    //case RL_MEM_HL extends CB(0x16.toUByte) // 00010110
-    //case RL_R8 extends CB(0x10.toUByte, excludeBits210) // 00010OOO
-    //case RR_MEM_HL extends CB(0x1E.toUByte) // 00011110
-    //case RR_R8 extends CB(0x18.toUByte, excludeBits210) // 00011OOO
+    case RL_MEM_HL extends CB(0x16.toUByte) // 00010110
+    case RL_R8 extends CB(0x10.toUByte, excludeBits210) // 00010OOO
+    case RR_MEM_HL extends CB(0x1E.toUByte) // 00011110
+    case RR_R8 extends CB(0x18.toUByte, excludeBits210) // 00011OOO
   }
 
   /**
