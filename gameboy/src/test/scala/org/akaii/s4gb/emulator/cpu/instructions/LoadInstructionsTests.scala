@@ -218,7 +218,7 @@ class LoadInstructionsTests extends InstructionsTest {
     val instruction = Instruction.decode(input)
 
     assertEquals(instruction.toString, f"LDH_MEM_C_A(0x${opcode.toInt}%02X)")
-    verifyInstructionOpCode[Instruction.LDH_MEM_C_A.type](opcode, instruction)
+    verifyInstruction[Instruction.LDH_MEM_C_A.type](opcode, instruction)
 
     testInstruction(
       instruction = instruction,
@@ -276,7 +276,7 @@ class LoadInstructionsTests extends InstructionsTest {
     val instruction = Instruction.decode(input)
 
     assertEquals(instruction.toString, f"LDH_A_MEM_C(0x${opcode.toInt}%02X)")
-    verifyInstructionOpCode[Instruction.LDH_A_MEM_C.type](opcode, instruction)
+    verifyInstruction[Instruction.LDH_A_MEM_C.type](opcode, instruction)
 
     testInstruction(
       instruction = instruction,

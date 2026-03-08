@@ -130,7 +130,7 @@ class StackInstructionsTests extends InstructionsTest {
       val input = Array(OpCode.Base.ADD_SP_IMM8.pattern, imm.toUByte)
       val instruction = Instruction.decode(input)
 
-      verifyInstructionOpCode(OpCode.Base.ADD_SP_IMM8.pattern, instruction)
+      verifyInstruction(OpCode.Base.ADD_SP_IMM8.pattern, instruction)
 
       testInstruction(
         instruction,
@@ -169,7 +169,7 @@ class StackInstructionsTests extends InstructionsTest {
     testCases.foreach { case (description, sp, imm, expectedHL, h, c) =>
       val input = Array(OpCode.Base.LD_HL_ADD_SP_IMM8.pattern, imm.toUByte)
       val instr = Instruction.decode(input)
-      verifyInstructionOpCode(OpCode.Base.LD_HL_ADD_SP_IMM8.pattern, instr)
+      verifyInstruction(OpCode.Base.LD_HL_ADD_SP_IMM8.pattern, instr)
 
       testInstruction(
         instr,
@@ -194,7 +194,7 @@ class StackInstructionsTests extends InstructionsTest {
 
   test("LD_SP_HL") {
     val instruction = Instruction.decode(Array(OpCode.Base.LD_SP_HL.pattern))
-    verifyInstructionOpCode[Instruction.LD_SP_HL.type](OpCode.Base.LD_SP_HL.pattern, instruction)
+    verifyInstruction[Instruction.LD_SP_HL.type](OpCode.Base.LD_SP_HL.pattern, instruction)
 
     testInstruction(
       instruction,

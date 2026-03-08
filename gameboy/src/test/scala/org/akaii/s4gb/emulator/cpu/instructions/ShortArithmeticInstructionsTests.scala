@@ -13,7 +13,7 @@ class ShortArithmeticInstructionsTests extends InstructionsTest {
     val instruction = Instruction.decode(Array(opcode))
 
     assertEquals(instruction.toString, "ADD_HL_SP(0x39)")
-    verifyInstructionOpCode[Instruction.ADD_HL_SP.type](opcode, instruction)
+    verifyInstruction[Instruction.ADD_HL_SP.type](opcode, instruction)
 
     testInstruction(
       instruction,
@@ -197,7 +197,7 @@ class ShortArithmeticInstructionsTests extends InstructionsTest {
     val instruction = Instruction.decode(Array(opcode))
 
     assertEquals(instruction.toString, "INC_SP(0x33)")
-    verifyInstructionOpCode[Instruction.INC_SP.type](opcode, instruction)
+    verifyInstruction[Instruction.INC_SP.type](opcode, instruction)
 
     testInstruction(
       instruction,
@@ -253,7 +253,7 @@ class ShortArithmeticInstructionsTests extends InstructionsTest {
       val instruction = Instruction.decode(Array(opcode))
 
       assertEquals(instruction.toString, "DEC_SP(0x3B)")
-      verifyInstructionOpCode[Instruction.DEC_SP.type](opcode, instruction)
+      verifyInstruction[Instruction.DEC_SP.type](opcode, instruction)
 
       testInstruction(
         instruction,

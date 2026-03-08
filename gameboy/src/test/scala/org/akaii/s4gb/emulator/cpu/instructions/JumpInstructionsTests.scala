@@ -244,7 +244,7 @@ class JumpInstructionsTests extends InstructionsTest {
     val initialSP: UShort = 0xFFFE.toUShort
 
     val instruction = Instruction.decode(Array(OpCode.Base.RET.pattern))
-    verifyInstructionOpCode[Instruction.RET.type](OpCode.Base.RET.pattern, instruction)
+    verifyInstruction[Instruction.RET.type](OpCode.Base.RET.pattern, instruction)
 
     testInstruction(
       instruction,
@@ -266,7 +266,7 @@ class JumpInstructionsTests extends InstructionsTest {
     val initialSP: UShort = 0xFFFE.toUShort
 
     val instruction = Instruction.decode(Array(OpCode.Base.RETI.pattern))
-    verifyInstructionOpCode[Instruction.RETI.type](OpCode.Base.RETI.pattern, instruction)
+    verifyInstruction[Instruction.RETI.type](OpCode.Base.RETI.pattern, instruction)
 
     testInstruction(
       instruction,
@@ -348,7 +348,7 @@ class JumpInstructionsTests extends InstructionsTest {
 
   test("JP_HL") {
     val instruction = Instruction.decode(Array(OpCode.Base.JP_HL.pattern))
-    verifyInstructionOpCode[Instruction.JP_HL.type](OpCode.Base.JP_HL.pattern, instruction)
+    verifyInstruction[Instruction.JP_HL.type](OpCode.Base.JP_HL.pattern, instruction)
 
     val targetAddress = 0x1234.toUShort
 

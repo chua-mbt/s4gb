@@ -9,7 +9,7 @@ class PseudoInstructionsTests extends InstructionsTest {
     OpCode.HOLES.foreach { hole =>
       val instruction = Instruction.decode(Array(hole))
       assertEquals(instruction.toString, f"HOLE(0x${hole.toInt}%02X)")
-      verifyInstructionOpCode[Instruction.HOLE](hole, instruction)
+      verifyInstruction[Instruction.HOLE](hole, instruction)
       testInstruction(instruction = instruction, expectedExecutionMode = ExecutionMode.HardLock)
     }
   }
