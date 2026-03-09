@@ -145,6 +145,10 @@ object Instruction {
       case OpCode.CB.SRA_R8 => SRA_R8(input)
       case OpCode.CB.BIT_B3_MEM_HL => BIT_B3_MEM_HL(input)
       case OpCode.CB.BIT_B3_R8 => BIT_B3_R8(input)
+      case OpCode.CB.RES_B3_MEM_HL => RES_B3_MEM_HL(input)
+      case OpCode.CB.RES_B3_R8 => RES_B3_R8(input)
+      case OpCode.CB.SET_B3_MEM_HL => SET_B3_MEM_HL(input)
+      case OpCode.CB.SET_B3_R8 => SET_B3_R8(input)
     }
 
   sealed trait MCycle {
@@ -384,9 +388,7 @@ object Instruction {
 
   trait HasBitIndexOperand {
     self: Instruction =>
-    private lazy val bitIndex: Int = opCode.range(5, 3)
-
-    def isBitZero(value: UByte): Boolean = (value & (1.toUByte << bitIndex)) == 0.toUByte
+    protected lazy val bitIndex: Int = opCode.range(5, 3)
   }
 
   trait AddOperation {
@@ -463,6 +465,23 @@ object Instruction {
       state.registers.flags.h = false
       state.registers.flags.c = carry == 1.toUByte
     }
+  }
+
+  trait BitFlagOperation {
+    self: Instruction =>
+
+    def isBitZero(value: UByte, bitIndex: Int): Boolean =
+      (value & (1.toUByte << bitIndex)) == 0.toUByte
+
+    def setFlags(state: Cpu.State, zeroFlag: Boolean): Unit = {
+      state.registers.flags.z = zeroFlag
+      state.registers.flags.n = false
+      state.registers.flags.h = true
+    }
+
+    def setBit(byteValue: UByte, bitIndex: Int, bitValue: Boolean): UByte =
+      if (bitValue) byteValue | (1.toUByte << bitIndex)
+      else byteValue & ~(1.toUByte << bitIndex)
   }
 
   /*
@@ -1413,16 +1432,14 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#BIT_u3,_HL_]]
    */
-  case class BIT_B3_MEM_HL(private val input: Array[UByte]) extends CBExtension(input) with HasBitIndexOperand {
+  case class BIT_B3_MEM_HL(private val input: Array[UByte]) extends CBExtension(input)
+    with HasBitIndexOperand with BitFlagOperation {
+
     override val cycles: MCycle = MCycle.Fixed(3)
     override val bytes: Int = 2
 
     override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
-      Micro.readMemory { state =>
-        state.registers.flags.z = isBitZero(state.memory(state.registers.hl))
-        state.registers.flags.n = false
-        state.registers.flags.h = true
-      }
+      Micro.readMemory { state => setFlags(state, isBitZero(state.memory(state.registers.hl), bitIndex)) }
     )
   }
 
@@ -1431,7 +1448,50 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#BIT_u3,r8]]
    */
-  case class BIT_B3_R8(private val input: Array[UByte]) extends CBExtension(input) with HasR8Operand with HasBitIndexOperand {
+  case class BIT_B3_R8(private val input: Array[UByte]) extends CBExtension(input)
+    with HasR8Operand with HasBitIndexOperand with BitFlagOperation {
+
+    override val cycles: MCycle = MCycle.Fixed(2)
+    override val bytes: Int = 2
+
+    private val operandStart = 2
+    lazy val operand: OpCode.Parameters.R8 = operand(operandStart)
+
+    override protected[instructions] def micro: Seq[Micro] = Seq(
+      Micro.fetchOpCode(),
+      Micro.fetchOpCode { state => setFlags(state, isBitZero(operandContents(operandStart, state), bitIndex)) }
+    )
+  }
+
+  /**
+   * RES_B3_MEM_HL - Set bit b3 (u3) in the byte pointed by HL to 0. Bit 0 is the rightmost one, bit 7 the leftmost one.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#RES_u3,_HL_]]
+   */
+  case class RES_B3_MEM_HL(private val input: Array[UByte]) extends CBExtension(input)
+    with HasBitIndexOperand with BitFlagOperation {
+
+    override val cycles: MCycle = MCycle.Fixed(4)
+    override val bytes: Int = 2
+
+    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+      Micro.readMemory(),
+      Micro.writeMemory { state =>
+        val hl = state.registers.hl
+        val result = setBit(state.memory(hl), bitIndex, bitValue = false)
+        state.memory.write(hl, result)
+      }
+    )
+  }
+
+  /**
+   * RES_B3_R8 - Set bit b3 (u3) in register r8 to 0. Bit 0 is the rightmost one, bit 7 the leftmost one.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#RES_u3,r8]]
+   */
+  case class RES_B3_R8(private val input: Array[UByte]) extends CBExtension(input)
+    with HasR8Operand with HasBitIndexOperand with BitFlagOperation {
+
     override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 2
 
@@ -1441,9 +1501,54 @@ object Instruction {
     override protected[instructions] def micro: Seq[Micro] = Seq(
       Micro.fetchOpCode(),
       Micro.fetchOpCode { state =>
-        state.registers.flags.z = isBitZero(operandContents(operandStart, state))
-        state.registers.flags.n = false
-        state.registers.flags.h = true
+        val originalValue = operandContents(operandStart, state)
+        val result = setBit(originalValue, bitIndex, bitValue = false)
+        writeToOperandLocation(operandStart, state, result)
+      }
+    )
+  }
+
+  /**
+   * SET_B3_MEM_HL - Set bit b3 (u3) in the byte pointed by HL to 1. Bit 0 is the rightmost one, bit 7 the leftmost one.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#SET_u3,_HL_]]
+   */
+  case class SET_B3_MEM_HL(private val input: Array[UByte]) extends CBExtension(input)
+    with HasBitIndexOperand with BitFlagOperation {
+
+    override val cycles: MCycle = MCycle.Fixed(4)
+    override val bytes: Int = 2
+
+    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+      Micro.readMemory(),
+      Micro.writeMemory { state =>
+        val hl = state.registers.hl
+        val result = setBit(state.memory(hl), bitIndex, bitValue = true)
+        state.memory.write(hl, result)
+      }
+    )
+  }
+
+  /**
+   * SET_B3_R8 - Set bit b3 (u3) in register r8 to 1. Bit 0 is the rightmost one, bit 7 the leftmost one.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#SET_u3,r8]]
+   */
+  case class SET_B3_R8(private val input: Array[UByte]) extends CBExtension(input)
+    with HasR8Operand with HasBitIndexOperand with BitFlagOperation {
+
+    override val cycles: MCycle = MCycle.Fixed(2)
+    override val bytes: Int = 2
+
+    private val operandStart = 2
+    lazy val operand: OpCode.Parameters.R8 = operand(operandStart)
+
+    override protected[instructions] def micro: Seq[Micro] = Seq(
+      Micro.fetchOpCode(),
+      Micro.fetchOpCode { state =>
+        val originalValue = operandContents(operandStart, state)
+        val result = setBit(originalValue, bitIndex, bitValue = true)
+        writeToOperandLocation(operandStart, state, result)
       }
     )
   }
