@@ -137,6 +137,17 @@ object OpCode {
     case SLA_R8 extends CB(0x20.toUByte, excludeBits210) // 00100OOO
     case SRA_MEM_HL extends CB(0x2E.toUByte) // 00101110
     case SRA_R8 extends CB(0x28.toUByte, excludeBits210) // 00101OOO
+    //case SWAP_MEM_HL extends CB(0x36.toUByte) // 00110110
+    //case SWAP_R8 extends CB(0x30.toUByte, excludeBits210) // 00110OOO
+    //case SRL_MEM_HL extends CB(0x3E.toUByte) // 00111110
+    //case SRL_R8 extends CB(0x38.toUByte, excludeBits210) // 00111OOO
+
+    case BIT_B3_MEM_HL extends CB(0x46.toUByte, excludeBits543) // 01BBB110
+    case BIT_B3_R8 extends CB(0x40.toUByte, excludeBits543210) // 01BBBOOO
+    //case RES_B3_MEM_HL extends CB(0x86.toUByte) // 10000110
+    //case RES_B3_R8 extends CB(0x80.toUByte, excludeBits543210) // 10BBBOOO
+    //case SET_B3_MEM_HL extends CB(0xC6.toUByte) // 11000110
+    //case SET_B3_R8 extends CB(0xC0.toUByte, excludeBits543210) // 11BBBOOO
   }
 
   /**

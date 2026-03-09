@@ -27,7 +27,7 @@ object OpcodeTableGenerator {
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>s4gb OpCode Table</title>
+  <title>s4gb Gameboy OpCode Table</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: monospace; padding: 10px; overflow-x: auto; background: #1a1a2e; }

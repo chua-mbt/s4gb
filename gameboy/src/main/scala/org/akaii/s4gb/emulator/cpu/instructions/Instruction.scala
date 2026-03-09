@@ -143,6 +143,8 @@ object Instruction {
       case OpCode.CB.SLA_R8 => SLA_R8(input)
       case OpCode.CB.SRA_MEM_HL => SRA_MEM_HL(input)
       case OpCode.CB.SRA_R8 => SRA_R8(input)
+      case OpCode.CB.BIT_B3_MEM_HL => BIT_B3_MEM_HL(input)
+      case OpCode.CB.BIT_B3_R8 => BIT_B3_R8(input)
     }
 
   sealed trait MCycle {
@@ -378,6 +380,13 @@ object Instruction {
       }
       ExecutionResult.apply(!shouldContinue)
     }
+  }
+
+  trait HasBitIndexOperand {
+    self: Instruction =>
+    private lazy val bitIndex: Int = opCode.range(5, 3)
+
+    def isBitZero(value: UByte): Boolean = (value & (1.toUByte << bitIndex)) == 0.toUByte
   }
 
   trait AddOperation {
@@ -1399,6 +1408,46 @@ object Instruction {
    * https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#Bit_flag_instructions
    **/
 
+  /**
+   * BIT_B3_MEM_HL - Test bit b3 (u3) in the byte pointed by HL, set the zero flag if bit not set.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#BIT_u3,_HL_]]
+   */
+  case class BIT_B3_MEM_HL(private val input: Array[UByte]) extends CBExtension(input) with HasBitIndexOperand {
+    override val cycles: MCycle = MCycle.Fixed(3)
+    override val bytes: Int = 2
+
+    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+      Micro.readMemory { state =>
+        state.registers.flags.z = isBitZero(state.memory(state.registers.hl))
+        state.registers.flags.n = false
+        state.registers.flags.h = true
+      }
+    )
+  }
+
+  /**
+   * BIT_B3_R8 - Test bit b3 (u3) in register r8, set the zero flag if bit not set.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#BIT_u3,r8]]
+   */
+  case class BIT_B3_R8(private val input: Array[UByte]) extends CBExtension(input) with HasR8Operand with HasBitIndexOperand {
+    override val cycles: MCycle = MCycle.Fixed(2)
+    override val bytes: Int = 2
+
+    private val operandStart = 2
+    lazy val operand: OpCode.Parameters.R8 = operand(operandStart)
+
+    override protected[instructions] def micro: Seq[Micro] = Seq(
+      Micro.fetchOpCode(),
+      Micro.fetchOpCode { state =>
+        state.registers.flags.z = isBitZero(operandContents(operandStart, state))
+        state.registers.flags.n = false
+        state.registers.flags.h = true
+      }
+    )
+  }
+
   /*
    * Bit shift instructions
    * https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#Bit_shift_instructions
@@ -2388,11 +2437,11 @@ object Instruction {
    *
    * Because they never fetch, they effectively wedge the CPU, including interrupts, and even NMI, as ISR and NMI
    * servicing is done at fetch-time!
-    *
-    * Implemented in this emulator as an instruction that sets CPU state to hard-lock.
-    *
-    * @see [[https://gist.github.com/SonoSooS/c0055300670d678b5ae8433e20bea595#opcode-holes-not-implemented-opcodes]]
-    */
+   *
+   * Implemented in this emulator as an instruction that sets CPU state to hard-lock.
+   *
+   * @see [[https://gist.github.com/SonoSooS/c0055300670d678b5ae8433e20bea595#opcode-holes-not-implemented-opcodes]]
+   */
 
   case class HOLE(private val input: Array[UByte]) extends Instruction(input) {
     override val cycles: MCycle = MCycle.Undefined
