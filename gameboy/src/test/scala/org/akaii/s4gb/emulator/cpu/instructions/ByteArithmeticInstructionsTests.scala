@@ -227,6 +227,85 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
     }
   }
 
+  test("ADD_A_MEM_HL - normal addition") {
+    val opcode: UByte = OpCode.Base.ADD_A_MEM_HL.pattern
+    val instruction = Instruction.decode(Array(opcode))
+
+    assertEquals(instruction.toString, f"ADD_A_MEM_HL(0x${opcode.toInt}%02X)")
+    verifyInstruction[Instruction.ADD_A_MEM_HL.type](opcode, instruction)
+
+    testInstruction(
+      instruction,
+      setupRegister = regs => {
+        regs.a = 0x12.toUByte
+        regs.hl = 0xC000.toUShort
+        regs.f = 0xF0.toUByte
+      },
+      setupMemory = (_, mem) => mem.write(0xC000.toUShort, 0x23.toUByte),
+      expectedRegister = regs => {
+        regs.a = 0x35.toUByte
+        regs.f = 0x00.toUByte // Z=0, N=0, H=0, C=0
+      }
+    )
+  }
+
+  test("ADD_A_MEM_HL - zero result") {
+    val opcode: UByte = OpCode.Base.ADD_A_MEM_HL.pattern
+    val instruction = Instruction.decode(Array(opcode))
+
+    testInstruction(
+      instruction,
+      setupRegister = regs => {
+        regs.a = 0xFF.toUByte
+        regs.hl = 0xC000.toUShort
+        regs.f = 0x00.toUByte
+      },
+      setupMemory = (_, mem) => mem.write(0xC000.toUShort, 0x01.toUByte),
+      expectedRegister = regs => {
+        regs.a = 0x00.toUByte
+        regs.f = 0xB0.toUByte // Z=1, N=0, H=1, C=1
+      }
+    )
+  }
+
+  test("ADD_A_MEM_HL - overflow/carry") {
+    val opcode: UByte = OpCode.Base.ADD_A_MEM_HL.pattern
+    val instruction = Instruction.decode(Array(opcode))
+
+    testInstruction(
+      instruction,
+      setupRegister = regs => {
+        regs.a = 0xF0.toUByte
+        regs.hl = 0xC000.toUShort
+        regs.f = 0x00.toUByte
+      },
+      setupMemory = (_, mem) => mem.write(0xC000.toUShort, 0x20.toUByte),
+      expectedRegister = regs => {
+        regs.a = 0x10.toUByte
+        regs.f = 0x10.toUByte // Z=0, N=0, H=0, C=1
+      }
+    )
+  }
+
+  test("ADD_A_MEM_HL - half-carry only") {
+    val opcode: UByte = OpCode.Base.ADD_A_MEM_HL.pattern
+    val instruction = Instruction.decode(Array(opcode))
+
+    testInstruction(
+      instruction,
+      setupRegister = regs => {
+        regs.a = 0x0F.toUByte
+        regs.hl = 0xC000.toUShort
+        regs.f = 0x00.toUByte
+      },
+      setupMemory = (_, mem) => mem.write(0xC000.toUShort, 0x01.toUByte),
+      expectedRegister = regs => {
+        regs.a = 0x10.toUByte
+        regs.f = 0x20.toUByte // Z=0, N=0, H=1, C=0
+      }
+    )
+  }
+
   test("ADD_A_R8 - normal addition") {
     forNonMemHLR8OpCodeParams { operandParam =>
       val opcode: UByte = OpCode.Base.ADD_A_R8.setParam(operandParam -> 0)
@@ -331,6 +410,123 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
         }
       )
     }
+  }
+
+  test("ADC_A_MEM_HL - normal addition, carry clear") {
+    val opcode: UByte = OpCode.Base.ADC_A_MEM_HL.pattern
+    val instruction = Instruction.decode(Array(opcode))
+
+    assertEquals(instruction.toString, f"ADC_A_MEM_HL(0x${opcode.toInt}%02X)")
+    verifyInstruction[Instruction.ADC_A_MEM_HL.type](opcode, instruction)
+
+    testInstruction(
+      instruction,
+      setupRegister = regs => {
+        regs.a = 0x12.toUByte
+        regs.hl = 0xC000.toUShort
+        regs.f = 0x00.toUByte
+      },
+      setupMemory = (_, mem) => mem.write(0xC000.toUShort, 0x23.toUByte),
+      expectedRegister = regs => {
+        regs.a = 0x35.toUByte
+        regs.f = 0x00.toUByte
+      }
+    )
+  }
+
+  test("ADC_A_MEM_HL - addition with initial carry") {
+    val opcode: UByte = OpCode.Base.ADC_A_MEM_HL.pattern
+    val instruction = Instruction.decode(Array(opcode))
+
+    testInstruction(
+      instruction,
+      setupRegister = regs => {
+        regs.a = 0x12.toUByte
+        regs.hl = 0xC000.toUShort
+        regs.f = 0x10.toUByte
+      },
+      setupMemory = (_, mem) => mem.write(0xC000.toUShort, 0x23.toUByte),
+      expectedRegister = regs => {
+        regs.a = 0x36.toUByte
+        regs.f = 0x00.toUByte
+      }
+    )
+  }
+
+  test("ADC_A_MEM_HL - zero result") {
+    val opcode: UByte = OpCode.Base.ADC_A_MEM_HL.pattern
+    val instruction = Instruction.decode(Array(opcode))
+
+    testInstruction(
+      instruction,
+      setupRegister = regs => {
+        regs.a = 0xFF.toUByte
+        regs.hl = 0xC000.toUShort
+        regs.f = 0x00.toUByte
+      },
+      setupMemory = (_, mem) => mem.write(0xC000.toUShort, 0x01.toUByte),
+      expectedRegister = regs => {
+        regs.a = 0x00.toUByte
+        regs.f = 0xB0.toUByte // Z=1, N=0, H=1, C=1
+      }
+    )
+  }
+
+  test("ADC_A_MEM_HL - overflow/carry") {
+    val opcode: UByte = OpCode.Base.ADC_A_MEM_HL.pattern
+    val instruction = Instruction.decode(Array(opcode))
+
+    testInstruction(
+      instruction,
+      setupRegister = regs => {
+        regs.a = 0xF0.toUByte
+        regs.hl = 0xC000.toUShort
+        regs.f = 0x00.toUByte
+      },
+      setupMemory = (_, mem) => mem.write(0xC000.toUShort, 0x20.toUByte),
+      expectedRegister = regs => {
+        regs.a = 0x10.toUByte
+        regs.f = 0x10.toUByte // Z=0, N=0, H=0, C=1
+      }
+    )
+  }
+
+  test("ADC_A_MEM_HL - overflow with initial carry") {
+    val opcode: UByte = OpCode.Base.ADC_A_MEM_HL.pattern
+    val instruction = Instruction.decode(Array(opcode))
+
+    testInstruction(
+      instruction,
+      setupRegister = regs => {
+        regs.a = 0x7F.toUByte
+        regs.hl = 0xC000.toUShort
+        regs.f = 0x10.toUByte
+      },
+      setupMemory = (_, mem) => mem.write(0xC000.toUShort, 0x80.toUByte),
+      expectedRegister = regs => {
+        regs.a = 0x00.toUByte
+        regs.f = 0xB0.toUByte // Z=1, N=0, H=1, C=1
+      }
+    )
+  }
+
+  test("ADC_A_MEM_HL - half-carry only with initial carry") {
+    val opcode: UByte = OpCode.Base.ADC_A_MEM_HL.pattern
+    val instruction = Instruction.decode(Array(opcode))
+
+    testInstruction(
+      instruction,
+      setupRegister = regs => {
+        regs.a = 0x0F.toUByte
+        regs.hl = 0xC000.toUShort
+        regs.f = 0x10.toUByte
+      },
+      setupMemory = (_, mem) => mem.write(0xC000.toUShort, 0x01.toUByte),
+      expectedRegister = regs => {
+        regs.a = 0x11.toUByte
+        regs.f = 0x20.toUByte // Z=0, N=0, H=1, C=0
+      }
+    )
   }
 
   test("ADC_A_R8 - normal addition, carry clear") {
@@ -475,6 +671,85 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
     }
   }
 
+  test("SUB_A_MEM_HL - normal subtraction") {
+    val opcode: UByte = OpCode.Base.SUB_A_MEM_HL.pattern
+    val instruction = Instruction.decode(Array(opcode))
+
+    assertEquals(instruction.toString, f"SUB_A_MEM_HL(0x${opcode.toInt}%02X)")
+    verifyInstruction[Instruction.SUB_A_MEM_HL.type](opcode, instruction)
+
+    testInstruction(
+      instruction,
+      setupRegister = regs => {
+        regs.a = 0x23.toUByte
+        regs.hl = 0xC000.toUShort
+        regs.f = 0xF0.toUByte
+      },
+      setupMemory = (_, mem) => mem.write(0xC000.toUShort, 0x12.toUByte),
+      expectedRegister = regs => {
+        regs.a = 0x11.toUByte
+        regs.f = 0x40.toUByte // Z=0, N=1, H=0, C=0
+      }
+    )
+  }
+
+  test("SUB_A_MEM_HL - zero result") {
+    val opcode: UByte = OpCode.Base.SUB_A_MEM_HL.pattern
+    val instruction = Instruction.decode(Array(opcode))
+
+    testInstruction(
+      instruction,
+      setupRegister = regs => {
+        regs.a = 0x23.toUByte
+        regs.hl = 0xC000.toUShort
+        regs.f = 0x00.toUByte
+      },
+      setupMemory = (_, mem) => mem.write(0xC000.toUShort, 0x23.toUByte),
+      expectedRegister = regs => {
+        regs.a = 0x00.toUByte
+        regs.f = 0xC0.toUByte // Z=1, N=1, H=0, C=0
+      }
+    )
+  }
+
+  test("SUB_A_MEM_HL - borrow/carry") {
+    val opcode: UByte = OpCode.Base.SUB_A_MEM_HL.pattern
+    val instruction = Instruction.decode(Array(opcode))
+
+    testInstruction(
+      instruction,
+      setupRegister = regs => {
+        regs.a = 0x10.toUByte
+        regs.hl = 0xC000.toUShort
+        regs.f = 0x00.toUByte
+      },
+      setupMemory = (_, mem) => mem.write(0xC000.toUShort, 0x50.toUByte),
+      expectedRegister = regs => {
+        regs.a = 0xC0.toUByte
+        regs.f = 0x50.toUByte // Z=0, N=1, H=0, C=1
+      }
+    )
+  }
+
+  test("SUB_A_MEM_HL - half-borrow only") {
+    val opcode: UByte = OpCode.Base.SUB_A_MEM_HL.pattern
+    val instruction = Instruction.decode(Array(opcode))
+
+    testInstruction(
+      instruction,
+      setupRegister = regs => {
+        regs.a = 0x10.toUByte
+        regs.hl = 0xC000.toUShort
+        regs.f = 0x00.toUByte
+      },
+      setupMemory = (_, mem) => mem.write(0xC000.toUShort, 0x01.toUByte),
+      expectedRegister = regs => {
+        regs.a = 0x0F.toUByte
+        regs.f = 0x60.toUByte // Z=0, N=1, H=1, C=0
+      }
+    )
+  }
+
   test("SUB_A_R8 - normal subtraction") {
     forNonMemHLR8OpCodeParams { operandParam =>
       val opcode: UByte = OpCode.Base.SUB_A_R8.setParam(operandParam -> 0)
@@ -569,6 +844,123 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
         }
       )
     }
+  }
+
+  test("SBC_A_MEM_HL - normal subtraction, carry clear") {
+    val opcode: UByte = OpCode.Base.SBC_A_MEM_HL.pattern
+    val instruction = Instruction.decode(Array(opcode))
+
+    assertEquals(instruction.toString, f"SBC_A_MEM_HL(0x${opcode.toInt}%02X)")
+    verifyInstruction[Instruction.SBC_A_MEM_HL.type](opcode, instruction)
+
+    testInstruction(
+      instruction,
+      setupRegister = regs => {
+        regs.a = 0x23.toUByte
+        regs.hl = 0xC000.toUShort
+        regs.f = 0x00.toUByte
+      },
+      setupMemory = (_, mem) => mem.write(0xC000.toUShort, 0x12.toUByte),
+      expectedRegister = regs => {
+        regs.a = 0x11.toUByte
+        regs.f = 0x40.toUByte // Z=0, N=1, H=0, C=0
+      }
+    )
+  }
+
+  test("SBC_A_MEM_HL - subtraction with initial carry") {
+    val opcode: UByte = OpCode.Base.SBC_A_MEM_HL.pattern
+    val instruction = Instruction.decode(Array(opcode))
+
+    testInstruction(
+      instruction,
+      setupRegister = regs => {
+        regs.a = 0x23.toUByte
+        regs.hl = 0xC000.toUShort
+        regs.f = 0x10.toUByte
+      },
+      setupMemory = (_, mem) => mem.write(0xC000.toUShort, 0x12.toUByte),
+      expectedRegister = regs => {
+        regs.a = 0x10.toUByte
+        regs.f = 0x40.toUByte // Z=0, N=1, H=0, C=0
+      }
+    )
+  }
+
+  test("SBC_A_MEM_HL - zero result") {
+    val opcode: UByte = OpCode.Base.SBC_A_MEM_HL.pattern
+    val instruction = Instruction.decode(Array(opcode))
+
+    testInstruction(
+      instruction,
+      setupRegister = regs => {
+        regs.a = 0x23.toUByte
+        regs.hl = 0xC000.toUShort
+        regs.f = 0x10.toUByte
+      },
+      setupMemory = (_, mem) => mem.write(0xC000.toUShort, 0x22.toUByte),
+      expectedRegister = regs => {
+        regs.a = 0x00.toUByte
+        regs.f = 0xC0.toUByte // Z=1, N=1, H=0, C=0
+      }
+    )
+  }
+
+  test("SBC_A_MEM_HL - borrow/carry") {
+    val opcode: UByte = OpCode.Base.SBC_A_MEM_HL.pattern
+    val instruction = Instruction.decode(Array(opcode))
+
+    testInstruction(
+      instruction,
+      setupRegister = regs => {
+        regs.a = 0x10.toUByte
+        regs.hl = 0xC000.toUShort
+        regs.f = 0x00.toUByte
+      },
+      setupMemory = (_, mem) => mem.write(0xC000.toUShort, 0x50.toUByte),
+      expectedRegister = regs => {
+        regs.a = 0xC0.toUByte
+        regs.f = 0x50.toUByte // Z=0, N=1, H=0, C=1
+      }
+    )
+  }
+
+  test("SBC_A_MEM_HL - borrow with initial carry") {
+    val opcode: UByte = OpCode.Base.SBC_A_MEM_HL.pattern
+    val instruction = Instruction.decode(Array(opcode))
+
+    testInstruction(
+      instruction,
+      setupRegister = regs => {
+        regs.a = 0x10.toUByte
+        regs.hl = 0xC000.toUShort
+        regs.f = 0x10.toUByte
+      },
+      setupMemory = (_, mem) => mem.write(0xC000.toUShort, 0x50.toUByte),
+      expectedRegister = regs => {
+        regs.a = 0xBF.toUByte
+        regs.f = 0x70.toUByte // Z=0, N=1, H=1, C=1
+      }
+    )
+  }
+
+  test("SBC_A_MEM_HL - half-borrow with initial carry") {
+    val opcode: UByte = OpCode.Base.SBC_A_MEM_HL.pattern
+    val instruction = Instruction.decode(Array(opcode))
+
+    testInstruction(
+      instruction,
+      setupRegister = regs => {
+        regs.a = 0x10.toUByte
+        regs.hl = 0xC000.toUShort
+        regs.f = 0x10.toUByte
+      },
+      setupMemory = (_, mem) => mem.write(0xC000.toUShort, 0x01.toUByte),
+      expectedRegister = regs => {
+        regs.a = 0x0E.toUByte
+        regs.f = 0x60.toUByte // Z=0, N=1, H=1, C=0
+      }
+    )
   }
 
   test("SBC_A_R8 - normal subtraction, carry clear") {
@@ -701,6 +1093,85 @@ class ByteArithmeticInstructionsTests extends InstructionsTest {
         }
       )
     }
+  }
+
+  test("CP_A_MEM_HL - normal compare") {
+    val opcode: UByte = OpCode.Base.CP_A_MEM_HL.pattern
+    val instruction = Instruction.decode(Array(opcode))
+
+    assertEquals(instruction.toString, f"CP_A_MEM_HL(0x${opcode.toInt}%02X)")
+    verifyInstruction[Instruction.CP_A_MEM_HL.type](opcode, instruction)
+
+    testInstruction(
+      instruction,
+      setupRegister = regs => {
+        regs.a = 0x23.toUByte
+        regs.hl = 0xC000.toUShort
+        regs.f = 0x00.toUByte
+      },
+      setupMemory = (_, mem) => mem.write(0xC000.toUShort, 0x12.toUByte),
+      expectedRegister = regs => {
+        regs.a = 0x23.toUByte // A unchanged
+        regs.f = 0x40.toUByte // Z=0, N=1, H=0, C=0
+      }
+    )
+  }
+
+  test("CP_A_MEM_HL - zero result") {
+    val opcode: UByte = OpCode.Base.CP_A_MEM_HL.pattern
+    val instruction = Instruction.decode(Array(opcode))
+
+    testInstruction(
+      instruction,
+      setupRegister = regs => {
+        regs.a = 0x55.toUByte
+        regs.hl = 0xC000.toUShort
+        regs.f = 0x00.toUByte
+      },
+      setupMemory = (_, mem) => mem.write(0xC000.toUShort, 0x55.toUByte),
+      expectedRegister = regs => {
+        regs.a = 0x55.toUByte // A unchanged
+        regs.f = 0xC0.toUByte // Z=1, N=1, H=0, C=0
+      }
+    )
+  }
+
+  test("CP_A_MEM_HL - borrow/carry") {
+    val opcode: UByte = OpCode.Base.CP_A_MEM_HL.pattern
+    val instruction = Instruction.decode(Array(opcode))
+
+    testInstruction(
+      instruction,
+      setupRegister = regs => {
+        regs.a = 0x10.toUByte
+        regs.hl = 0xC000.toUShort
+        regs.f = 0x00.toUByte
+      },
+      setupMemory = (_, mem) => mem.write(0xC000.toUShort, 0x50.toUByte),
+      expectedRegister = regs => {
+        regs.a = 0x10.toUByte // A unchanged
+        regs.f = 0x50.toUByte // Z=0, N=1, H=0, C=1
+      }
+    )
+  }
+
+  test("CP_A_MEM_HL - half-borrow only") {
+    val opcode: UByte = OpCode.Base.CP_A_MEM_HL.pattern
+    val instruction = Instruction.decode(Array(opcode))
+
+    testInstruction(
+      instruction,
+      setupRegister = regs => {
+        regs.a = 0x10.toUByte
+        regs.hl = 0xC000.toUShort
+        regs.f = 0x00.toUByte
+      },
+      setupMemory = (_, mem) => mem.write(0xC000.toUShort, 0x01.toUByte),
+      expectedRegister = regs => {
+        regs.a = 0x10.toUByte // A unchanged
+        regs.f = 0x60.toUByte // Z=0, N=1, H=1, C=0
+      }
+    )
   }
 
   test("CP_A_R8 - normal compare") {

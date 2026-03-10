@@ -85,9 +85,13 @@ object Instruction {
       case OpCode.Base.LD_R8_MEM_HL => LD_R8_MEM_HL(input)
       case OpCode.Base.LD_R8_R8 => LD_R8_R8(input)
       // Block 2 (0b10) https://gbdev.io/pandocs/CPU_Instruction_Set.html#block-2-8-bit-arithmetic
+      case OpCode.Base.ADD_A_MEM_HL => ADD_A_MEM_HL
       case OpCode.Base.ADD_A_R8 => ADD_A_R8(input)
+      case OpCode.Base.ADC_A_MEM_HL => ADC_A_MEM_HL
       case OpCode.Base.ADC_A_R8 => ADC_A_R8(input)
+      case OpCode.Base.SUB_A_MEM_HL => SUB_A_MEM_HL
       case OpCode.Base.SUB_A_R8 => SUB_A_R8(input)
+      case OpCode.Base.SBC_A_MEM_HL => SBC_A_MEM_HL
       case OpCode.Base.SBC_A_R8 => SBC_A_R8(input)
       case OpCode.Base.AND_A_MEM_HL => AND_A_MEM_HL
       case OpCode.Base.AND_A_R8 => AND_A_R8(input)
@@ -95,6 +99,7 @@ object Instruction {
       case OpCode.Base.XOR_A_R8 => XOR_A_R8(input)
       case OpCode.Base.OR_A_MEM_HL => OR_A_MEM_HL
       case OpCode.Base.OR_A_R8 => OR_A_R8(input)
+      case OpCode.Base.CP_A_MEM_HL => CP_A_MEM_HL
       case OpCode.Base.CP_A_R8 => CP_A_R8(input)
       // Block 3 (0b11) https://gbdev.io/pandocs/CPU_Instruction_Set.html#block-3
       case OpCode.Base.ADD_A_IMM8 => ADD_A_IMM8(input)
@@ -393,9 +398,9 @@ object Instruction {
 
   trait AddOperation {
     self: Instruction =>
-    def resolve(state: Cpu.State, op1: UByte, op2: UByte, carryIn: UByte = 0.toUByte, storeInA: Boolean = false): Unit = {
+    def resolveAndStoreInA(state: Cpu.State, op1: UByte, op2: UByte, carryIn: UByte = 0.toUByte): Unit = {
       val sum = op1.toInt + op2.toInt + carryIn.toInt
-      if (storeInA) state.registers.a = sum.toUByte
+      state.registers.a = sum.toUByte
       state.registers.flags.z = sum.toUByte == 0.toUByte
       state.registers.flags.n = false
       state.registers.flags.h = op1.overflowFromBit3(op2, carryIn)
@@ -863,6 +868,24 @@ object Instruction {
   }
 
   /**
+   * ADD_A_MEM_HL - Add the byte pointed to by HL to A.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#ADD_A,_HL_]]
+   */
+  case object ADD_A_MEM_HL extends Instruction(Array(OpCode.Base.ADD_A_MEM_HL.pattern)) with HasR8Operand with AddOperation {
+    override val cycles: MCycle = MCycle.Fixed(2)
+    override val bytes: Int = 1
+
+    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+      Micro.readMemory { state =>
+        val a = state.registers.a
+        val valueToAdd = state.memory(state.registers.hl)
+        resolveAndStoreInA(state, a, valueToAdd)
+      }
+    )
+  }
+
+  /**
    * ADD_A_R8 - Add the value in r8 to A.
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#ADD_A,r8]]
@@ -878,7 +901,26 @@ object Instruction {
       Micro.fetchOpCode { state =>
         val a = state.registers.a
         val valueToAdd = operandContents(operandStart, state)
-        resolve(state, a, valueToAdd, storeInA = true)
+        resolveAndStoreInA(state, a, valueToAdd)
+      }
+    )
+  }
+
+  /**
+   * ADC_A_MEM_HL - Add the byte pointed to by HL plus the carry flag to A.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#ADC_A,_HL_]]
+   */
+  case object ADC_A_MEM_HL extends Instruction(Array(OpCode.Base.ADC_A_MEM_HL.pattern)) with HasR8Operand with AddOperation {
+    override val cycles: MCycle = MCycle.Fixed(2)
+    override val bytes: Int = 1
+
+    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+      Micro.readMemory { state =>
+        val a = state.registers.a
+        val valueToAdd = state.memory(state.registers.hl)
+        val carryIn = if (state.registers.flags.c) 1.toUByte else 0.toUByte
+        resolveAndStoreInA(state, a, valueToAdd, carryIn)
       }
     )
   }
@@ -900,7 +942,25 @@ object Instruction {
         val a = state.registers.a
         val valueToAdd = operandContents(operandStart, state)
         val carryIn = if (state.registers.flags.c) 1.toUByte else 0.toUByte
-        resolve(state, a, valueToAdd, carryIn, storeInA = true)
+        resolveAndStoreInA(state, a, valueToAdd, carryIn)
+      }
+    )
+  }
+
+  /**
+   * SUB_A_MEM_HL - Subtract the byte pointed to by HL from A.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#SUB_A,_HL_]]
+   */
+  case object SUB_A_MEM_HL extends Instruction(Array(OpCode.Base.SUB_A_MEM_HL.pattern)) with HasR8Operand with SubOperation {
+    override val cycles: MCycle = MCycle.Fixed(2)
+    override val bytes: Int = 1
+
+    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+      Micro.readMemory { state =>
+        val a = state.registers.a
+        val valueToSub = state.memory(state.registers.hl)
+        resolve(state, a, valueToSub, storeInA = true)
       }
     )
   }
@@ -927,6 +987,25 @@ object Instruction {
   }
 
   /**
+   * SBC_A_MEM_HL - Subtract the byte pointed to by HL and the carry flag from A.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#SBC_A,_HL_]]
+   */
+  case object SBC_A_MEM_HL extends Instruction(Array(OpCode.Base.SBC_A_MEM_HL.pattern)) with HasR8Operand with SubOperation {
+    override val cycles: MCycle = MCycle.Fixed(2)
+    override val bytes: Int = 1
+
+    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+      Micro.readMemory { state =>
+        val a = state.registers.a
+        val valueToSub = state.memory(state.registers.hl)
+        val carryIn = if (state.registers.flags.c) 1.toUByte else 0.toUByte
+        resolve(state, a, valueToSub, carryIn, storeInA = true)
+      }
+    )
+  }
+
+  /**
    * SBC_A_R8 - Subtract the value in r8 and the carry flag from A.
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#SBC_A,r8]]
@@ -944,6 +1023,26 @@ object Instruction {
         val valueToSub = operandContents(operandStart, state)
         val carryIn = if (state.registers.flags.c) 1.toUByte else 0.toUByte
         resolve(state, a, valueToSub, carryIn, storeInA = true)
+      }
+    )
+  }
+
+  /**
+   * CP_A_MEM_HL - ComPare the value in A with the byte pointed to by HL.
+   *
+   * This subtracts the value at HL from A and sets flags accordingly, but discards the result.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#CP_A,_HL_]]
+   */
+  case object CP_A_MEM_HL extends Instruction(Array(OpCode.Base.CP_A_MEM_HL.pattern)) with HasR8Operand with SubOperation {
+    override val cycles: MCycle = MCycle.Fixed(2)
+    override val bytes: Int = 1
+
+    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+      Micro.readMemory { state =>
+        val a = state.registers.a
+        val valueToSub = state.memory(state.registers.hl)
+        resolve(state, a, valueToSub)
       }
     )
   }
@@ -984,7 +1083,7 @@ object Instruction {
       Micro.fetchImm8 { state =>
         val a = state.registers.a
         val valueToAdd = imm8
-        resolve(state, a, valueToAdd, storeInA = true)
+        resolveAndStoreInA(state, a, valueToAdd)
       }
     )
   }
@@ -1003,7 +1102,7 @@ object Instruction {
         val a = state.registers.a
         val valueToAdd = imm8
         val carryIn = if (state.registers.flags.c) 1.toUByte else 0.toUByte
-        resolve(state, a, valueToAdd, carryIn, storeInA = true)
+        resolveAndStoreInA(state, a, valueToAdd, carryIn)
       }
     )
   }

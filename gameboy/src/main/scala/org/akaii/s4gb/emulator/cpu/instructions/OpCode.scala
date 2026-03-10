@@ -68,9 +68,13 @@ object OpCode {
     case LD_R8_R8 extends Base(0x40.toUByte, excludeBits543210) // 01DDDSSS
 
     // Block 2: https://gbdev.io/pandocs/CPU_Instruction_Set.html#block-2-8-bit-arithmetic
+    case ADD_A_MEM_HL extends Base(0x86.toUByte) // 10000110
     case ADD_A_R8 extends Base(0x80.toUByte, excludeBits210) // 10000SSS
+    case ADC_A_MEM_HL extends Base(0x8E.toUByte) // 10001110
     case ADC_A_R8 extends Base(0x88.toUByte, excludeBits210) // 10001SSS
+    case SUB_A_MEM_HL extends Base(0x96.toUByte) // 10010110
     case SUB_A_R8 extends Base(0x90.toUByte, excludeBits210) // 10010SSS
+    case SBC_A_MEM_HL extends Base(0x9E.toUByte) // 10011110
     case SBC_A_R8 extends Base(0x98.toUByte, excludeBits210) // 10011SSS
     case AND_A_MEM_HL extends Base(0xA6.toUByte) // 10100110
     case AND_A_R8 extends Base(0xA0.toUByte, excludeBits210) // 10100SSS
@@ -78,6 +82,7 @@ object OpCode {
     case XOR_A_R8 extends Base(0xA8.toUByte, excludeBits210) // 10101SSS
     case OR_A_MEM_HL extends Base(0xB6.toUByte) // 10110110
     case OR_A_R8 extends Base(0xB0.toUByte, excludeBits210) // 10110SSS
+    case CP_A_MEM_HL extends Base(0xBE.toUByte) // 10111110
     case CP_A_R8 extends Base(0xB8.toUByte, excludeBits210) // 10111SSS
 
     // Block 3: https://gbdev.io/pandocs/CPU_Instruction_Set.html#block-3
