@@ -16,10 +16,15 @@ trait OpCode {
   def mask: UByte
 }
 
+/**
+ * Total Instructions: 101
+ */
 object OpCode {
 
   /**
-   * Un-prefixed instructions. Variable size from 1-3 bytes. Divided into 4 blocks based on the 2 most significant bits.
+   * Un-prefixed instructions. Variable size from 1-3 bytes.
+   * There are 79 distinct instructions covering 256 possible opcode variations.
+   * Divided into 4 blocks based on the 2 most significant bits.
    *
    * @see [[https://gbdev.io/pandocs/CPU_Instruction_Set.html#cpu-instruction-set]]
    */
@@ -125,6 +130,7 @@ object OpCode {
 
   /**
    * 16-bit extended instructions prefixed by 0xCB. Require 2 fetches rather than 1.
+   * There are 22 distinct instructions covering 256 possible opcode variations.
    *
    * @see [[https://gist.github.com/SonoSooS/c0055300670d678b5ae8433e20bea595#cb-prefix]]
    * @see [[https://gbdev.io/pandocs/CPU_Instruction_Set.html#cb-prefix-instructions]]
@@ -142,10 +148,10 @@ object OpCode {
     case SLA_R8 extends CB(0x20.toUByte, excludeBits210) // 00100OOO
     case SRA_MEM_HL extends CB(0x2E.toUByte) // 00101110
     case SRA_R8 extends CB(0x28.toUByte, excludeBits210) // 00101OOO
-    //case SWAP_MEM_HL extends CB(0x36.toUByte) // 00110110
-    //case SWAP_R8 extends CB(0x30.toUByte, excludeBits210) // 00110OOO
-    //case SRL_MEM_HL extends CB(0x3E.toUByte) // 00111110
-    //case SRL_R8 extends CB(0x38.toUByte, excludeBits210) // 00111OOO
+    case SWAP_MEM_HL extends CB(0x36.toUByte) // 00110110
+    case SWAP_R8 extends CB(0x30.toUByte, excludeBits210) // 00110OOO
+    case SRL_MEM_HL extends CB(0x3E.toUByte) // 00111110
+    case SRL_R8 extends CB(0x38.toUByte, excludeBits210) // 00111OOO
 
     case BIT_B3_MEM_HL extends CB(0x46.toUByte, excludeBits543) // 01BBB110
     case BIT_B3_R8 extends CB(0x40.toUByte, excludeBits543210) // 01BBBOOO

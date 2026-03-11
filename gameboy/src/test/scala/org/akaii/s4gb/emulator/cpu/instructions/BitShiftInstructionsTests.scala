@@ -668,4 +668,136 @@ class BitShiftInstructionsTests extends InstructionsTest {
       )
     }
   }
+
+  test("SWAP_MEM_HL - Z=1") {
+    val opcode: UByte = OpCode.CB.SWAP_MEM_HL.pattern
+    val instruction = Instruction.decode(Array(0xCB.toUByte, opcode))
+
+    assertEquals(instruction.toString, f"SWAP_MEM_HL(0xCB${opcode.toInt}%02X)")
+    verifyInstruction[Instruction.SWAP_MEM_HL](opcode, instruction)
+
+    testInstruction(
+      instruction,
+      setupRegister = regs => regs.hl = 0xC000.toUShort,
+      setupMemory = (_, mem) => mem.write(0xC000.toUShort, 0xA5.toUByte),
+      expectedRegister = regs => regs.f = 0x00.toUByte,
+      expectedMemory = mem => mem.write(0xC000.toUShort, 0x5A.toUByte)
+    )
+  }
+
+  test("SWAP_MEM_HL - Z=0") {
+    val opcode: UByte = OpCode.CB.SWAP_MEM_HL.pattern
+    val instruction = Instruction.decode(Array(0xCB.toUByte, opcode))
+
+    testInstruction(
+      instruction,
+      setupRegister = regs => regs.hl = 0xC000.toUShort,
+      setupMemory = (_, mem) => mem.write(0xC000.toUShort, 0x00.toUByte),
+      expectedRegister = regs => regs.f = 0x80.toUByte,
+      expectedMemory = mem => mem.write(0xC000.toUShort, 0x00.toUByte)
+    )
+  }
+
+  test("SWAP_R8 - Z=1") {
+    forNonMemHLR8OpCodeParams { operandParam =>
+      val opcode: UByte = OpCode.CB.SWAP_R8.setParam(operandParam -> 0)
+      val instruction = Instruction.decode(Array(0xCB.toUByte, opcode))
+
+      assertEquals(instruction.toString, f"SWAP_R8(0xCB${opcode.toInt}%02X)")
+      verifyInstruction[Instruction.SWAP_R8](opcode, instruction) { swap =>
+        assertEquals(swap.operand, operandParam)
+      }
+
+      testInstruction(
+        instruction,
+        setupRegister = regs => regs(operandParam.toRegister) = 0xA5.toUByte,
+        expectedRegister = regs => {
+          regs(operandParam.toRegister) = 0x5A.toUByte
+          regs.f = 0x00.toUByte
+        }
+      )
+    }
+  }
+
+  test("SWAP_R8 - Z=0") {
+    forNonMemHLR8OpCodeParams { operandParam =>
+      val opcode: UByte = OpCode.CB.SWAP_R8.setParam(operandParam -> 0)
+      val instruction = Instruction.decode(Array(0xCB.toUByte, opcode))
+
+      testInstruction(
+        instruction,
+        setupRegister = regs => regs(operandParam.toRegister) = 0x00.toUByte,
+        expectedRegister = regs => {
+          regs(operandParam.toRegister) = 0x00.toUByte
+          regs.f = 0x80.toUByte
+        }
+      )
+    }
+  }
+
+  test("SRL_MEM_HL - C=1 Z=0") {
+    val opcode: UByte = OpCode.CB.SRL_MEM_HL.pattern
+    val instruction = Instruction.decode(Array(0xCB.toUByte, opcode))
+
+    assertEquals(instruction.toString, f"SRL_MEM_HL(0xCB${opcode.toInt}%02X)")
+    verifyInstruction[Instruction.SRL_MEM_HL](opcode, instruction)
+
+    testInstruction(
+      instruction,
+      setupRegister = regs => regs.hl = 0xC000.toUShort,
+      setupMemory = (_, mem) => mem.write(0xC000.toUShort, 0x03.toUByte),
+      expectedRegister = regs => regs.f = 0x10.toUByte,
+      expectedMemory = mem => mem.write(0xC000.toUShort, 0x01.toUByte)
+    )
+  }
+
+  test("SRL_MEM_HL - C=0 Z=1") {
+    val opcode: UByte = OpCode.CB.SRL_MEM_HL.pattern
+    val instruction = Instruction.decode(Array(0xCB.toUByte, opcode))
+
+    testInstruction(
+      instruction,
+      setupRegister = regs => regs.hl = 0xC000.toUShort,
+      setupMemory = (_, mem) => mem.write(0xC000.toUShort, 0x00.toUByte),
+      expectedRegister = regs => regs.f = 0x80.toUByte,
+      expectedMemory = mem => mem.write(0xC000.toUShort, 0x00.toUByte)
+    )
+  }
+
+  test("SRL_R8 - C=1 Z=0") {
+    forNonMemHLR8OpCodeParams { operandParam =>
+      val opcode: UByte = OpCode.CB.SRL_R8.setParam(operandParam -> 0)
+      val instruction = Instruction.decode(Array(0xCB.toUByte, opcode))
+
+      assertEquals(instruction.toString, f"SRL_R8(0xCB${opcode.toInt}%02X)")
+      verifyInstruction[Instruction.SRL_R8](opcode, instruction) { shift =>
+        assertEquals(shift.operand, operandParam)
+      }
+
+      testInstruction(
+        instruction,
+        setupRegister = regs => regs(operandParam.toRegister) = 0x03.toUByte,
+        expectedRegister = regs => {
+          regs(operandParam.toRegister) = 0x01.toUByte
+          regs.f = 0x10.toUByte
+        }
+      )
+    }
+  }
+
+  test("SRL_R8 - C=0 Z=1") {
+    forNonMemHLR8OpCodeParams { operandParam =>
+      val opcode: UByte = OpCode.CB.SRL_R8.setParam(operandParam -> 0)
+      val instruction = Instruction.decode(Array(0xCB.toUByte, opcode))
+
+      testInstruction(
+        instruction,
+        setupRegister = regs => regs(operandParam.toRegister) = 0x00.toUByte,
+        expectedRegister = regs => {
+          regs(operandParam.toRegister) = 0x00.toUByte
+          regs.f = 0x80.toUByte
+        }
+      )
+    }
+  }
 }

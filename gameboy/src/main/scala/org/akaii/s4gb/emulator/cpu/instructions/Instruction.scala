@@ -148,6 +148,10 @@ object Instruction {
       case OpCode.CB.SLA_R8 => SLA_R8(input)
       case OpCode.CB.SRA_MEM_HL => SRA_MEM_HL(input)
       case OpCode.CB.SRA_R8 => SRA_R8(input)
+      case OpCode.CB.SWAP_MEM_HL => SWAP_MEM_HL(input)
+      case OpCode.CB.SWAP_R8 => SWAP_R8(input)
+      case OpCode.CB.SRL_MEM_HL => SRL_MEM_HL(input)
+      case OpCode.CB.SRL_R8 => SRL_R8(input)
       case OpCode.CB.BIT_B3_MEM_HL => BIT_B3_MEM_HL(input)
       case OpCode.CB.BIT_B3_R8 => BIT_B3_R8(input)
       case OpCode.CB.RES_B3_MEM_HL => RES_B3_MEM_HL(input)
@@ -464,7 +468,7 @@ object Instruction {
   trait RotateOperation {
     self: Instruction =>
 
-    def setFlags(state: Cpu.State, carry: UByte, resultForZero: Option[UByte] = None): Unit = {
+    def setFlags(state: Cpu.State, carry: UByte = 0.toUByte, resultForZero: Option[UByte] = None): Unit = {
       state.registers.flags.z = resultForZero.contains(0.toUByte)
       state.registers.flags.n = false
       state.registers.flags.h = false
@@ -1991,7 +1995,7 @@ object Instruction {
         val msb = value & 0x80.toUByte
         val result = (value >> 1) | msb
         state.memory.write(hl, result)
-        setFlags(state, carryOut, Some(result))
+        setFlags(state, carryOut, resultForZero = Some(result))
       }
     )
   }
@@ -2016,7 +2020,97 @@ object Instruction {
         val msb = value & 0x80.toUByte
         val result = (value >> 1) | msb
         writeToOperandLocation(operandStart, state, result)
-        setFlags(state, carryOut, Some(result))
+        setFlags(state, carryOut, resultForZero =  Some(result))
+      }
+    )
+  }
+
+  /**
+   * SWAP_MEM_HL - Swap the upper 4 bits in the byte pointed by HL and the lower 4 ones.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#SWAP__HL_]]
+   */
+  case class SWAP_MEM_HL(private val input: Array[UByte]) extends CBExtension(input) with HasR8Operand with RotateOperation {
+    override val cycles: MCycle = MCycle.Fixed(4)
+    override val bytes: Int = 2
+
+    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+      Micro.readMemory(),
+      Micro.writeMemory { state =>
+        val hl = state.registers.hl
+        val value = state.memory(hl)
+        val result = ((value & 0x0F.toUByte) << 4) | ((value & 0xF0.toUByte) >> 4)
+        state.memory.write(hl, result)
+        setFlags(state, resultForZero = Some(result))
+      }
+    )
+  }
+
+  /**
+   * SWAP_R8 - Swap the upper 4 bits in register r8 and the lower 4 ones.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#SWAP_r8]]
+   */
+  case class SWAP_R8(private val input: Array[UByte]) extends CBExtension(input) with HasR8Operand with RotateOperation {
+    override val cycles: MCycle = MCycle.Fixed(2)
+    override val bytes: Int = 2
+
+    private val operandStart = 2
+    lazy val operand: OpCode.Parameters.R8 = operand(operandStart)
+
+    override protected[instructions] def micro: Seq[Micro] = Seq(
+      Micro.fetchOpCode(),
+      Micro.fetchOpCode { state =>
+        val value = operandContents(operandStart, state)
+        val result = ((value & 0x0F.toUByte) << 4) | ((value & 0xF0.toUByte) >> 4)
+        writeToOperandLocation(operandStart, state, result)
+        setFlags(state, resultForZero = Some(result))
+      }
+    )
+  }
+
+  /**
+   * SRL_MEM_HL - Shift Right Logically the byte pointed to by HL.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#SRL__HL_]]
+   */
+  case class SRL_MEM_HL(private val input: Array[UByte]) extends CBExtension(input) with HasR8Operand with RotateOperation {
+    override val cycles: MCycle = MCycle.Fixed(4)
+    override val bytes: Int = 2
+
+    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+      Micro.readMemory(),
+      Micro.writeMemory { state =>
+        val hl = state.registers.hl
+        val value = state.memory(hl)
+        val carryOut = value & 0x01.toUByte
+        val result = value >> 1
+        state.memory.write(hl, result)
+        setFlags(state, carryOut, resultForZero = Some(result))
+      }
+    )
+  }
+
+  /**
+   * SRL_R8 - Shift Right Logically register r8.
+   *
+   * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#SRL_r8]]
+   */
+  case class SRL_R8(private val input: Array[UByte]) extends CBExtension(input) with HasR8Operand with RotateOperation {
+    override val cycles: MCycle = MCycle.Fixed(2)
+    override val bytes: Int = 2
+
+    private val operandStart = 2
+    lazy val operand: OpCode.Parameters.R8 = operand(operandStart)
+
+    override protected[instructions] def micro: Seq[Micro] = Seq(
+      Micro.fetchOpCode(),
+      Micro.fetchOpCode { state =>
+        val value = operandContents(operandStart, state)
+        val carryOut = value & 0x01.toUByte
+        val result = value >> 1
+        writeToOperandLocation(operandStart, state, result)
+        setFlags(state, carryOut, resultForZero = Some(result))
       }
     )
   }
