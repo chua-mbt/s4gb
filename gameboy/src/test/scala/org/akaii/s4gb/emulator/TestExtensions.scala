@@ -3,6 +3,7 @@ package org.akaii.s4gb.emulator
 import org.akaii.s4gb.emulator.byteops.*
 import org.akaii.s4gb.emulator.cpu.Registers
 import org.akaii.s4gb.emulator.cpu.instructions.OpCode
+import org.akaii.s4gb.emulator.memorymap.TestMap
 import spire.math.UByte
 
 import scala.language.reflectiveCalls

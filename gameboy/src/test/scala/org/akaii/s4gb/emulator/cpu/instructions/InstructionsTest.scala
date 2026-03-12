@@ -7,7 +7,8 @@ import org.akaii.s4gb.emulator.cpu.Registers.R16
 import org.akaii.s4gb.emulator.cpu.instructions.Instruction.MCycle
 import org.akaii.s4gb.emulator.cpu.instructions.{Instruction, OpCode}
 import org.akaii.s4gb.emulator.cpu.{Cpu, Registers}
-import org.akaii.s4gb.emulator.{MemoryMap, TestMap, copyTo}
+import org.akaii.s4gb.emulator.memorymap.{MemoryMap, TestMap}
+import org.akaii.s4gb.emulator.copyTo
 import spire.math.{UByte, UShort, e}
 
 import scala.reflect.ClassTag

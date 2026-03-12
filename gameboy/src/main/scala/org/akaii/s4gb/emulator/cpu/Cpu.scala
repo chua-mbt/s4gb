@@ -1,7 +1,8 @@
 package org.akaii.s4gb.emulator.cpu
 
-import org.akaii.s4gb.emulator.MemoryMap
+import org.akaii.s4gb.emulator.byteops.*
 import org.akaii.s4gb.emulator.cpu.instructions.Instruction
+import org.akaii.s4gb.emulator.memorymap.MemoryMap
 
 /**
  * Represents the Gameboy CPU
@@ -18,7 +19,7 @@ case class Cpu(state: Cpu.State, initialInstruction: Instruction) {
         state.getIMEFlag.tick()
         currentInstruction.execute(state) match {
           case Instruction.ExecutionResult.Completed =>
-            val nextInPC = state.memory.read(state.registers.pc, 3)
+            val nextInPC = (0 until 3).flatMap(i => state.memory.fetchIfPresent(state.registers.pc + i.toUShort)).toArray
             currentInstruction = Instruction.decode(nextInPC)
             state.setMicroStep(0)
           case Instruction.ExecutionResult.Progressing =>
@@ -58,6 +59,11 @@ object Cpu {
     def getExecutionMode: ExecutionMode = executionMode
   }
 
+  /**
+   * Interrupt Master Enable flag (IME). Used to signal a wait for an interrupt to be handled.
+   *
+   * @see [[https://gbdev.io/pandocs/Interrupts.html#ime-interrupt-master-enable-flag-write-only]]
+   */
   sealed trait IMEFlag {
     def enabled: Boolean
     def tick(): IMEFlag = this

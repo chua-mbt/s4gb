@@ -1,6 +1,7 @@
 package org.akaii.s4gb.emulator
 
 import org.akaii.s4gb.emulator.cpu.Cpu
+import org.akaii.s4gb.emulator.memorymap.MemoryMap
 
 case class Emulator(memory: MemoryMap, cpu: Cpu) {
   def tick(): Unit = {

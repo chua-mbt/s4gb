@@ -4,7 +4,7 @@ import spire.math.UByte
 import java.io.PrintWriter
 import scala.util.Try
 
-object OpcodeTableGenerator {
+object OpCodeTableGenerator {
 
   def main(args: Array[String]): Unit = {
     val outputDir = args.headOption.getOrElse("docs")

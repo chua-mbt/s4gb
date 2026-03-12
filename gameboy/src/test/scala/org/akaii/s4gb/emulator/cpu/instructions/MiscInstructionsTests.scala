@@ -1,12 +1,12 @@
 package org.akaii.s4gb.emulator.cpu.instructions
 
 import munit.*
-import org.akaii.s4gb.emulator.TestMap
 import org.akaii.s4gb.emulator.byteops.*
 import org.akaii.s4gb.emulator.cpu.Cpu.ExecutionMode
 import org.akaii.s4gb.emulator.cpu.Registers
 import org.akaii.s4gb.emulator.cpu.Registers.R16
 import org.akaii.s4gb.emulator.cpu.instructions.{Instruction, OpCode}
+import org.akaii.s4gb.emulator.memorymap.TestMap
 import spire.math.{UByte, UShort}
 
 class MiscInstructionsTests extends InstructionsTest {

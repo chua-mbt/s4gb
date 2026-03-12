@@ -1,10 +1,10 @@
 package org.akaii.s4gb.emulator.cpu.instructions
 
-import org.akaii.s4gb.emulator.MemoryMap
 import org.akaii.s4gb.emulator.byteops.*
 import org.akaii.s4gb.emulator.cpu.instructions.OpCode
 import org.akaii.s4gb.emulator.cpu.instructions.OpCode.Extract.*
 import org.akaii.s4gb.emulator.cpu.{Cpu, Registers}
+import org.akaii.s4gb.emulator.memorymap.MemoryMap
 import spire.math.{UByte, UShort}
 
 /**

@@ -1,6 +1,7 @@
-package org.akaii.s4gb.emulator
+package org.akaii.s4gb.emulator.memorymap
 
 import org.akaii.s4gb.emulator.hashops.*
+import org.akaii.s4gb.emulator.memorymap.MemoryMap
 import spire.math.{UByte, UShort}
 
 case class TestMap() extends MemoryMap {
@@ -8,9 +9,6 @@ case class TestMap() extends MemoryMap {
 
   override def apply(address: UShort): UByte =
     underlying(address.toInt)
-
-  override def read(address: UShort, length: Int): Array[UByte] =
-    underlying.slice(address.toInt, address.toInt + length)
 
   override def write(address: UShort, value: UByte): Unit =
     underlying.update(address.toInt, value)
