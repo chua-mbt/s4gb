@@ -3,6 +3,7 @@ package org.akaii.s4gb.emulator.cpu
 import org.akaii.s4gb.emulator.byteops.*
 import org.akaii.s4gb.emulator.cpu.instructions.Instruction
 import org.akaii.s4gb.emulator.memorymap.MemoryMap
+import spire.math.UByte
 
 /**
  * Represents the Gameboy CPU
@@ -19,7 +20,10 @@ case class Cpu(state: Cpu.State, initialInstruction: Instruction) {
         state.getIMEFlag.tick()
         currentInstruction.execute(state) match {
           case Instruction.ExecutionResult.Completed =>
-            val nextInPC = (0 until 3).flatMap(i => state.memory.fetchIfPresent(state.registers.pc + i.toUShort)).toArray
+            val first = state.memory(state.registers.pc)
+            val second = state.memory.fetchIfPresent(state.registers.pc + 1.toUShort)
+            val third = state.memory.fetchIfPresent(state.registers.pc + 2.toUShort)
+            val nextInPC: Array[UByte] = Array(first) ++ second.toArray ++ third.toArray
             currentInstruction = Instruction.decode(nextInPC)
             state.setMicroStep(0)
           case Instruction.ExecutionResult.Progressing =>
