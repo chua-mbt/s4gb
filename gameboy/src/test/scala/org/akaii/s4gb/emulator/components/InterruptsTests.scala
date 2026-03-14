@@ -1,6 +1,7 @@
-package org.akaii.s4gb.emulator
+package org.akaii.s4gb.emulator.components
 
 import munit.FunSuite
+import org.akaii.s4gb.emulator.components.Interrupts
 import spire.math.UByte
 
 class InterruptsTests extends FunSuite {

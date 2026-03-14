@@ -1,7 +1,7 @@
 package org.akaii.s4gb.emulator.memorymap
 
-import org.akaii.s4gb.emulator.{Interrupts, Rom}
-import org.akaii.s4gb.emulator.io.Joypad
+import org.akaii.s4gb.emulator.components.{Interrupts, Rom}
+import org.akaii.s4gb.emulator.components.io.Joypad
 import spire.math.{UByte, UShort}
 
 /**

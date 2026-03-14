@@ -1,7 +1,7 @@
-package org.akaii.s4gb.emulator.io
+package org.akaii.s4gb.emulator.components.io
 
-import org.akaii.s4gb.emulator.Interrupts
 import org.akaii.s4gb.emulator.byteops.*
+import org.akaii.s4gb.emulator.components.Interrupts
 import org.akaii.s4gb.emulator.memorymap.MemoryMap
 import spire.math.{UByte, UShort}
 

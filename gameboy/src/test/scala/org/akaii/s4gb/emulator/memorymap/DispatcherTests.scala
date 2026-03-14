@@ -1,11 +1,11 @@
 package org.akaii.s4gb.emulator.memorymap
 
 import munit.FunSuite
-import org.akaii.s4gb.emulator.{Interrupts, Rom}
-import org.akaii.s4gb.emulator.Interrupts.Address.*
-import org.akaii.s4gb.emulator.Rom.Address.*
-import org.akaii.s4gb.emulator.io.Joypad
-import org.akaii.s4gb.emulator.io.Joypad.Address.*
+import org.akaii.s4gb.emulator.components.Interrupts.Address.*
+import org.akaii.s4gb.emulator.components.Rom.Address.*
+import org.akaii.s4gb.emulator.components.{Interrupts, Rom}
+import org.akaii.s4gb.emulator.components.io.Joypad
+import Joypad.Address.*
 import spire.math.{UByte, UShort}
 
 class DispatcherTests extends FunSuite {

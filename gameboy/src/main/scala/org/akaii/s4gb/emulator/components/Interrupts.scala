@@ -1,5 +1,6 @@
-package org.akaii.s4gb.emulator
+package org.akaii.s4gb.emulator.components
 
+import org.akaii.s4gb.emulator.components.Interrupts
 import org.akaii.s4gb.emulator.memorymap.RegisterMap
 import spire.math.{UByte, UShort}
 
@@ -13,8 +14,7 @@ import scala.collection.mutable
 case class Interrupts() extends RegisterMap {
 
   import Interrupts.Address.*
-  import Interrupts.Masks
-  import Interrupts.Source
+  import Interrupts.{Masks, Source}
 
   def request(source: Source): Unit = {
     val mask = UByte(1 << source.bit)
