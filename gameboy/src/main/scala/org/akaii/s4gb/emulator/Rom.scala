@@ -46,6 +46,16 @@ object Rom {
 
   object Address {
     /**
+     * ROM start address
+     */
+    val ROM_START: UShort = ROM_0_START
+
+    /**
+     * ROM end address (inclusive)
+     */
+    val ROM_END: UShort = ROM_1_END
+
+    /**
      * ROM Bank 0 (16 KiB ROM bank 00)
      *
      * @see [[https://gbdev.io/pandocs/Memory_Map.html]]
