@@ -7,7 +7,7 @@ import scala.util.Try
 object OpCodeTableGenerator {
 
   def main(args: Array[String]): Unit = {
-    val outputDir = args.headOption.getOrElse("docs")
+    val outputDir = args.headOption.getOrElse("opcode-table/target/docs")
     val outputPath = s"$outputDir/opcode-table.html"
     val file = java.io.File(outputPath)
     file.getParentFile.mkdirs()

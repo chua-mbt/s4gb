@@ -19,8 +19,5 @@ Thumbs.db
 *.class
 *.log
 
-# Generated
-docs/
-
 # Build
 .bsp

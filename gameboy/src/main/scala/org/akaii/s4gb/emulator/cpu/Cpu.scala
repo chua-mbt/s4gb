@@ -33,9 +33,9 @@ case class Cpu(state: Cpu.State) {
         currentInstruction.get.execute(state) match {
           case Instruction.ExecutionResult.Completed =>
             currentInstruction = Some(fetchInstruction())
-            state.setMicroStep(0)
+            state.tick(instructionCompleted = true)
           case Instruction.ExecutionResult.Progressing =>
-            state.setMicroStep(state.getMicroStep + 1)
+            state.tick(instructionCompleted = false)
         }
       case Cpu.ExecutionMode.Halted =>
         state.getIMEFlag.tick()
@@ -63,7 +63,8 @@ object Cpu {
     memory: MemoryMap,
     private var imeFlag: IMEFlag = IMEEnabled,
     private var executionMode: ExecutionMode = ExecutionMode.Running,
-    private var microStep: Int = 0
+    private var microStep: Int = 0,
+    var cycles: Long = 0L
   ) {
     def setIME(value: Boolean): Unit = (value, imeFlag) match {
       case (true, IMEDisabled) => imeFlag = IMEEnabling
@@ -74,10 +75,19 @@ object Cpu {
     def imeEnabled: Boolean = imeFlag.enabled
     def getIMEFlag: IMEFlag = imeFlag
     def changeExecutionMode(newMode: ExecutionMode): Unit = { executionMode = newMode }
-    def setMicroStep(cycles: Int): Unit = { microStep = cycles }
     def getMicroStep: Int = microStep
     def getElapsed: Int = microStep + 1
     def getExecutionMode: ExecutionMode = executionMode
+    def isInstructionBoundary: Boolean = microStep == 0
+
+    def tick(instructionCompleted: Boolean): Unit = {
+      cycles += 1
+      if (instructionCompleted) {
+        microStep = 0
+      } else {
+        microStep += 1
+      }
+    }
   }
 
   /**

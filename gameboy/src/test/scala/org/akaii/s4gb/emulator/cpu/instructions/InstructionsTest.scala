@@ -54,7 +54,7 @@ abstract class InstructionsTest extends FunSuite {
       case Instruction.ExecutionResult.Completed =>
         state
       case Instruction.ExecutionResult.Progressing =>
-        state.setMicroStep(state.getMicroStep + 1)
+        state.tick(instructionCompleted = false)
         exhaustInstruction(instruction, state)
     }
 

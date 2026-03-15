@@ -31,7 +31,7 @@ case class Registers(
     b = UByte(0x00)
     c = UByte(0x13)
     d = UByte(0x00)
-    e = UByte(0xC1)
+    e = UByte(0xD8)
     h = UByte(0x01)
     l = UByte(0x4D)
     f = UByte(0xB0) // Z=1, N=0, H=1, C=1

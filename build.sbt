@@ -28,8 +28,7 @@ lazy val opcodeTable = (project in file("opcode-table"))
     name := "s4gb-opcode-table",
     generateOpcodeTable := {
       (Compile / runMain).toTask(" OpcodeTableGenerator").value
-    },
-    cleanFiles += file("docs")
+    }
   )
 
 lazy val blarggTest = (project in file("blargg-test"))
