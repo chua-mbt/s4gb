@@ -2,6 +2,7 @@ package org.akaii.s4gb.emulator.components
 
 import munit.FunSuite
 import org.akaii.s4gb.emulator.components.Rom
+import org.akaii.s4gb.emulator.components.Rom.Address
 import spire.math.{UByte, UShort}
 
 class RomTests extends FunSuite {
@@ -52,6 +53,12 @@ class RomTests extends FunSuite {
     intercept[IllegalArgumentException] {
       rom.write(UShort(0x8000), UByte(0xFF))
     }
+  }
+
+  test("boundary - ROM address range") {
+    val rom = Rom(freshTestData)
+    assertEquals(rom(Address.ROM_START), UByte(0x12))
+    assertEquals(rom(Address.ROM_END), UByte(0x78))
   }
 
   private def freshTestData = {

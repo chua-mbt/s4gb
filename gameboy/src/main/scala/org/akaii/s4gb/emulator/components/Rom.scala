@@ -17,14 +17,14 @@ case class Rom(
   import Rom.Address.*
 
   override def apply(address: UShort): UByte =
-    if (ROM_0_START <= address && address <= ROM_MAX) {
+    if (ROM_START <= address && address <= ROM_END) {
       data(address.toInt)
     } else {
       throw new IllegalArgumentException(f"Invalid ROM address: 0x${address.toInt}%04X")
     }
 
   override def write(address: UShort, value: UByte): Unit =
-    if (ROM_0_START <= address && address <= ROM_MAX) {
+    if (ROM_START <= address && address <= ROM_END) {
       onWrite match {
         case Rom.OnWrite.Throw =>
           throw new IllegalArgumentException(f"Cannot write to ROM address: 0x${address.toInt}%04X")
@@ -47,16 +47,6 @@ object Rom {
 
   object Address {
     /**
-     * ROM start address
-     */
-    val ROM_START: UShort = ROM_0_START
-
-    /**
-     * ROM end address (inclusive)
-     */
-    val ROM_END: UShort = ROM_1_END
-
-    /**
      * ROM Bank 0 (16 KiB ROM bank 00)
      *
      * @see [[https://gbdev.io/pandocs/Memory_Map.html]]
@@ -73,8 +63,13 @@ object Rom {
     val ROM_1_END: UShort = UShort(0x7FFF)
 
     /**
-     * Maximum ROM address
+     * ROM start address
      */
-    val ROM_MAX: UShort = ROM_1_END
+    val ROM_START: UShort = ROM_0_START
+
+    /**
+     * ROM end address (inclusive)
+     */
+    val ROM_END: UShort = ROM_1_END
   }
 }

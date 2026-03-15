@@ -48,7 +48,7 @@ object Dispatcher {
     )
   }
 
-  private def withRanges(ranges: ((UShort, UShort), MemoryMap)*): Dispatcher =
+  def withRanges(ranges: ((UShort, UShort), MemoryMap)*): Dispatcher =
     new Dispatcher(ranges.map { case ((start, end), component) =>
       new RangeComponent(start, end, component)
     }*)

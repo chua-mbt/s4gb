@@ -8,8 +8,8 @@ import spire.math.{UByte, UShort}
 /**
  * Represents the Gameboy CPU
  */
-case class Cpu(state: Cpu.State, initialInstruction: Instruction) {
-  private var currentInstruction: Instruction = initialInstruction
+case class Cpu(state: Cpu.State) {
+  private var currentInstruction: Option[Instruction] = None
 
   /**
    * Initializes this CPU to DMG power-up state.
@@ -25,17 +25,14 @@ case class Cpu(state: Cpu.State, initialInstruction: Instruction) {
   def isStopped: Boolean = state.getExecutionMode == Cpu.ExecutionMode.Stopped
 
   def tick(): Unit = {
+    currentInstruction = currentInstruction.orElse(Some(fetchInstruction()))
     // TODO: Handle interrupts
     state.getExecutionMode match {
       case Cpu.ExecutionMode.Running =>
         state.getIMEFlag.tick()
-        currentInstruction.execute(state) match {
+        currentInstruction.get.execute(state) match {
           case Instruction.ExecutionResult.Completed =>
-            val first = state.memory(state.registers.pc)
-            val second = state.memory.fetchIfPresent(state.registers.pc + 1.toUShort)
-            val third = state.memory.fetchIfPresent(state.registers.pc + 2.toUShort)
-            val nextInPC: Array[UByte] = Array(first) ++ second.toArray ++ third.toArray
-            currentInstruction = Instruction.decode(nextInPC)
+            currentInstruction = Some(fetchInstruction())
             state.setMicroStep(0)
           case Instruction.ExecutionResult.Progressing =>
             state.setMicroStep(state.getMicroStep + 1)
@@ -49,6 +46,15 @@ case class Cpu(state: Cpu.State, initialInstruction: Instruction) {
         ()
     }
   }
+
+  private def fetchInstruction(): Instruction = {
+    val first = state.memory(state.registers.pc)
+    val second = state.memory.fetchIfPresent(state.registers.pc + 1.toUShort)
+    val third = state.memory.fetchIfPresent(state.registers.pc + 2.toUShort)
+    val nextInPC: Array[UByte] = Array(first) ++ second.toArray ++ third.toArray
+    Instruction.decode(nextInPC)
+  }
+
 }
 
 object Cpu {
