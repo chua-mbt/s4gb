@@ -1,5 +1,8 @@
 ThisBuild / scalaVersion := "3.7.4"
 ThisBuild / version := "0.1.0-SNAPSHOT"
+ThisBuild / testFrameworks += new TestFramework("utest.runner.Framework")
+
+val munitVersion = "1.2.4"
 
 lazy val gameboy = (project in file("gameboy"))
   .settings(
@@ -7,9 +10,8 @@ lazy val gameboy = (project in file("gameboy"))
     libraryDependencies ++= Seq(
       "org.typelevel" %% "spire" % "0.18.0",
       "org.typelevel" %% "spire-macros" % "0.18.0",
-      "org.scalameta" %% "munit" % "1.2.3" % Test
+      "org.scalameta" %% "munit" % munitVersion % Test
     ),
-    testFrameworks += new TestFramework("utest.runner.Framework"),
     scalacOptions ++= Seq(
       "-deprecation",
       "-feature",
@@ -29,3 +31,17 @@ lazy val opcodeTable = (project in file("opcode-table"))
     },
     cleanFiles += file("docs")
   )
+
+lazy val blarggTest = (project in file("blargg-test"))
+  .dependsOn(gameboy)
+  .settings(
+    name := "s4gb-blargg-test",
+    libraryDependencies ++= Seq(
+      "org.scalameta" %% "munit" % munitVersion % Test
+    )
+  )
+
+test := {
+  (gameboy / Test / test).value
+  (blarggTest / Test / test).value
+}
