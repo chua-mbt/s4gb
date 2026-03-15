@@ -3,13 +3,24 @@ package org.akaii.s4gb.emulator.cpu
 import org.akaii.s4gb.emulator.byteops.*
 import org.akaii.s4gb.emulator.cpu.instructions.Instruction
 import org.akaii.s4gb.emulator.memorymap.MemoryMap
-import spire.math.UByte
+import spire.math.{UByte, UShort}
 
 /**
  * Represents the Gameboy CPU
  */
 case class Cpu(state: Cpu.State, initialInstruction: Instruction) {
   private var currentInstruction: Instruction = initialInstruction
+
+  /**
+   * Initializes this CPU to DMG power-up state.
+   *
+   * @see [[https://gbdev.io/pandocs/Power_Up_Sequence.html#cpu-registers]]
+   */
+  def initialize(): Unit = {
+    state.registers.initialize()
+    state.registers.pc = UShort(0x0100)
+    state.registers.sp = UShort(0xFFFE)
+  }
 
   def isStopped: Boolean = state.getExecutionMode == Cpu.ExecutionMode.Stopped
 

@@ -16,6 +16,16 @@ case class Interrupts() extends RegisterMap {
   import Interrupts.Address.*
   import Interrupts.{Masks, Source}
 
+  /**
+   * Initializes these interrupts to DMG power-up state.
+   *
+   * @see [[https://gbdev.io/pandocs/Power_Up_Sequence.html#hardware-registers]]
+   */
+  def initialize(): Unit = {
+    registers(INTERRUPT_FLAG) = UByte(0xE1)
+    registers(INTERRUPT_ENABLE) = UByte(0x00)
+  }
+
   def request(source: Source): Unit = {
     val mask = UByte(1 << source.bit)
     registers(INTERRUPT_FLAG) = registers(INTERRUPT_FLAG) | mask
