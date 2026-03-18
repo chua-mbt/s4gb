@@ -1,0 +1,70 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Java 23
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 23
+          cache: sbt
+
+      - name: Install sbt
+        uses: coursier/setup-action@v1
+        with:
+          jvm: temurin:23
+          apps: sbt
+
+      - name: Build
+        run: sbt compile
+
+      - name: Run Tests
+        run: sbt test -DgenerateReport=true
+
+      - name: Generate Opcode Table
+        run: sbt "opcodeTable/run"
+
+      - name: Prepare Pages Artifact
+        run: |
+          mkdir -p _site
+          cp -r blargg-test/target/reports/* _site/ 2>/dev/null || true
+          cp -r opcode-table/target/docs/* _site/ 2>/dev/null || true
+          cat > _site/index.html << 'EOF'
+          <!DOCTYPE html>
+          <html>
+          <head><title>s4gb Artifacts</title></head>
+          <body>
+            <h1>s4gb Artifacts</h1>
+            <ul>
+              <li><a href="report.html">Blargg Test Report</a></li>
+              <li><a href="opcode-table.html">Opcode Table</a></li>
+            </ul>
+          </body>
+          </html>
+          EOF
+
+      - name: Upload Pages Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v4
