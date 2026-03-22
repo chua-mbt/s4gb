@@ -1,6 +1,8 @@
 package org.akaii.s4gb.emulator.cpu
 
 import org.akaii.s4gb.emulator.byteops.*
+import org.akaii.s4gb.emulator.components.Interrupts
+import org.akaii.s4gb.emulator.cpu.Cpu.ExecutionMode.Running
 import org.akaii.s4gb.emulator.cpu.instructions.Instruction
 import org.akaii.s4gb.emulator.memorymap.MemoryMap
 import spire.math.{UByte, UShort}
@@ -39,7 +41,11 @@ case class Cpu(state: Cpu.State) {
         }
       case Cpu.ExecutionMode.Halted =>
         state.getIMEFlag.tick()
-        () // TODO: Depends on IME
+        // TODO: HALT BUG
+        if(state.isInterruptPending) {
+          state.changeExecutionMode(Running)
+          // TODO: IF IME=1, handle interrupt
+        }
       case Cpu.ExecutionMode.Stopped =>
         () // TODO: Wake up
       case Cpu.ExecutionMode.HardLock =>
@@ -73,12 +79,23 @@ object Cpu {
     }
 
     def imeEnabled: Boolean = imeFlag.enabled
+
     def getIMEFlag: IMEFlag = imeFlag
-    def changeExecutionMode(newMode: ExecutionMode): Unit = { executionMode = newMode }
+
+    def changeExecutionMode(newMode: ExecutionMode): Unit = {
+      executionMode = newMode
+    }
+
     def getMicroStep: Int = microStep
+
     def getElapsed: Int = microStep + 1
+
     def getExecutionMode: ExecutionMode = executionMode
+
     def isInstructionBoundary: Boolean = microStep == 0
+
+    def isInterruptPending: Boolean =
+      (memory(Interrupts.Address.INTERRUPT_ENABLE) & memory(Interrupts.Address.INTERRUPT_FLAG)) != UByte(0)
 
     def tick(instructionCompleted: Boolean): Unit = {
       cycles += 1
@@ -97,20 +114,33 @@ object Cpu {
    */
   sealed trait IMEFlag {
     def enabled: Boolean
+
     def tick(): IMEFlag = this
   }
-  case object IMEEnabled extends IMEFlag { override def enabled: Boolean = true }
-  case object IMEDisabled extends IMEFlag { override def enabled: Boolean = false }
+
+  case object IMEEnabled extends IMEFlag {
+    override def enabled: Boolean = true
+  }
+
+  case object IMEDisabled extends IMEFlag {
+    override def enabled: Boolean = false
+  }
+
   case object IMEEnabling extends IMEFlag {
     override def enabled: Boolean = false
+
     override def tick(): IMEFlag = IMEEnabled
   }
 
   sealed trait ExecutionMode
+
   case object ExecutionMode {
     case object Running extends ExecutionMode
+
     case object Halted extends ExecutionMode
+
     case object Stopped extends ExecutionMode
+
     case object HardLock extends ExecutionMode
   }
 }

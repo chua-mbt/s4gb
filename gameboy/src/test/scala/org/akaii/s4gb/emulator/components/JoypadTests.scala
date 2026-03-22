@@ -1,17 +1,16 @@
-package org.akaii.s4gb.emulator.components.io
+package org.akaii.s4gb.emulator.components
 
 import munit.FunSuite
 import org.akaii.s4gb.emulator.byteops.*
-import org.akaii.s4gb.emulator.components.Interrupts
-import org.akaii.s4gb.emulator.components.io.Joypad
-import org.akaii.s4gb.emulator.components.io.Joypad.ButtonIndex
+import org.akaii.s4gb.emulator.components.Joypad.ButtonIndex
+import org.akaii.s4gb.emulator.components.{Interrupts, Joypad}
 import spire.math.UByte
 
 class JoypadTests extends FunSuite {
 
-  import org.akaii.s4gb.emulator.components.io.Joypad.ButtonIndex.*
-  import org.akaii.s4gb.emulator.components.io.Joypad.ButtonState.*
-  import org.akaii.s4gb.emulator.components.io.Joypad.SelectorState.*
+  import Joypad.ButtonIndex.*
+  import Joypad.ButtonState.*
+  import Joypad.SelectorState.*
 
   test("initial state") {
     val joypad = Joypad(Interrupts())

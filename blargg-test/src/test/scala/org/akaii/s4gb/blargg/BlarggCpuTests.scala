@@ -2,10 +2,7 @@ package org.akaii.s4gb.blargg
 
 import munit.FunSuite
 import org.akaii.s4gb.emulator.cpu.{Cpu, Registers}
-import org.akaii.s4gb.emulator.components.Interrupts
-import org.akaii.s4gb.emulator.components.Rom
-import org.akaii.s4gb.emulator.components.Rom.Address
-import org.akaii.s4gb.emulator.components.io.Joypad
+import org.akaii.s4gb.emulator.components.{Interrupts, Rom, Timer}
 import org.akaii.s4gb.emulator.memorymap.{Dispatcher, MemoryMap}
 import spire.math.{UByte, UShort}
 
@@ -76,12 +73,12 @@ object BlarggCpuTests {
   private val resourcePath = "/cpu_instrs/individual"
   val maxCycles = 20000000
 
-  // TODO: Implement timer (DIV, TIMA, TMA at 0xFF04-0xFF07) and interrupt handling to enable test 02
+  // TODO: Implement interrupt handling to enable test 02
   // Test 02-interrupts.gb requires the CPU to be able to halt and resume for interrupts
   
   private val romFiles: List[String] = List(
     "01-special.gb",
-    // "02-interrupts.gb", // TODO: needs timer + interrupt handling
+    // "02-interrupts.gb", // TODO: interrupt handling
     "03-op sp,hl.gb",
     "04-op r,imm.gb",
     "05-op rp.gb",
@@ -104,10 +101,11 @@ object BlarggCpuTests {
   private def createMemoryDispatcher(romData: Array[Byte], io: BlarggTestMemoryMap): MemoryMap = {
     val rom = Rom(romData.map(UByte(_)))
     val interrupts = Interrupts()
-    val joypad = Joypad(interrupts)
+    val timer = Timer(interrupts)
 
     Dispatcher.withRanges(
-      (Address.ROM_START, Address.ROM_END) -> rom,
+      (Rom.Address.ROM_START, Rom.Address.ROM_END) -> rom,
+      (Timer.Address.TIMER_START, Timer.Address.TIMER_END) -> timer,
       (UShort(0x8000), UShort(0xFFFF)) -> io,
     )
   }

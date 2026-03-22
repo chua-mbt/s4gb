@@ -3,8 +3,7 @@ package org.akaii.s4gb.emulator.memorymap
 import munit.FunSuite
 import org.akaii.s4gb.emulator.components.Interrupts.Address.*
 import org.akaii.s4gb.emulator.components.Rom.Address.*
-import org.akaii.s4gb.emulator.components.{Interrupts, Rom}
-import org.akaii.s4gb.emulator.components.io.Joypad
+import org.akaii.s4gb.emulator.components.{Interrupts, Joypad, Rom}
 import Joypad.Address.*
 import spire.math.{UByte, UShort}
 

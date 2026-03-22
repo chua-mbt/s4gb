@@ -1,4 +1,4 @@
-package org.akaii.s4gb.emulator.components.io
+package org.akaii.s4gb.emulator.components
 
 import org.akaii.s4gb.emulator.byteops.*
 import org.akaii.s4gb.emulator.components.Interrupts
@@ -20,18 +20,18 @@ case class Joypad(interrupts: Interrupts) extends MemoryMap {
   import Joypad.ButtonState.*
   import Joypad.SelectorState.*
 
-  private[io] val buttons: mutable.Map[Button, ButtonState] =
+  private[components] val buttons: mutable.Map[Button, ButtonState] =
     Button.values.map(button => button -> Released).to(mutable.Map)
 
   /**
    * Select d-pad: If this bit is 0, then directional keys can be read from the lower nibble.
    */
-  private[io] var dPadSelector: SelectorState = Unselected
+  private[components] var dPadSelector: SelectorState = Unselected
 
   /**
    * Select buttons: If this bit is 0, then buttons (SsBA) can be read from the lower nibble.
    */
-  private[io] var buttonSelector: SelectorState = Unselected
+  private[components] var buttonSelector: SelectorState = Unselected
 
   /**
    * Updates the state of a button. If the button transitions from released to pressed, an interrupt is requested.
@@ -101,7 +101,7 @@ case class Joypad(interrupts: Interrupts) extends MemoryMap {
 object Joypad {
   object Address {
     /**
-     * Joypad (P1/JOYP).
+     * Joypad (P1/JOYP)
      *
      * @see [[https://gbdev.io/pandocs/Joypad_Input.html#ff00--p1joyp-joypad]]
      */
