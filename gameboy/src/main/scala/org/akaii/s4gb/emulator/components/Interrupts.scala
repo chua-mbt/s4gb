@@ -1,5 +1,6 @@
 package org.akaii.s4gb.emulator.components
 
+import org.akaii.s4gb.emulator.byteops.*
 import org.akaii.s4gb.emulator.components.Interrupts
 import org.akaii.s4gb.emulator.memorymap.RegisterMap
 import spire.math.{UByte, UShort}
@@ -82,11 +83,18 @@ object Interrupts {
    *
    * @see [[https://gbdev.io/pandocs/Interrupt_Sources.html]]
    */
-  enum Source(val bit: Int) {
-    case VBlank extends Source(0)
-    case LCDStat extends Source(1)
-    case Timer extends Source(2)
-    case Serial extends Source(3)
-    case Joypad extends Source(4)
+  enum Source(val bit: Int, val handler: UShort) {
+    case VBlank extends Source(0, 0x0040.toUShort)
+    case LCDStat extends Source(1, 0x0048.toUShort)
+    case Timer extends Source(2, 0x0050.toUShort)
+    case Serial extends Source(3, 0x0058.toUShort)
+    case Joypad extends Source(4, 0x0060.toUShort)
+  }
+
+  object Source {
+    def highestPriority(ifRegisterValue: UByte): Source =
+      Source.values
+        .filter(s => ((ifRegisterValue >> s.bit) & 1.toUByte) != 0.toUByte)
+        .minBy(_.bit)
   }
 }

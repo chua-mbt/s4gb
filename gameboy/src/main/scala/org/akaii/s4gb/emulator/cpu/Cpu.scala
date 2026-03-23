@@ -2,7 +2,6 @@ package org.akaii.s4gb.emulator.cpu
 
 import org.akaii.s4gb.emulator.byteops.*
 import org.akaii.s4gb.emulator.components.Interrupts
-import org.akaii.s4gb.emulator.cpu.Cpu.ExecutionMode.Running
 import org.akaii.s4gb.emulator.cpu.instructions.Instruction
 import org.akaii.s4gb.emulator.memorymap.MemoryMap
 import spire.math.{UByte, UShort}
@@ -11,7 +10,7 @@ import spire.math.{UByte, UShort}
  * Represents the Gameboy CPU
  */
 case class Cpu(state: Cpu.State) {
-  private var currentInstruction: Option[Instruction] = None
+  import Cpu.*
 
   /**
    * Initializes this CPU to DMG power-up state.
@@ -27,40 +26,9 @@ case class Cpu(state: Cpu.State) {
   def isStopped: Boolean = state.getExecutionMode == Cpu.ExecutionMode.Stopped
 
   def tick(): Unit = {
-    currentInstruction = currentInstruction.orElse(Some(fetchInstruction()))
-    // TODO: Handle interrupts
-    state.getExecutionMode match {
-      case Cpu.ExecutionMode.Running =>
-        state.getIMEFlag.tick()
-        currentInstruction.get.execute(state) match {
-          case Instruction.ExecutionResult.Completed =>
-            currentInstruction = Some(fetchInstruction())
-            state.tick(instructionCompleted = true)
-          case Instruction.ExecutionResult.Progressing =>
-            state.tick(instructionCompleted = false)
-        }
-      case Cpu.ExecutionMode.Halted =>
-        state.getIMEFlag.tick()
-        // TODO: HALT BUG
-        if(state.isInterruptPending) {
-          state.changeExecutionMode(Running)
-          // TODO: IF IME=1, handle interrupt
-        }
-      case Cpu.ExecutionMode.Stopped =>
-        () // TODO: Wake up
-      case Cpu.ExecutionMode.HardLock =>
-        ()
-    }
+    state.initializeInstructionOnce()
+    state.getExecutionMode.tick(state)
   }
-
-  private def fetchInstruction(): Instruction = {
-    val first = state.memory(state.registers.pc)
-    val second = state.memory.fetchIfPresent(state.registers.pc + 1.toUShort)
-    val third = state.memory.fetchIfPresent(state.registers.pc + 2.toUShort)
-    val nextInPC: Array[UByte] = Array(first) ++ second.toArray ++ third.toArray
-    Instruction.decode(nextInPC)
-  }
-
 }
 
 object Cpu {
@@ -70,7 +38,8 @@ object Cpu {
     private var imeFlag: IMEFlag = IMEEnabled,
     private var executionMode: ExecutionMode = ExecutionMode.Running,
     private var microStep: Int = 0,
-    var cycles: Long = 0L
+    private var cycles: Long = 0L,
+    private var currentInstruction: Option[Instruction] = None
   ) {
     def setIME(value: Boolean): Unit = (value, imeFlag) match {
       case (true, IMEDisabled) => imeFlag = IMEEnabling
@@ -82,15 +51,22 @@ object Cpu {
 
     def getIMEFlag: IMEFlag = imeFlag
 
-    def changeExecutionMode(newMode: ExecutionMode): Unit = {
+    def getExecutionMode: ExecutionMode = executionMode
+
+    def changeExecutionMode(newMode: ExecutionMode): Unit =
       executionMode = newMode
-    }
+
+    def initializeInstructionOnce(): Unit =
+      currentInstruction = currentInstruction.orElse(Some(fetchInstruction()))
+
+    def getInstruction: Instruction = currentInstruction.get
+
+    def setNextInstruction(): Unit =
+      currentInstruction = Some(fetchInstruction())
 
     def getMicroStep: Int = microStep
 
     def getElapsed: Int = microStep + 1
-
-    def getExecutionMode: ExecutionMode = executionMode
 
     def isInstructionBoundary: Boolean = microStep == 0
 
@@ -99,11 +75,20 @@ object Cpu {
 
     def tick(instructionCompleted: Boolean): Unit = {
       cycles += 1
+      imeFlag = imeFlag.next()
       if (instructionCompleted) {
         microStep = 0
       } else {
         microStep += 1
       }
+    }
+
+    private def fetchInstruction(): Instruction = {
+      val first = memory(registers.pc)
+      val second = memory.fetchIfPresent(registers.pc + 1.toUShort)
+      val third = memory.fetchIfPresent(registers.pc + 2.toUShort)
+      val nextInPC: Array[UByte] = Array(first) ++ second.toArray ++ third.toArray
+      Instruction.decode(nextInPC)
     }
   }
 
@@ -115,7 +100,7 @@ object Cpu {
   sealed trait IMEFlag {
     def enabled: Boolean
 
-    def tick(): IMEFlag = this
+    def next(): IMEFlag = this
   }
 
   case object IMEEnabled extends IMEFlag {
@@ -129,18 +114,58 @@ object Cpu {
   case object IMEEnabling extends IMEFlag {
     override def enabled: Boolean = false
 
-    override def tick(): IMEFlag = IMEEnabled
+    override def next(): IMEFlag = IMEEnabled
   }
 
-  sealed trait ExecutionMode
+  sealed trait ExecutionMode { def tick(state: State): Unit = () }
 
   case object ExecutionMode {
-    case object Running extends ExecutionMode
+    case object Running extends ExecutionMode {
+      override def tick(state: State): Unit = {
+        state.getInstruction.execute(state) match {
+          case Instruction.ExecutionResult.Completed =>
+            if (state.isInterruptPending && state.imeEnabled) {
+              state.changeExecutionMode(InterruptHandling)
+            } else {
+              state.setNextInstruction()
+            }
+            state.tick(instructionCompleted = true)
+          case Instruction.ExecutionResult.Progressing =>
+            state.tick(instructionCompleted = false)
+        }
+      }
+    }
 
-    case object Halted extends ExecutionMode
+    case object Halted extends ExecutionMode {
+      override def tick(state: State): Unit = {
+        val noInstruction = true
+        state.tick(noInstruction)
+        if (state.isInterruptPending) {
+          if (state.imeEnabled) {
+            state.changeExecutionMode(InterruptHandling)
+          } else {
+            // TODO: HALT BUG
+            state.changeExecutionMode(Running)
+          }
+        }
+      }
+    }
 
-    case object Stopped extends ExecutionMode
+    case object Stopped extends ExecutionMode // TODO: Wake up
 
-    case object HardLock extends ExecutionMode
+    case object HardLock extends ExecutionMode // TODO: Is this done?
+
+    case object InterruptHandling extends ExecutionMode {
+      override def tick(state: State): Unit = {
+        Instruction.INTERRUPT_HANDLING.execute(state) match {
+          case Instruction.ExecutionResult.Completed =>
+            state.setNextInstruction()
+            state.changeExecutionMode(Running)
+            state.tick(instructionCompleted = true)
+          case Instruction.ExecutionResult.Progressing =>
+            state.tick(instructionCompleted = false)
+        }
+      }
+    }
   }
 }

@@ -3,8 +3,7 @@ package org.akaii.s4gb.blargg
 import java.io.PrintWriter
 
 trait BlarggReport {
-  import BlarggReport.reportDir
-  import BlarggReport.reportFile
+  import BlarggReport.*
 
   def generateReport(results: List[TestResult]): Unit = {
     val dir = java.io.File(reportDir)
@@ -17,7 +16,7 @@ trait BlarggReport {
     pw.write("<tr><th>Test Name</th><th>Cycles</th><th>ns</th><th>ns/cycle</th><th>Status</th></tr>")
     
     results.foreach { result =>
-      pw.write(s"<tr><td>${result.name}</td><td>${result.cycles}</td><td>${result.ns}</td><td>${result.nsPerCycle}</td><td>${result.status.toString}</td></tr>")
+      pw.write(s"<tr><td>${result.name}</td><td>${result.runResult.cycles}</td><td>${result.elapsedNs}</td><td>${result.nsPerCycle}</td><td>${result.status.toString}</td></tr>")
     }
     
     pw.write("</table></body></html>")
@@ -27,6 +26,6 @@ trait BlarggReport {
 }
 
 object BlarggReport {
-  val reportDir = "blargg-test/target/reports"
-  val reportFile = "report.html"
+  private val reportDir = "blargg-test/target/reports"
+  private val reportFile = "report.html"
 }

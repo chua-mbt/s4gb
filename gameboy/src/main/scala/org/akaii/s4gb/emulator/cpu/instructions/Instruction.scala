@@ -1,6 +1,7 @@
 package org.akaii.s4gb.emulator.cpu.instructions
 
 import org.akaii.s4gb.emulator.byteops.*
+import org.akaii.s4gb.emulator.components.Interrupts
 import org.akaii.s4gb.emulator.cpu.instructions.OpCode
 import org.akaii.s4gb.emulator.cpu.instructions.OpCode.Extract.*
 import org.akaii.s4gb.emulator.cpu.{Cpu, Registers}
@@ -17,7 +18,7 @@ import spire.math.{UByte, UShort}
  * @see [[https://izik1.github.io/gbops/]]
  */
 sealed abstract class Instruction(protected val value: Array[UByte]) extends Product with Serializable {
-  val opCode: UByte = value.head
+  lazy val opCode: UByte = value.head
   val cycles: Instruction.MCycle
   val bytes: Int
 
@@ -224,6 +225,8 @@ object Instruction {
     def readMemoryAndThen(execute: MicroGate): Micro = Micro { state => execute(state) }
 
     def writeMemory(execute: MicroStep = _ => ()): Micro = microOp(execute)
+
+    def interruptNoop(execute: MicroStep = _ => ()): Micro = microOp(execute)
 
     // idu operations can happen in parallel with memory writes, so sometimes this is subsumed within a write
     def iduOperation(execute: MicroStep = _ => ()): Micro = microOp(execute)
@@ -2020,7 +2023,7 @@ object Instruction {
         val msb = value & 0x80.toUByte
         val result = (value >> 1) | msb
         writeToOperandLocation(operandStart, state, result)
-        setFlags(state, carryOut, resultForZero =  Some(result))
+        setFlags(state, carryOut, resultForZero = Some(result))
       }
     )
   }
@@ -2747,6 +2750,55 @@ object Instruction {
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
       Micro.fetchOpCode { state => state.changeExecutionMode(Cpu.ExecutionMode.HardLock) }
+    )
+  }
+
+  /**
+   * Interrupt Handling
+   *
+   * 1. The IF bit corresponding to this interrupt and the IME flag are reset by the CPU. The former “acknowledges”
+   * the interrupt, while the latter prevents any further interrupts from being handled until the program re-enables
+   * them, typically by using the reti instruction.
+   *
+   * 2. The corresponding interrupt handler (see the IE and IF register descriptions above) is called by the CPU.
+   * This is a regular call, exactly like what would be performed by a call <address> instruction (the current PC
+   * is pushed onto the stack and then set to the address of the interrupt handler).
+   *
+   * The following interrupt service routine is executed when control is being transferred to an interrupt handler:
+   *
+   * 1. Two wait states are executed (2 M-cycles pass while nothing happens; presumably the CPU is executing nops during this time).
+   * 2. The current value of the PC register is pushed onto the stack, consuming 2 more M-cycles.
+   * 3. The PC register is set to the address of the handler (one of: $40, $48, $50, $58, $60).
+   * This consumes one last M-cycle.
+   *
+   * The entire process lasts 5 M-cycles.
+   *
+   * Not an actual instruction and has no opcode.
+   * Implemented in this emulator as an instruction for convenience.
+   *
+   * @see [[https://gbdev.io/pandocs/Interrupts.html#interrupt-handling]]
+   */
+  case object INTERRUPT_HANDLING extends Instruction(Array.empty) {
+    override val cycles: MCycle = MCycle.Fixed(5)
+    override val bytes: Int = 0
+
+    override protected[instructions] def micro: Seq[Micro] = Seq(
+      Micro.interruptNoop { state => state.setIME(false) },
+      Micro.interruptNoop { state => state.registers.sp -= 1.toUShort },
+      Micro.writeMemory { state =>
+        state.memory.write(state.registers.sp, state.registers.pc.hiByte)
+        state.registers.sp -= 1.toUShort
+      },
+      Micro.writeMemory { state =>
+        state.memory.write(state.registers.sp, state.registers.pc.loByte)
+      },
+      Micro.modifyPC { state =>
+        val register = state.memory(Interrupts.Address.INTERRUPT_FLAG)
+        val source = Interrupts.Source.highestPriority(register)
+        val mask = (1 << source.bit).toUByte
+        state.memory.write(Interrupts.Address.INTERRUPT_FLAG, register & ~mask)
+        state.registers.pc = source.handler
+      }
     )
   }
 

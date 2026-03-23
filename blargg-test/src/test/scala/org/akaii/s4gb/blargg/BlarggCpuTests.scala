@@ -1,66 +1,39 @@
 package org.akaii.s4gb.blargg
 
 import munit.FunSuite
-import org.akaii.s4gb.emulator.cpu.{Cpu, Registers}
 import org.akaii.s4gb.emulator.components.{Interrupts, Rom, Timer}
+import org.akaii.s4gb.emulator.cpu.{Cpu, Registers}
 import org.akaii.s4gb.emulator.memorymap.{Dispatcher, MemoryMap}
 import spire.math.{UByte, UShort}
 
-class BlarggCpuTests extends FunSuite with GameboyDoctor with BlarggReport {
+import java.nio.file.{Files, Paths}
+import scala.annotation.tailrec
+import scala.collection.mutable
+import scala.jdk.CollectionConverters.*
+
+class BlarggCpuTests extends FunSuite with BlarggReport {
 
   import BlarggCpuTests.*
 
-  private val dumpLog = sys.props.getOrElse("gameboyDoctorLogs", "false").toBoolean
   private val generateReport = sys.props.getOrElse("generateReport", "false").toBoolean
 
-  private val testResults = scala.collection.mutable.ListBuffer[TestResult]()
+  private val testResults = mutable.ListBuffer.empty[TestResult]
 
   romFiles.foreach { filename =>
     test(s"run $filename") {
       val bytes = loadRom(filename)
-      val (cpu, io) = createCpu(bytes)
+      val fixtures = createTestFixtures(bytes)
 
-      val logFile = Option.when(dumpLog)(openLogFile(filename.replace(".gb", ".log")))
-
-      // Log initial state
-      logFile.foreach(_.println(formatCpuState(cpu.state.registers, cpu.state.memory)))
-
-      // Run CPU for a fixed number of cycles
       val startTime = System.nanoTime()
-      var cycles = 0
-      var result: Option[String] = None
-      while (cycles < maxCycles && !cpu.isStopped && result.isEmpty) {
-        cpu.tick()
-        
-        logFile.filter(_ => cpu.state.isInstructionBoundary).foreach(_.println(formatCpuState(cpu.state.registers, cpu.state.memory)))
-        
-        if (io.serialOutput.contains("Passed") || io.serialOutput.contains("Failed")) {
-          result = Some(io.serialOutput)
-        }
-        
-        cycles += 1
-      }
+      val runResult = runBlarggTest(fixtures)
+      val endTime = System.nanoTime()
 
-      logFile.foreach { fw =>
-        closeLogFile(fw)
-        println(s"Log written to: ${GameboyDoctor.logDir}/$filename")
-      }
-
-      val elapsed = System.nanoTime() - startTime
-      val nsPerCycle = elapsed / cycles
-      
-      val status = result match {
-        case Some(r) if r.contains("Passed") => TestResult.TestStatus.Pass
-        case Some(r) if r.contains("Failed") => TestResult.TestStatus.Fail
-        case _ => TestResult.TestStatus.Timeout
-      }
-      
-      val testResult = TestResult(filename, cycles, elapsed, nsPerCycle, status, io.serialOutput)
+      val testResult = TestResult(filename, startTime, endTime, runResult)
       testResults += testResult
       println(testResult.summary)
-      
-      if (status == TestResult.TestStatus.Fail) fail(result.get)
-      if (status == TestResult.TestStatus.Timeout) fail("Timed out")
+
+      if (testResult.status == TestResult.TestStatus.Fail) fail(runResult.serialOutput)
+      if (testResult.status == TestResult.TestStatus.Timeout) fail("Timed out")
     }
   }
 
@@ -73,50 +46,72 @@ object BlarggCpuTests {
   private val resourcePath = "/cpu_instrs/individual"
   val maxCycles = 20000000
 
-  // TODO: Implement interrupt handling to enable test 02
-  // Test 02-interrupts.gb requires the CPU to be able to halt and resume for interrupts
-  
-  private val romFiles: List[String] = List(
-    "01-special.gb",
-    // "02-interrupts.gb", // TODO: interrupt handling
-    "03-op sp,hl.gb",
-    "04-op r,imm.gb",
-    "05-op rp.gb",
-    "06-ld r,r.gb",
-    "07-jr,jp,call,ret,rst.gb",
-    "08-misc instrs.gb",
-    "09-op r,r.gb",
-    "10-bit ops.gb",
-    "11-op a,(hl).gb"
-  )
+  private val timerTicksPerMCycle = 4
+
+  private val AFTER_ROM = UShort(0x8000)
+  private val END_OF_MEMORY = UShort(0xFFFF)
+
+  private case class TestFixtures(cpu: Cpu, io: BlarggTestMemoryMap, timer: Timer)
+
+  @tailrec
+  private def runBlarggTest(
+    fixtures: TestFixtures,
+    cycles: Int = 0
+  ): TestResult.RunResult = {
+    val serialOutput = fixtures.io.serialOutput
+    val completed = fixtures.cpu.state.isInstructionBoundary && (serialOutput.contains("Passed") || serialOutput.contains("Failed"))
+
+    if (cycles >= maxCycles || completed || fixtures.cpu.isStopped) {
+      return TestResult.RunResult(cycles, serialOutput)
+    }
+
+    (0 to timerTicksPerMCycle).foreach(_ => fixtures.timer.tick())
+    fixtures.cpu.tick()
+
+    runBlarggTest(fixtures, cycles + 1)
+  }
+
+  private def romFiles: List[String] =
+    Files.list(Paths.get(getClass.getResource(resourcePath).toURI))
+      .filter(_.getFileName.toString.endsWith(".gb"))
+      .map(_.getFileName.toString)
+      .sorted
+      .iterator
+      .asScala
+      .toList
 
   private def loadRom(filename: String): Array[Byte] = {
-    val is = getClass.getResourceAsStream(s"$resourcePath/$filename")
-    assert(is != null, s"Resource $filename not found")
-    val bytes = Iterator.continually(is.read()).takeWhile(_ != -1).map(_.toByte).toArray
-    is.close()
+    val inputStream = getClass.getResourceAsStream(s"$resourcePath/$filename")
+    assert(inputStream != null, s"Resource $filename not found")
+    val bytes = Iterator.continually(inputStream.read()).takeWhile(_ != -1).map(_.toByte).toArray
+    inputStream.close()
     bytes
   }
 
-  private def createMemoryDispatcher(romData: Array[Byte], io: BlarggTestMemoryMap): MemoryMap = {
-    val rom = Rom(romData.map(UByte(_)))
-    val interrupts = Interrupts()
-    val timer = Timer(interrupts)
-
+  private def createMemoryDispatcher(
+    rom: Rom,
+    io: BlarggTestMemoryMap,
+    timer: Timer,
+    interrupts: Interrupts
+  ): MemoryMap =
     Dispatcher.withRanges(
       (Rom.Address.ROM_START, Rom.Address.ROM_END) -> rom,
       (Timer.Address.TIMER_START, Timer.Address.TIMER_END) -> timer,
-      (UShort(0x8000), UShort(0xFFFF)) -> io,
+      (Interrupts.Address.INTERRUPT_FLAG, Interrupts.Address.INTERRUPT_FLAG) -> interrupts,
+      (Interrupts.Address.INTERRUPT_ENABLE, Interrupts.Address.INTERRUPT_ENABLE) -> interrupts,
+      (AFTER_ROM, END_OF_MEMORY) -> io,
     )
-  }
 
-  private def createCpu(romData: Array[Byte]): (Cpu, BlarggTestMemoryMap) = {
+  private def createTestFixtures(romData: Array[Byte]): TestFixtures = {
+    val rom = Rom(romData.map(UByte(_)))
     val io = new BlarggTestMemoryMap()
-    val memory = createMemoryDispatcher(romData, io)
+    val interrupts = Interrupts()
+    val timer = Timer(interrupts)
+    val memory = createMemoryDispatcher(rom, io, timer, interrupts)
     val registers = Registers()
     val state = Cpu.State(registers, memory)
     val cpu = Cpu(state)
     cpu.initialize()
-    (cpu, io)
+    TestFixtures(cpu, io, timer)
   }
 }

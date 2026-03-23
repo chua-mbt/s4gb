@@ -1,6 +1,7 @@
 package org.akaii.s4gb.emulator.components
 
 import munit.FunSuite
+import org.akaii.s4gb.emulator.byteops.*
 import org.akaii.s4gb.emulator.components.Interrupts
 import spire.math.UByte
 
@@ -67,5 +68,19 @@ class InterruptsTests extends FunSuite {
     interrupts.write(Interrupts.Address.INTERRUPT_FLAG, UByte(0x00))
     val read = interrupts(Interrupts.Address.INTERRUPT_FLAG)
     assertEquals(read, Interrupts.Masks.IGNORED)
+  }
+
+  test("source prioritization") {
+    val sources = Interrupts.Source.values
+    sources.foreach { expected =>
+      val ifValue = sources
+        .filter(s => s.bit >= expected.bit) // all interrupts at or below this priority
+        .map(s => 1 << s.bit) // mask the bits
+        .reduce(_ | _) // combine them into a single byte
+        .toUByte
+
+      val result = Interrupts.Source.highestPriority(ifValue)
+      assertEquals(result, expected)
+    }
   }
 }
