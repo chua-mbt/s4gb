@@ -14,13 +14,13 @@ class DispatcherTests extends FunSuite {
   test("throws for unmapped address") {
     val dispatcher = freshDispatcher
     intercept[IllegalArgumentException] {
-      dispatcher(UShort(0x8000))
+      dispatcher(UShort(0xC000))
     }
   }
 
   test("fetchIfPresent returns None for unmapped address") {
     val dispatcher = freshDispatcher
-    assertEquals(dispatcher.fetchIfPresent(UShort(0x8000)), None)
+    assertEquals(dispatcher.fetchIfPresent(UShort(0xC000)), None)
   }
 
   test("ROM write is no-op, read returns value") {
@@ -48,4 +48,6 @@ class DispatcherTests extends FunSuite {
     dispatcher.write(INTERRUPT_ENABLE, UByte(0xFF))
     assertEquals(dispatcher(INTERRUPT_ENABLE), UByte(0xFF))
   }
+
+  // TODO: Ppu round-trips
 }

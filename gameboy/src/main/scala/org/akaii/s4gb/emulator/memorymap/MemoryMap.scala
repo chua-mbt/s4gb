@@ -21,7 +21,9 @@ object MemoryMap {
 
   /**
    * IO Registers
+   *
    * @see [[https://gbdev.io/pandocs/Memory_Map.html#io-ranges]]
+   * @see [[https://gbdev.io/pandocs/Hardware_Reg_List.html]]
    **/
   val IO_REGISTERS_START: UShort = UShort(0xFF00)
 }

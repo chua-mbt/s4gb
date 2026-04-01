@@ -1,6 +1,6 @@
 package org.akaii.s4gb.emulator.memorymap
 
-import org.akaii.s4gb.emulator.components.{Interrupts, Joypad, Rom}
+import org.akaii.s4gb.emulator.components.*
 import spire.math.{UByte, UShort}
 
 /**
@@ -38,9 +38,13 @@ object Dispatcher {
     val interrupts = Interrupts()
     val joypad = Joypad(interrupts)
     val rom = Rom(Array.fill(0x8000)(UByte(0)))
+    val ppu = Ppu()
 
     withRanges(
       (Rom.Address.ROM_START -> Rom.Address.ROM_END) -> rom,
+      (Ppu.Address.VRAM.START -> Ppu.Address.VRAM.END) -> ppu,
+      (Ppu.Address.OAM.START -> Ppu.Address.OAM.END) -> ppu,
+      (Ppu.Address.LCDC -> Ppu.Address.WX) -> ppu,
       (Joypad.Address.JOYPAD -> Joypad.Address.JOYPAD) -> joypad,
       (Interrupts.Address.INTERRUPT_FLAG -> Interrupts.Address.INTERRUPT_FLAG) -> interrupts,
       (Interrupts.Address.INTERRUPT_ENABLE -> Interrupts.Address.INTERRUPT_ENABLE) -> interrupts,

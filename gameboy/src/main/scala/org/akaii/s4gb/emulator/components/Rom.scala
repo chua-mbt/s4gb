@@ -10,7 +10,7 @@ import spire.math.{UByte, UShort}
  * @see [[https://gbdev.io/pandocs/Memory_Map.html]]
  */
 case class Rom(
-  data: Array[UByte],
+  data: Array[UByte] = Array.fill(Rom.ROM_SIZE)(UByte(0)),
   onWrite: Rom.OnWrite = Rom.OnWrite.NoOp
 ) extends MemoryMap {
 
@@ -72,4 +72,6 @@ object Rom {
      */
     val ROM_END: UShort = ROM_1_END
   }
+
+  val ROM_SIZE: Int = 0x8000
 }
