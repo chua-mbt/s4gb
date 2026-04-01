@@ -47,7 +47,7 @@ class BlarggTests extends FunSuite with BlarggReport {
 object BlarggTests {
   private val resourcePaths = List(
     "/cpu_instrs/individual",
-    //"/instr_timing/",
+    "/instr_timing/",
     //"/mem_timing/individual",
     //"/mem_timing-2/rom_singles",
   )
@@ -75,7 +75,7 @@ object BlarggTests {
       return TestResult.RunResult(cycles, serialOutput)
     }
 
-    (0 to timerTicksPerMCycle).foreach(_ => fixtures.timer.tick())
+    (0 until timerTicksPerMCycle).foreach(_ => fixtures.timer.tick())
     fixtures.cpu.tick()
 
     runBlarggTest(fixtures, cycles + 1)
