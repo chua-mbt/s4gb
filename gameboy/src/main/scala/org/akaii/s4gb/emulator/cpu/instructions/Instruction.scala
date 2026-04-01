@@ -214,9 +214,12 @@ object Instruction {
 
     private def microOp(execute: MicroStep): Micro = Micro { state => execute(state); ExecutionResult.Progressing }
 
-    def fetchOpCode(execute: MicroStep = _ => ()): Micro = microOp { state => advancePC(1, state); execute(state) }
+    def fetchOpCode(execute: MicroStep = _ => ()): Micro = microOp { state =>
+      if(!state.haltBugIsActive) advancePC(1, state)
+      execute(state)
+    }
 
-    def fetchImm8(execute: MicroStep = _ => ()): Micro = fetchOpCode(execute)
+    def fetchImm8(execute: MicroStep = _ => ()): Micro = microOp { state => advancePC(1, state); execute(state) }
 
     def fetchImm8AndThen(execute: MicroGate): Micro = Micro { state => advancePC(1, state); execute(state) }
 
@@ -2652,7 +2655,17 @@ object Instruction {
     override val bytes: Int = 1
 
     override protected[instructions] def micro: Seq[Micro] = Seq(
-      Micro.fetchOpCode { state => state.changeExecutionMode(Cpu.ExecutionMode.Halted) }
+      Micro.fetchOpCode { state =>
+        lazy val ifRegister = Interrupts.Address.INTERRUPT_FLAG
+        lazy val ieRegister = Interrupts.Address.INTERRUPT_ENABLE
+        lazy val interruptState = state.memory(ifRegister) & state.memory(ieRegister)
+        lazy val haltBugTriggered = !state.imeEnabled && interruptState != 0.toUByte
+        if(state.config.haltBugEnabled && haltBugTriggered) {
+          state.triggerHaltBug()
+        } else {
+          state.changeExecutionMode(Cpu.ExecutionMode.Halted)
+        }
+      }
     )
   }
 

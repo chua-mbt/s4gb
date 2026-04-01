@@ -2,13 +2,13 @@ package org.akaii.s4gb.emulator.cpu.instructions
 
 import munit.*
 import org.akaii.s4gb.emulator.byteops.*
-import org.akaii.s4gb.emulator.cpu.Cpu.{IMEEnabled, IMEFlag}
+import org.akaii.s4gb.emulator.cpu.Cpu.{HaltBugDormant, HaltBugState, IMEDisabled, IMEFlag}
 import org.akaii.s4gb.emulator.cpu.Registers.R16
 import org.akaii.s4gb.emulator.cpu.instructions.Instruction.MCycle
 import org.akaii.s4gb.emulator.cpu.instructions.{Instruction, OpCode}
 import org.akaii.s4gb.emulator.cpu.{Cpu, Registers}
 import org.akaii.s4gb.emulator.memorymap.{MemoryMap, TestMap}
-import org.akaii.s4gb.emulator.copyTo
+import org.akaii.s4gb.emulator.{Config, copyTo}
 import spire.math.{UByte, UShort, e}
 
 import scala.reflect.ClassTag
@@ -18,21 +18,23 @@ abstract class InstructionsTest extends FunSuite {
   def setupTest(
     setupRegister: Registers => Unit = _ => (),
     setupMemory: (Registers, TestMap) => Unit = (_, _) => (),
-    initialIME: IMEFlag = IMEEnabled
+    initialIME: IMEFlag = IMEDisabled,
+    config: Config = Config()
   ): Cpu.State = {
     val registers = Registers()
     val memory = TestMap()
     setupRegister(registers)
     setupMemory(registers, memory)
-    Cpu.State(registers, memory, initialIME)
+    Cpu.State(registers, memory, config, initialIME)
   }
 
-  def setupExpected(
+  private def setupExpected(
     initialState: Cpu.State,
     instruction: Instruction,
     expectedRegisters: Registers => Unit = _ => (),
     expectedMemory: TestMap => Unit = _ => (),
-    expectedIME: IMEFlag = IMEEnabled
+    expectedIME: IMEFlag = IMEDisabled,
+    expectedHaltBugState: HaltBugState = HaltBugDormant
   ): Cpu.State = {
     val registers = Registers()
     val memory = TestMap()
@@ -45,7 +47,7 @@ abstract class InstructionsTest extends FunSuite {
     expectedRegisters(registers)
     expectedMemory(memory)
 
-    Cpu.State(registers, memory, expectedIME)
+    Cpu.State(registers, memory, initialState.config, expectedIME, expectedHaltBugState)
   }
 
   @annotation.tailrec
@@ -85,23 +87,28 @@ abstract class InstructionsTest extends FunSuite {
     assertEquals(finalState.registers, expectedState.registers, clue)
     assertEquals(finalState.memory, expectedState.memory, clue)
     assertEquals(finalState.getIMEFlag, expectedState.getIMEFlag, clue)
+    assertEquals(finalState.haltBugIsActive, expectedState.haltBugIsActive, clue)
   }
 
   protected def testInstruction(
     instruction: Instruction,
+    config: Config = Config(),
     setupRegister: Registers => Unit = _ => (),
     setupMemory: (Registers, TestMap) => Unit = (_, _) => (),
-    setupIME: IMEFlag = IMEEnabled,
+    setupIME: IMEFlag = IMEDisabled,
+    setupHaltBugState: HaltBugState = HaltBugDormant,
     expectedRegister: Registers => Unit = _ => (),
     expectedMemory: TestMap => Unit = _ => (),
-    expectedIME: IMEFlag = IMEEnabled,
+    expectedIME: IMEFlag = IMEDisabled,
+    expectedHaltBugState: HaltBugState = HaltBugDormant,
     expectedExecutionMode: Cpu.ExecutionMode = Cpu.ExecutionMode.Running,
     expectedPC: Option[UShort] = None,
     expectedElapsed: Option[Int] = None,
     clue: String = ""
   )(implicit loc: Location): Unit = {
-    val initialState = setupTest(setupRegister, setupMemory, setupIME)
-    val expectedState = setupExpected(initialState, instruction, expectedRegister, expectedMemory, expectedIME)
+    val initialState = setupTest(setupRegister, setupMemory, setupIME, config)
+    val expectedState = setupExpected(initialState, instruction, expectedRegister, expectedMemory,
+      expectedIME, expectedHaltBugState)
     val finalState = exhaustInstruction(instruction, initialState)
     verifyFinalState(finalState, instruction, expectedPC.getOrElse(instruction.bytes.toUShort), expectedExecutionMode,
       expectedElapsed, expectedState, clue)

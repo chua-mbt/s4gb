@@ -1,5 +1,6 @@
 package org.akaii.s4gb.emulator.cpu
 
+import org.akaii.s4gb.emulator.Config
 import org.akaii.s4gb.emulator.byteops.*
 import org.akaii.s4gb.emulator.components.Interrupts
 import org.akaii.s4gb.emulator.cpu.instructions.Instruction
@@ -10,6 +11,7 @@ import spire.math.{UByte, UShort}
  * Represents the Gameboy CPU
  */
 case class Cpu(state: Cpu.State) {
+
   import Cpu.*
 
   /**
@@ -35,7 +37,9 @@ object Cpu {
   case class State(
     registers: Registers,
     memory: MemoryMap,
+    config: Config,
     private var imeFlag: IMEFlag = IMEEnabled,
+    private var haltBugState: HaltBugState = HaltBugDormant,
     private var executionMode: ExecutionMode = ExecutionMode.Running,
     private var microStep: Int = 0,
     private var cycles: Long = 0L,
@@ -50,6 +54,10 @@ object Cpu {
     def imeEnabled: Boolean = imeFlag.enabled
 
     def getIMEFlag: IMEFlag = imeFlag
+
+    def triggerHaltBug(): Unit = haltBugState = HaltBugActive
+
+    def haltBugIsActive: Boolean = haltBugState.active
 
     def getExecutionMode: ExecutionMode = executionMode
 
@@ -75,8 +83,9 @@ object Cpu {
 
     def tick(instructionCompleted: Boolean): Unit = {
       cycles += 1
-      imeFlag = imeFlag.next()
       if (instructionCompleted) {
+        imeFlag = imeFlag.next()
+        haltBugState = haltBugState.next()
         microStep = 0
       } else {
         microStep += 1
@@ -85,8 +94,9 @@ object Cpu {
 
     private def fetchInstruction(): Instruction = {
       val first = memory(registers.pc)
-      val second = memory.fetchIfPresent(registers.pc + 1.toUShort)
-      val third = memory.fetchIfPresent(registers.pc + 2.toUShort)
+      val immOffset = if(haltBugIsActive) -1 else 0
+      val second = memory.fetchIfPresent(registers.pc + (1 + immOffset).toUShort)
+      val third = memory.fetchIfPresent(registers.pc + (2 + immOffset).toUShort)
       val nextInPC: Array[UByte] = Array(first) ++ second.toArray ++ third.toArray
       Instruction.decode(nextInPC)
     }
@@ -117,7 +127,32 @@ object Cpu {
     override def next(): IMEFlag = IMEEnabled
   }
 
-  sealed trait ExecutionMode { def tick(state: State): Unit = () }
+  /**
+   * Tracking Halt Bug state.
+   *
+   * @see [[https://gbdev.io/pandocs/halt.html?highlight=halt#halt-bug]]
+   */
+  sealed trait HaltBugState {
+    def active: Boolean
+
+    def next(): HaltBugState = this
+  }
+
+  case object HaltBugActive extends HaltBugState {
+    override def active: Boolean = true
+
+    override def next(): HaltBugState = HaltBugDormant
+  }
+
+  case object HaltBugDormant extends HaltBugState {
+    override def active: Boolean = false
+
+    override def next(): HaltBugState = this
+  }
+
+  sealed trait ExecutionMode {
+    def tick(state: State): Unit = ()
+  }
 
   case object ExecutionMode {
     case object Running extends ExecutionMode {
@@ -144,7 +179,6 @@ object Cpu {
           if (state.imeEnabled) {
             state.changeExecutionMode(InterruptHandling)
           } else {
-            // TODO: HALT BUG
             state.changeExecutionMode(Running)
           }
         }

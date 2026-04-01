@@ -1,6 +1,8 @@
 package org.akaii.s4gb.emulator.cpu.instructions
 
+import org.akaii.s4gb.emulator.Config
 import org.akaii.s4gb.emulator.byteops.*
+import org.akaii.s4gb.emulator.components.Interrupts
 import org.akaii.s4gb.emulator.cpu.Cpu.*
 import org.akaii.s4gb.emulator.cpu.Registers
 import org.akaii.s4gb.emulator.cpu.Registers.R16
@@ -34,6 +36,39 @@ class InterruptInstructionsTests extends InstructionsTest {
     assertEquals(instruction.toString, "HALT(0x76)")
     assertEquals(instruction, Instruction.HALT)
 
-    testInstruction(instruction = instruction, expectedExecutionMode = ExecutionMode.Halted)
+    testInstruction(
+      instruction = instruction,
+      expectedHaltBugState = HaltBugDormant,
+      expectedExecutionMode = ExecutionMode.Halted
+    )
+  }
+
+  test("HALT - Halt Bug") {
+    val instruction = Instruction.decode(Array(OpCode.Base.HALT.pattern))
+
+    testInstruction(
+      instruction = instruction,
+      setupMemory = (_, mem) => {
+        mem.write(Interrupts.Address.INTERRUPT_FLAG, 1.toUByte)
+        mem.write(Interrupts.Address.INTERRUPT_ENABLE, 1.toUByte)
+      },
+      expectedHaltBugState = HaltBugActive,
+      expectedExecutionMode = ExecutionMode.Running
+    )
+  }
+
+  test("HALT - Halt Bug (Disabled)") {
+    val instruction = Instruction.decode(Array(OpCode.Base.HALT.pattern))
+
+    testInstruction(
+      instruction = instruction,
+      config = Config(haltBugEnabled = false),
+      setupMemory = (_, mem) => {
+        mem.write(Interrupts.Address.INTERRUPT_FLAG, 1.toUByte)
+        mem.write(Interrupts.Address.INTERRUPT_ENABLE, 1.toUByte)
+      },
+      expectedHaltBugState = HaltBugDormant,
+      expectedExecutionMode = ExecutionMode.Halted
+    )
   }
 }

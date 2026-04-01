@@ -1,6 +1,7 @@
 package org.akaii.s4gb.blargg
 
 import munit.FunSuite
+import org.akaii.s4gb.emulator.Config
 import org.akaii.s4gb.emulator.components.{Interrupts, Rom, Timer}
 import org.akaii.s4gb.emulator.cpu.{Cpu, Registers}
 import org.akaii.s4gb.emulator.memorymap.{Dispatcher, MemoryMap}
@@ -11,17 +12,18 @@ import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.jdk.CollectionConverters.*
 
-class BlarggCpuTests extends FunSuite with BlarggReport {
+class BlarggTests extends FunSuite with BlarggReport {
 
-  import BlarggCpuTests.*
+  import BlarggTests.*
 
   private val generateReport = sys.props.getOrElse("generateReport", "false").toBoolean
 
   private val testResults = mutable.ListBuffer.empty[TestResult]
 
-  romFiles.foreach { filename =>
-    test(s"run $filename") {
-      val bytes = loadRom(filename)
+  romFiles.foreach { path =>
+    val filename = Paths.get(path).getFileName.toString
+    test(s"run $path") {
+      val bytes = loadRom(path)
       val fixtures = createTestFixtures(bytes)
 
       val startTime = System.nanoTime()
@@ -42,8 +44,16 @@ class BlarggCpuTests extends FunSuite with BlarggReport {
   }
 }
 
-object BlarggCpuTests {
-  private val resourcePath = "/cpu_instrs/individual"
+object BlarggTests {
+  private val resourcePaths = List(
+    "/cpu_instrs/individual",
+    //"/instr_timing/",
+    //"/mem_timing/individual",
+    //"/mem_timing-2/rom_singles",
+  )
+  private val resourceFiles = List(
+    //"/halt_bug.gb",
+  )
   val maxCycles = 20000000
 
   private val timerTicksPerMCycle = 4
@@ -71,18 +81,17 @@ object BlarggCpuTests {
     runBlarggTest(fixtures, cycles + 1)
   }
 
-  private def romFiles: List[String] =
-    Files.list(Paths.get(getClass.getResource(resourcePath).toURI))
-      .filter(_.getFileName.toString.endsWith(".gb"))
-      .map(_.getFileName.toString)
-      .sorted
-      .iterator
-      .asScala
-      .toList
+  private def romFiles: List[String] = {
+    val dirFiles = for {
+      basePath <- resourcePaths
+      path <- Files.list(Paths.get(getClass.getResource(basePath).toURI)).iterator().asScala
+      if path.getFileName.toString.endsWith(".gb")
+    } yield s"$basePath/${path.getFileName}"
+    (dirFiles ++ resourceFiles).sortBy(Paths.get(_).getFileName.toString)
+  }
 
-  private def loadRom(filename: String): Array[Byte] = {
-    val inputStream = getClass.getResourceAsStream(s"$resourcePath/$filename")
-    assert(inputStream != null, s"Resource $filename not found")
+  private def loadRom(path: String): Array[Byte] = {
+    val inputStream = getClass.getResourceAsStream(path)
     val bytes = Iterator.continually(inputStream.read()).takeWhile(_ != -1).map(_.toByte).toArray
     inputStream.close()
     bytes
@@ -109,7 +118,7 @@ object BlarggCpuTests {
     val timer = Timer(interrupts)
     val memory = createMemoryDispatcher(rom, io, timer, interrupts)
     val registers = Registers()
-    val state = Cpu.State(registers, memory)
+    val state = Cpu.State(registers, memory, config = Config())
     val cpu = Cpu(state)
     cpu.initialize()
     TestFixtures(cpu, io, timer)
