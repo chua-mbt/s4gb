@@ -74,6 +74,8 @@ object Cpu {
 
     def getMicroStep: Int = microStep
 
+    def getCycles: Long = cycles
+
     def getElapsed: Int = microStep + 1
 
     def isInstructionBoundary: Boolean = microStep == 0

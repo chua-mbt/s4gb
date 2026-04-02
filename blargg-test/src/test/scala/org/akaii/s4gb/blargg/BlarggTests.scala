@@ -21,7 +21,6 @@ class BlarggTests extends FunSuite with BlarggReport {
   private val testResults = mutable.ListBuffer.empty[TestResult]
 
   romFiles.foreach { path =>
-    val filename = Paths.get(path).getFileName.toString
     test(s"run $path") {
       val bytes = loadRom(path)
       val fixtures = createTestFixtures(bytes)
@@ -30,7 +29,7 @@ class BlarggTests extends FunSuite with BlarggReport {
       val runResult = runBlarggTest(fixtures)
       val endTime = System.nanoTime()
 
-      val testResult = TestResult(filename, startTime, endTime, runResult)
+      val testResult = TestResult(path, startTime, endTime, runResult)
       testResults += testResult
       println(testResult.summary)
 
@@ -48,7 +47,7 @@ object BlarggTests {
   private val resourcePaths = List(
     "/cpu_instrs/individual",
     "/instr_timing/",
-    //"/mem_timing/individual",
+    "/mem_timing/individual",
     //"/mem_timing-2/rom_singles",
   )
   private val resourceFiles = List(
@@ -87,7 +86,7 @@ object BlarggTests {
       path <- Files.list(Paths.get(getClass.getResource(basePath).toURI)).iterator().asScala
       if path.getFileName.toString.endsWith(".gb")
     } yield s"$basePath/${path.getFileName}"
-    (dirFiles ++ resourceFiles).sortBy(Paths.get(_).getFileName.toString)
+    (dirFiles ++ resourceFiles).sortBy(identity)
   }
 
   private def loadRom(path: String): Array[Byte] = {

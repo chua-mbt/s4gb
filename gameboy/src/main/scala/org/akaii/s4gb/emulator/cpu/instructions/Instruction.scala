@@ -794,10 +794,13 @@ object Instruction {
     override val cycles: MCycle = MCycle.Fixed(3)
     override val bytes: Int = 1
 
+    private var originalValue: UByte = 0.toUByte
+
     override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
-      Micro.readMemory(),
+      Micro.readMemory { state =>
+        originalValue = state.memory(state.registers.hl)
+      },
       Micro.writeMemory { state =>
-        val originalValue = state.memory(state.registers.hl)
         val result = originalValue + 1.toUByte
         state.memory.write(state.registers.hl, result)
         state.registers.flags.z = result == 0.toUByte
@@ -840,10 +843,13 @@ object Instruction {
     override val cycles: MCycle = MCycle.Fixed(3)
     override val bytes: Int = 1
 
+    private var originalValue: UByte = 0.toUByte
+
     override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
-      Micro.readMemory(),
+      Micro.readMemory { state =>
+        originalValue = state.memory(state.registers.hl)
+      },
       Micro.writeMemory { state =>
-        val originalValue = state.memory(state.registers.hl)
         val result = originalValue - 1.toUByte
         state.memory.write(state.registers.hl, result)
         state.registers.flags.z = result == 0.toUByte
@@ -1583,12 +1589,15 @@ object Instruction {
     override val cycles: MCycle = MCycle.Fixed(4)
     override val bytes: Int = 2
 
+    private var memValue: UByte = 0.toUByte
+
     override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
-      Micro.readMemory(),
+      Micro.readMemory { state =>
+        memValue = state.memory(state.registers.hl)
+      },
       Micro.writeMemory { state =>
-        val hl = state.registers.hl
-        val result = setBit(state.memory(hl), bitIndex, bitValue = false)
-        state.memory.write(hl, result)
+        val result = setBit(memValue, bitIndex, bitValue = false)
+        state.memory.write(state.registers.hl, result)
       }
     )
   }
@@ -1628,12 +1637,15 @@ object Instruction {
     override val cycles: MCycle = MCycle.Fixed(4)
     override val bytes: Int = 2
 
+    private var memValue: UByte = 0.toUByte
+
     override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
-      Micro.readMemory(),
+      Micro.readMemory { state =>
+        memValue = state.memory(state.registers.hl)
+      },
       Micro.writeMemory { state =>
-        val hl = state.registers.hl
-        val result = setBit(state.memory(hl), bitIndex, bitValue = true)
-        state.memory.write(hl, result)
+        val result = setBit(memValue, bitIndex, bitValue = true)
+        state.memory.write(state.registers.hl, result)
       }
     )
   }
@@ -1758,14 +1770,16 @@ object Instruction {
     override val cycles: MCycle = MCycle.Fixed(4)
     override val bytes: Int = 2
 
+    private var memValue: UByte = 0.toUByte
+
     override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
-      Micro.readMemory(),
+      Micro.readMemory { state =>
+        memValue = state.memory(state.registers.hl)
+      },
       Micro.writeMemory { state =>
-        val hl = state.registers.hl
-        val value = state.memory(hl)
-        val carry = (value & 0x80.toUByte) >> 7
-        val result = (value << 1) | carry
-        state.memory.write(hl, result)
+        val carry = (memValue & 0x80.toUByte) >> 7
+        val result = (memValue << 1) | carry
+        state.memory.write(state.registers.hl, result)
         setFlags(state, carry, resultForZero = Some(result))
       },
     )
@@ -1804,14 +1818,16 @@ object Instruction {
     override val cycles: MCycle = MCycle.Fixed(4)
     override val bytes: Int = 2
 
+    private var memValue: UByte = 0.toUByte
+
     override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
-      Micro.readMemory(),
+      Micro.readMemory { state =>
+        memValue = state.memory(state.registers.hl)
+      },
       Micro.writeMemory { state =>
-        val hl = state.registers.hl
-        val value = state.memory(hl)
-        val carry = value & 0x01.toUByte
-        val result = (value >> 1) | (carry << 7)
-        state.memory.write(hl, result)
+        val carry = memValue & 0x01.toUByte
+        val result = (memValue >> 1) | (carry << 7)
+        state.memory.write(state.registers.hl, result)
         setFlags(state, carry, resultForZero = Some(result))
       }
     )
@@ -1850,15 +1866,17 @@ object Instruction {
     override val cycles: MCycle = MCycle.Fixed(4)
     override val bytes: Int = 2
 
+    private var memValue: UByte = 0.toUByte
+
     override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
-      Micro.readMemory(),
+      Micro.readMemory { state =>
+        memValue = state.memory(state.registers.hl)
+      },
       Micro.writeMemory { state =>
-        val hl = state.registers.hl
-        val value = state.memory(hl)
         val carryIn = if (state.registers.flags.c) 1.toUByte else 0.toUByte
-        val carryOut = (value & 0x80.toUByte) >> 7
-        val result = (value << 1) | carryIn
-        state.memory.write(hl, result)
+        val carryOut = (memValue & 0x80.toUByte) >> 7
+        val result = (memValue << 1) | carryIn
+        state.memory.write(state.registers.hl, result)
         setFlags(state, carryOut, resultForZero = Some(result))
       }
     )
@@ -1898,15 +1916,17 @@ object Instruction {
     override val cycles: MCycle = MCycle.Fixed(4)
     override val bytes: Int = 2
 
+    private var memValue: UByte = 0.toUByte
+
     override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
-      Micro.readMemory(),
+      Micro.readMemory { state =>
+        memValue = state.memory(state.registers.hl)
+      },
       Micro.writeMemory { state =>
-        val hl = state.registers.hl
-        val value = state.memory(hl)
         val carryIn = if (state.registers.flags.c) 0x80.toUByte else 0.toUByte
-        val carryOut = value & 0x01.toUByte
-        val result = (value >> 1) | carryIn
-        state.memory.write(hl, result)
+        val carryOut = memValue & 0x01.toUByte
+        val result = (memValue >> 1) | carryIn
+        state.memory.write(state.registers.hl, result)
         setFlags(state, carryOut, resultForZero = Some(result))
       }
     )
@@ -1946,14 +1966,16 @@ object Instruction {
     override val cycles: MCycle = MCycle.Fixed(4)
     override val bytes: Int = 2
 
+    private var memValue: UByte = 0.toUByte
+
     override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
-      Micro.readMemory(),
+      Micro.readMemory { state =>
+        memValue = state.memory(state.registers.hl)
+      },
       Micro.writeMemory { state =>
-        val hl = state.registers.hl
-        val value = state.memory(hl)
-        val carryOut = (value & 0x80.toUByte) >> 7
-        val result = value << 1
-        state.memory.write(hl, result)
+        val carryOut = (memValue & 0x80.toUByte) >> 7
+        val result = memValue << 1
+        state.memory.write(state.registers.hl, result)
         setFlags(state, carryOut, resultForZero = Some(result))
       }
     )
@@ -1992,15 +2014,17 @@ object Instruction {
     override val cycles: MCycle = MCycle.Fixed(4)
     override val bytes: Int = 2
 
+    private var memValue: UByte = 0.toUByte
+
     override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
-      Micro.readMemory(),
+      Micro.readMemory { state =>
+        memValue = state.memory(state.registers.hl)
+      },
       Micro.writeMemory { state =>
-        val hl = state.registers.hl
-        val value = state.memory(hl)
-        val carryOut = value & 0x01.toUByte
-        val msb = value & 0x80.toUByte
-        val result = (value >> 1) | msb
-        state.memory.write(hl, result)
+        val carryOut = memValue & 0x01.toUByte
+        val msb = memValue & 0x80.toUByte
+        val result = (memValue >> 1) | msb
+        state.memory.write(state.registers.hl, result)
         setFlags(state, carryOut, resultForZero = Some(result))
       }
     )
@@ -2040,13 +2064,15 @@ object Instruction {
     override val cycles: MCycle = MCycle.Fixed(4)
     override val bytes: Int = 2
 
+    private var memValue: UByte = 0.toUByte
+
     override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
-      Micro.readMemory(),
+      Micro.readMemory { state =>
+        memValue = state.memory(state.registers.hl)
+      },
       Micro.writeMemory { state =>
-        val hl = state.registers.hl
-        val value = state.memory(hl)
-        val result = ((value & 0x0F.toUByte) << 4) | ((value & 0xF0.toUByte) >> 4)
-        state.memory.write(hl, result)
+        val result = ((memValue & 0x0F.toUByte) << 4) | ((memValue & 0xF0.toUByte) >> 4)
+        state.memory.write(state.registers.hl, result)
         setFlags(state, resultForZero = Some(result))
       }
     )
@@ -2084,14 +2110,16 @@ object Instruction {
     override val cycles: MCycle = MCycle.Fixed(4)
     override val bytes: Int = 2
 
+    private var memValue: UByte = 0.toUByte
+
     override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
-      Micro.readMemory(),
+      Micro.readMemory { state =>
+        memValue = state.memory(state.registers.hl)
+      },
       Micro.writeMemory { state =>
-        val hl = state.registers.hl
-        val value = state.memory(hl)
-        val carryOut = value & 0x01.toUByte
-        val result = value >> 1
-        state.memory.write(hl, result)
+        val carryOut = memValue & 0x01.toUByte
+        val result = memValue >> 1
+        state.memory.write(state.registers.hl, result)
         setFlags(state, carryOut, resultForZero = Some(result))
       }
     )
