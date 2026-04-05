@@ -1,7 +1,7 @@
 package org.akaii.s4gb.emulator.memorymap
 
-import org.akaii.s4gb.emulator.hashops.*
 import org.akaii.s4gb.emulator.memorymap.MemoryMap
+import org.akaii.s4gb.extensions.hashops.*
 import spire.math.{UByte, UShort}
 
 case class TestMap() extends MemoryMap {

@@ -1,7 +1,7 @@
 package org.akaii.s4gb.emulator.cpu
 
-import org.akaii.s4gb.emulator.byteops.*
-import org.akaii.s4gb.emulator.hashops.*
+import org.akaii.s4gb.extensions.byteops.*
+import org.akaii.s4gb.extensions.hashops.*
 import spire.math.{UByte, UShort}
 import spire.syntax.literals.*
 

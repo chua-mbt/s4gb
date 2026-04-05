@@ -1,11 +1,11 @@
 package org.akaii.s4gb.emulator.cpu.instructions
 
-import org.akaii.s4gb.emulator.byteops.*
 import org.akaii.s4gb.emulator.components.Interrupts
 import org.akaii.s4gb.emulator.cpu.instructions.OpCode
 import org.akaii.s4gb.emulator.cpu.instructions.OpCode.Extract.*
 import org.akaii.s4gb.emulator.cpu.{Cpu, Registers}
 import org.akaii.s4gb.emulator.memorymap.MemoryMap
+import org.akaii.s4gb.extensions.byteops.*
 import spire.math.{UByte, UShort}
 
 /**
@@ -2707,7 +2707,7 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#NOP]]
    */
-  case object NOP extends Instruction(0x0.toInstructionInput) {
+  case object NOP extends Instruction(Array(UByte(0x0))) {
     override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
   }

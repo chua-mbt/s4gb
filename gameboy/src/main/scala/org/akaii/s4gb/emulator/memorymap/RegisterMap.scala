@@ -4,7 +4,7 @@ import spire.math.{UByte, UShort}
 
 import scala.collection.mutable
 
-abstract class RegisterMap extends MemoryMap with Product with Serializable {
+abstract class RegisterMap extends MemoryMap {
 
   protected val registers: mutable.Map[UShort, UByte]
 
@@ -29,6 +29,6 @@ abstract class RegisterMap extends MemoryMap with Product with Serializable {
           f"0x${k.toInt}%04X=0x${v.toInt}%02X"
         }
         .mkString(",")
-    s"$productPrefix($entries)"
+    s"${getClass.getSimpleName}($entries)"
   }
 }

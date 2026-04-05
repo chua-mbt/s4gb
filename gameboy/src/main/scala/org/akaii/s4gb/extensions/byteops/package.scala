@@ -1,4 +1,4 @@
-package org.akaii.s4gb.emulator
+package org.akaii.s4gb.extensions
 
 import spire.math.{UByte, UShort}
 
@@ -32,11 +32,5 @@ package object byteops {
   extension(value: Int) {
     @inline def toUByte: UByte = UByte(value & 0xFF)
     @inline def toUShort: UShort = UShort(value & 0xFFFF)
-
-    @inline def toInstructionInput: Array[UByte] = Array(
-      UByte(value & 0xFF),
-      UByte((value >>> 8) & 0xFF),
-      UByte((value >>> 16) & 0xFF)
-    )
   }
 }

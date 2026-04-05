@@ -1,7 +1,6 @@
 package org.akaii.s4gb.emulator.cpu.instructions
 
 import munit.*
-import org.akaii.s4gb.emulator.byteops.*
 import org.akaii.s4gb.emulator.cpu.Registers
 import org.akaii.s4gb.emulator.cpu.Registers.R16
 import org.akaii.s4gb.emulator.cpu.instructions.{Instruction, OpCode}

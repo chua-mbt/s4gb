@@ -1,10 +1,10 @@
 package org.akaii.s4gb.emulator.cpu.instructions
 
-import org.akaii.s4gb.emulator.byteops.*
 import org.akaii.s4gb.emulator.cpu.Registers
 import org.akaii.s4gb.emulator.cpu.instructions.{Instruction, OpCode}
 import org.akaii.s4gb.emulator.memorymap.TestMap
 import org.akaii.s4gb.emulator.setParam
+import org.akaii.s4gb.extensions.byteops.*
 import spire.math.UByte
 
 class ShortArithmeticInstructionsTests extends InstructionsTest {

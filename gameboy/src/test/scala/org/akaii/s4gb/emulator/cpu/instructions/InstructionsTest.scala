@@ -1,7 +1,6 @@
 package org.akaii.s4gb.emulator.cpu.instructions
 
 import munit.*
-import org.akaii.s4gb.emulator.byteops.*
 import org.akaii.s4gb.emulator.cpu.Cpu.{HaltBugDormant, HaltBugState, IMEDisabled, IMEFlag}
 import org.akaii.s4gb.emulator.cpu.Registers.R16
 import org.akaii.s4gb.emulator.cpu.instructions.Instruction.MCycle
@@ -9,6 +8,7 @@ import org.akaii.s4gb.emulator.cpu.instructions.{Instruction, OpCode}
 import org.akaii.s4gb.emulator.cpu.{Cpu, Registers}
 import org.akaii.s4gb.emulator.memorymap.{MemoryMap, TestMap}
 import org.akaii.s4gb.emulator.{Config, copyTo}
+import org.akaii.s4gb.extensions.byteops.*
 import spire.math.{UByte, UShort, e}
 
 import scala.reflect.ClassTag

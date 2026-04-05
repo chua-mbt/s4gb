@@ -1,7 +1,8 @@
-package org.akaii.s4gb.emulator.components
+package org.akaii.s4gb.emulator.components.ppu
 
-import org.akaii.s4gb.emulator.byteops.*
+import org.akaii.s4gb.collections.RingBuffer
 import org.akaii.s4gb.emulator.memorymap.RegisterMap
+import org.akaii.s4gb.extensions.byteops.*
 import spire.math.{UByte, UShort}
 
 import scala.collection.mutable
@@ -11,31 +12,29 @@ import scala.collection.mutable
  *
  * @see [[https://gbdev.io/pandocs/Rendering.html#ppu-modes]]
  */
-case class Ppu(
-  vram: Array[UByte] = Array.fill(Ppu.VRAM_SIZE)(UByte(0)),
-  oam: Array[UByte] = Array.fill(Ppu.OAM_SIZE)(UByte(0))
-) extends RegisterMap {
+class Ppu(vram: Array[UByte], oam: Array[UByte]) extends RegisterMap {
 
   import Ppu.*
   import Ppu.Address.*
-
-  private var currentMode: Mode = Mode.OamScan
 
   /**
    * Initialize hardware registers with their DMG boot values.
    */
   override protected val registers: mutable.Map[UShort, UByte] = mutable.Map(
-    LCDC -> UByte(0),
-    STAT -> UByte(0),
-    SCY  -> UByte(0),
-    SCX  -> UByte(0),
-    LY   -> UByte(0),
-    LYC  -> UByte(0),
-    BGP  -> UByte(0),
+    SCY -> UByte(0),
+    SCX -> UByte(0),
+    LYC -> UByte(0),
+    BGP -> UByte(0),
     OBP0 -> UByte(0),
     OBP1 -> UByte(0),
-    WY   -> UByte(0),
-    WX   -> UByte(0)
+    WY -> UByte(0),
+    WX -> UByte(0),
+  )
+
+  private[ppu] val state: Ppu.State = Ppu.State(
+    oam = oam.clone(),
+    vram = vram.clone(),
+    registers = registers,
   )
 
   /**
@@ -44,68 +43,113 @@ case class Ppu(
    * @see [[https://gbdev.io/pandocs/Power_Up_Sequence.html#hardware-registers]]
    */
   def initialize(): Unit = {
-    registers(LCDC) = UByte(0x91)
-    registers(STAT) = UByte(0x85)
-    registers(SCY)  = UByte(0x00)
-    registers(SCX)  = UByte(0x00)
-    registers(LY)   = UByte(0x00)
-    registers(LYC)  = UByte(0x00)
-    registers(BGP)  = UByte(0xFC)
+    registers(SCY) = UByte(0x00)
+    registers(SCX) = UByte(0x00)
+    registers(LYC) = UByte(0x00)
+    registers(BGP) = UByte(0xFC)
     registers(OBP0) = UByte(0xFF)
     registers(OBP1) = UByte(0xFF)
-    registers(WY)   = UByte(0x00)
-    registers(WX)   = UByte(0x00)
+    registers(WY) = UByte(0x00)
+    registers(WX) = UByte(0x00)
+    state.ly = UByte(0x00)
+    state.lcdStatus.initialize()
+    state.lcdControl.initialize()
   }
 
-  override def apply(address: UShort): UByte = {
-    if (isVram(address)) {
-      vram(vramIndex(address))
+  override def apply(address: UShort): UByte =
+    if (address == STAT) {
+      state.lcdStatus.read(state.lcdControl.lcdEnable)
+    } else if (address == LCDC) {
+      state.lcdControl.read()
+    } else if (address == LY) {
+      state.ly
+    } else if (isVram(address)) {
+      if (state.lcdStatus.ppuMode.canAccessVram) state.vram(vramIndex(address)) else GARBAGE
     } else if (isOam(address)) {
-      oam(oamIndex(address))
-    } else if (address == STAT) {
-      ???
+      if (state.lcdStatus.ppuMode.canAccessOam) state.oam(oamIndex(address)) else GARBAGE
     } else {
       super.apply(address)
     }
-  }
 
-  override def write(address: UShort, value: UByte): Unit = {
-    if (isVram(address)) {
-      vram(vramIndex(address)) = value
-    } else if (isOam(address)) {
-      oam(oamIndex(address)) = value
+  override def write(address: UShort, value: UByte): Unit =
+    if (address == STAT) {
+      state.lcdStatus.write(value)
+    } else if (address == LCDC) {
+      state.lcdControl.write(value)
+    } else if (address == LYC) {
+      registers(LYC) = value
+      state.updateLycEqualsLy()
     } else if (address == LY) {
       () // LY is read-only
-    } else if (address == STAT) {
-      // Bits 0-2 are read-only; only bits 3-6 are writable
-      val writableMask = UByte(0x78)
-      val currentVal = registers(STAT)
-      registers(STAT) = (currentVal & ~writableMask) | (value & writableMask)
+    } else if (isVram(address) && state.lcdStatus.ppuMode.canAccessVram) {
+      state.vram(vramIndex(address)) = value
+    } else if (isOam(address) && state.lcdStatus.ppuMode.canAccessOam) {
+      state.oam(oamIndex(address)) = value
     } else {
       super.write(address, value)
     }
+
+  def tick(): Unit = {
+    updateDot()
+    if (state.scanlineDot.isBoundary) updateScanline()
+    val nextMode = state.lcdStatus.ppuMode.tick(state)
+    state.lcdStatus.ppuMode = nextMode
   }
 
-  def tick(): Unit = ???
+  private def updateDot(): Unit = {
+    state.scanlineDot.current = state.scanlineDot.current + 1
+    state.scanlineDot.cumulative = state.scanlineDot.cumulative + 1
+    if (state.scanlineDot.current > ScanlineDot.DOTS_PER_LINE) {
+      state.scanlineDot.current = 0
+      state.scanlineDot.cumulative = state.scanlineDot.cumulative + 1
+    }
+  }
+
+  private def updateScanline(): Unit = {
+    state.ly = state.ly + 1.toUByte match {
+      case ly if ly >= SCANLINES_PER_FRAME => 0.toUByte
+      case ly => ly
+    }
+    state.updateLycEqualsLy()
+  }
 
   @inline private def isVram(address: UShort): Boolean = address >= VRAM.START && address <= VRAM.END
+
   @inline private def isOam(address: UShort): Boolean = address >= OAM.START && address <= OAM.END
 
   @inline private def vramIndex(address: UShort): Int = address.toInt - VRAM.START.toInt
+
   @inline private def oamIndex(address: UShort): Int = address.toInt - OAM.START.toInt
 }
 
 object Ppu {
-  /**
-   * PPU Modes
-   *
-   * @see [[https://gbdev.io/pandocs/Rendering.html?highlight=mode#ppu-modes]]
-   */
-  enum Mode(val statValue: UByte) {
-    case HorizontalBlank extends Mode(UByte(0x00))
-    case VerticalBlank extends Mode(UByte(0x01))
-    case OamScan extends Mode(UByte(0x02))
-    case Draw extends Mode(UByte(0x03))
+
+  def apply(
+    vram: Array[UByte] = Array.fill(Ppu.VRAM_SIZE)(UByte(0)),
+    oam: Array[UByte] = Array.fill(Ppu.OAM_SIZE)(UByte(0))
+  ): Ppu = new Ppu(vram, oam)
+
+  case class State(
+    oam: Array[UByte] = Array.empty,
+    vram: Array[UByte] = Array.empty,
+    registers: mutable.Map[UShort, UByte] = mutable.Map.empty,
+    scanlineObjects: Array[GameboyObject] = Array.empty,
+    backgroundFifo: RingBuffer[Pixel] = RingBuffer[Pixel](FIFO_SIZE),
+    objectFifo: RingBuffer[Pixel] = RingBuffer[Pixel](FIFO_SIZE),
+    scanlineDot: ScanlineDot = ScanlineDot(),
+    lcdStatus: LcdStatus = LcdStatus(),
+    lcdControl: LcdControl = LcdControl(),
+    var ly: UByte = 0.toUByte,
+  ) {
+    def resetScanlineObjects(): Unit = scanlineObjects.foreach(_.reset())
+
+    def resetFifos(): Unit = {
+      backgroundFifo.clear()
+      objectFifo.clear()
+    }
+
+    def updateLycEqualsLy(): Unit =
+      lcdStatus.lycEqualsLy = ly == registers(Ppu.Address.LYC)
   }
 
   object Address {
@@ -176,13 +220,6 @@ object Ppu {
     val LYC: UShort = UShort(0xFF45)
 
     /**
-     * DMA: OAM DMA source address & start
-     *
-     * @see [[https://gbdev.io/pandocs/OAM_DMA_Transfer.html#ff46--dma-oam-dma-source-address--start]]
-     */
-    val DMA: UShort = UShort(0xFF46)
-
-    /**
      * BGP (Non-CGB Mode only): BG palette data
      *
      * @see [[https://gbdev.io/pandocs/Palettes.html#ff47--bgp-non-cgb-mode-only-bg-palette-data]]
@@ -220,5 +257,16 @@ object Ppu {
 
   val VRAM_SIZE: Int = (Address.VRAM.END - Address.VRAM.START + 1.toUShort).toInt
   val OAM_SIZE: Int = (Address.OAM.END - Address.OAM.START + 1.toUShort).toInt
+  val SCANLINES_PER_FRAME: UByte = UByte(154)
+  val FIFO_SIZE: Int = 16
 
+
+  /**
+   * While the PPU is accessing some video-related memory, that memory is inaccessible to the CPU
+   * (writes are ignored, and reads return garbage values, usually $FF).
+   *
+   * @see [[https://gbdev.io/pandocs/Rendering.html#ppu-modes]]
+   * @see [[https://gbdev.io/pandocs/Accessing_VRAM_and_OAM.html#accessing-vram-and-oam]]
+   */
+  val GARBAGE: UByte = UByte(0xFF)
 }

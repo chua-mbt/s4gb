@@ -1,8 +1,8 @@
 package org.akaii.s4gb.emulator.components
 
-import org.akaii.s4gb.emulator.byteops.*
 import org.akaii.s4gb.emulator.components.Interrupts
 import org.akaii.s4gb.emulator.memorymap.{MemoryMap, RegisterMap}
+import org.akaii.s4gb.extensions.byteops.*
 import spire.math.{UByte, UShort}
 
 import scala.collection.mutable
@@ -13,7 +13,7 @@ import scala.collection.mutable
  * @see [[https://gbdev.io/pandocs/Timer_and_Divider_Registers.html]]
  * @see [[https://gbdev.io/pandocs/Timer_Obscure_Behaviour.html#timer-obscure-behaviour]]
  */
-case class Timer(interrupts: Interrupts) extends RegisterMap {
+class Timer(val interrupts: Interrupts) extends RegisterMap {
 
   import Timer.*
   import Timer.Address.*
@@ -69,6 +69,9 @@ case class Timer(interrupts: Interrupts) extends RegisterMap {
 }
 
 object Timer {
+
+  def apply(interrupts: Interrupts): Timer = new Timer(interrupts)
+
   object Address {
     /**
      * FF04 — DIV: Divider register

@@ -1,8 +1,8 @@
 package org.akaii.s4gb.emulator.components
 
-import org.akaii.s4gb.emulator.byteops.*
 import org.akaii.s4gb.emulator.components.Interrupts
 import org.akaii.s4gb.emulator.memorymap.RegisterMap
+import org.akaii.s4gb.extensions.byteops.*
 import spire.math.{UByte, UShort}
 
 import scala.collection.mutable
@@ -12,7 +12,7 @@ import scala.collection.mutable
  *
  * @see [[https://gbdev.io/pandocs/Interrupts.html]]
  */
-case class Interrupts() extends RegisterMap {
+class Interrupts extends RegisterMap {
 
   import Interrupts.Address.*
   import Interrupts.{Masks, Source}
@@ -58,6 +58,9 @@ case class Interrupts() extends RegisterMap {
 }
 
 object Interrupts {
+
+  def apply(): Interrupts = new Interrupts
+
   object Address {
     /**
      * Interrupt Enable (IE).

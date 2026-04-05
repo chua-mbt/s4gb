@@ -1,7 +1,7 @@
 package org.akaii.s4gb.emulator.cpu.instructions
 
 import munit.*
-import org.akaii.s4gb.emulator.byteops.*
+import org.akaii.s4gb.extensions.byteops.*
 import spire.math.UByte
 import spire.syntax.literals.*
 

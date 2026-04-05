@@ -1,4 +1,4 @@
-package org.akaii.s4gb.emulator
+package org.akaii.s4gb.extensions
 
 package object hashops {
   /**

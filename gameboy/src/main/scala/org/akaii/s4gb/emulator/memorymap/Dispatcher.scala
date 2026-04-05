@@ -1,6 +1,7 @@
 package org.akaii.s4gb.emulator.memorymap
 
 import org.akaii.s4gb.emulator.components.*
+import org.akaii.s4gb.emulator.components.ppu.Ppu
 import spire.math.{UByte, UShort}
 
 /**

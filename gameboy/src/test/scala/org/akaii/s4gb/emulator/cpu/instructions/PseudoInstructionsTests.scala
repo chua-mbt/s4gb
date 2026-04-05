@@ -1,11 +1,11 @@
 package org.akaii.s4gb.emulator.cpu.instructions
 
 import munit.*
-import org.akaii.s4gb.emulator.byteops.*
 import org.akaii.s4gb.emulator.components.Interrupts
 import org.akaii.s4gb.emulator.cpu.Cpu
 import org.akaii.s4gb.emulator.cpu.Cpu.ExecutionMode
 import org.akaii.s4gb.emulator.cpu.instructions.{Instruction, OpCode}
+import org.akaii.s4gb.extensions.byteops.*
 
 class PseudoInstructionsTests extends InstructionsTest {
   test("HOLE") {

@@ -1,10 +1,10 @@
 package org.akaii.s4gb.emulator.cpu
 
 import org.akaii.s4gb.emulator.Config
-import org.akaii.s4gb.emulator.byteops.*
 import org.akaii.s4gb.emulator.components.Interrupts
 import org.akaii.s4gb.emulator.cpu.instructions.Instruction
 import org.akaii.s4gb.emulator.memorymap.MemoryMap
+import org.akaii.s4gb.extensions.byteops.*
 import spire.math.{UByte, UShort}
 
 /**
@@ -26,6 +26,7 @@ case class Cpu(state: Cpu.State) {
   }
 
   def isStopped: Boolean = state.getExecutionMode == Cpu.ExecutionMode.Stopped
+  def isHardLocked: Boolean = state.getExecutionMode == Cpu.ExecutionMode.HardLock
 
   def tick(): Unit = {
     state.initializeInstructionOnce()
@@ -189,7 +190,7 @@ object Cpu {
 
     case object Stopped extends ExecutionMode // TODO: Wake up
 
-    case object HardLock extends ExecutionMode // TODO: Is this done?
+    case object HardLock extends ExecutionMode
 
     case object InterruptHandling extends ExecutionMode {
       override def tick(state: State): Unit = {

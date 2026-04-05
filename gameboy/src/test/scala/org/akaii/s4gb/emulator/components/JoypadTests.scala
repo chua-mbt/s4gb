@@ -1,9 +1,9 @@
 package org.akaii.s4gb.emulator.components
 
 import munit.FunSuite
-import org.akaii.s4gb.emulator.byteops.*
 import org.akaii.s4gb.emulator.components.Joypad.ButtonIndex
 import org.akaii.s4gb.emulator.components.{Interrupts, Joypad}
+import org.akaii.s4gb.extensions.byteops.*
 import spire.math.UByte
 
 class JoypadTests extends FunSuite {

@@ -1,8 +1,8 @@
 package org.akaii.s4gb.emulator.components
 
-import org.akaii.s4gb.emulator.byteops.*
 import org.akaii.s4gb.emulator.components.Interrupts
 import org.akaii.s4gb.emulator.memorymap.MemoryMap
+import org.akaii.s4gb.extensions.byteops.*
 import spire.math.{UByte, UShort}
 
 import scala.collection.mutable
@@ -12,7 +12,7 @@ import scala.collection.mutable
  *
  * @see [[https://gbdev.io/pandocs/Joypad_Input.html]]
  */
-case class Joypad(interrupts: Interrupts) extends MemoryMap {
+class Joypad(interrupts: Interrupts) extends MemoryMap {
 
   import Joypad.*
   import Joypad.Address.*
@@ -99,6 +99,8 @@ case class Joypad(interrupts: Interrupts) extends MemoryMap {
 }
 
 object Joypad {
+  def apply(interrupts: Interrupts): Joypad = new Joypad(interrupts)
+
   object Address {
     /**
      * Joypad (P1/JOYP)

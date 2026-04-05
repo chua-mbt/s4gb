@@ -9,10 +9,7 @@ import spire.math.{UByte, UShort}
  *
  * @see [[https://gbdev.io/pandocs/Memory_Map.html]]
  */
-case class Rom(
-  data: Array[UByte] = Array.fill(Rom.ROM_SIZE)(UByte(0)),
-  onWrite: Rom.OnWrite = Rom.OnWrite.NoOp
-) extends MemoryMap {
+class Rom(data: Array[UByte], onWrite: Rom.OnWrite) extends MemoryMap {
 
   import Rom.Address.*
 
@@ -40,6 +37,9 @@ case class Rom(
 }
 
 object Rom {
+  def apply(data: Array[UByte] = Array.fill(Rom.ROM_SIZE)(UByte(0)), onWrite: Rom.OnWrite = Rom.OnWrite.NoOp) =
+    new Rom(data, onWrite)
+
   enum OnWrite {
     case Throw
     case NoOp
