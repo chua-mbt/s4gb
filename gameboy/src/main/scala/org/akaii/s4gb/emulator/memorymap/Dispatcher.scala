@@ -39,7 +39,7 @@ object Dispatcher {
     val interrupts = Interrupts()
     val joypad = Joypad(interrupts)
     val rom = Rom(Array.fill(0x8000)(UByte(0)))
-    val ppu = Ppu()
+    val ppu = Ppu(interrupts)
 
     withRanges(
       (Rom.Address.ROM_START -> Rom.Address.ROM_END) -> rom,

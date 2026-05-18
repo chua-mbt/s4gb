@@ -1,6 +1,7 @@
 package org.akaii.s4gb.emulator.components.ppu
 
 import org.akaii.s4gb.collections.RingBuffer
+import org.akaii.s4gb.emulator.components.Interrupts
 import org.akaii.s4gb.emulator.memorymap.RegisterMap
 import org.akaii.s4gb.extensions.byteops.*
 import spire.math.{UByte, UShort}
@@ -12,7 +13,7 @@ import scala.collection.mutable
  *
  * @see [[https://gbdev.io/pandocs/Rendering.html#ppu-modes]]
  */
-class Ppu(vram: Array[UByte], oam: Array[UByte]) extends RegisterMap {
+class Ppu(interrupts: Interrupts, vram: Array[UByte], oam: Array[UByte]) extends RegisterMap {
 
   import Ppu.*
   import Ppu.Address.*
@@ -78,7 +79,7 @@ class Ppu(vram: Array[UByte], oam: Array[UByte]) extends RegisterMap {
       state.lcdControl.write(value)
     } else if (address == LYC) {
       registers(LYC) = value
-      state.updateLycEqualsLy()
+      state.updateLycEqualsLy(interrupts)
     } else if (address == LY) {
       () // LY is read-only
     } else if (isVram(address) && state.lcdStatus.ppuMode.canAccessVram) {
@@ -92,7 +93,7 @@ class Ppu(vram: Array[UByte], oam: Array[UByte]) extends RegisterMap {
   def tick(): Unit = {
     updateDot()
     if (state.scanlineDot.isBoundary) updateScanline()
-    val nextMode = state.lcdStatus.ppuMode.tick(state)
+    val nextMode = state.lcdStatus.ppuMode.tick(state, interrupts)
     state.lcdStatus.ppuMode = nextMode
   }
 
@@ -110,7 +111,7 @@ class Ppu(vram: Array[UByte], oam: Array[UByte]) extends RegisterMap {
       case ly if ly >= SCANLINES_PER_FRAME => 0.toUByte
       case ly => ly
     }
-    state.updateLycEqualsLy()
+    state.updateLycEqualsLy(interrupts)
   }
 
   @inline private def isVram(address: UShort): Boolean = address >= VRAM.START && address <= VRAM.END
@@ -125,9 +126,10 @@ class Ppu(vram: Array[UByte], oam: Array[UByte]) extends RegisterMap {
 object Ppu {
 
   def apply(
+    interrupts: Interrupts,
     vram: Array[UByte] = Array.fill(Ppu.VRAM_SIZE)(UByte(0)),
     oam: Array[UByte] = Array.fill(Ppu.OAM_SIZE)(UByte(0))
-  ): Ppu = new Ppu(vram, oam)
+  ): Ppu = new Ppu(interrupts, vram, oam)
 
   case class State(
     oam: Array[UByte] = Array.empty,
@@ -148,8 +150,11 @@ object Ppu {
       objectFifo.clear()
     }
 
-    def updateLycEqualsLy(): Unit =
-      lcdStatus.lycEqualsLy = ly == registers(Ppu.Address.LYC)
+    def updateLycEqualsLy(interrupts: Interrupts): Unit = {
+      val hit = ly == registers(Ppu.Address.LYC)
+      if(hit && lcdStatus.lycSelect) interrupts.request(Interrupts.Source.LCDStat)
+      lcdStatus.lycEqualsLy = hit
+    }
   }
 
   object Address {
