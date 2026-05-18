@@ -1,6 +1,7 @@
 package org.akaii.s4gb.emulator.components.ppu
 
 import munit.FunSuite
+import org.akaii.s4gb.emulator.components.Interrupts
 import org.akaii.s4gb.extensions.byteops.*
 import spire.math.UByte
 
@@ -10,7 +11,7 @@ class PpuRegistersTests extends FunSuite {
 
   dataRegisters.foreach { case (name, addr) =>
     test(s"$name write/read round trip") {
-      val ppu = Ppu()
+      val ppu = Ppu(Interrupts())
       val value = UByte(0x3A)
 
       ppu.write(addr, value)
@@ -19,7 +20,7 @@ class PpuRegistersTests extends FunSuite {
   }
 
   test("STAT bit packing (write/read round trip)") {
-    val ppu = Ppu()
+    val ppu = Ppu(Interrupts())
     ppu.initialize()
     val written = 0xFF.toUByte
     ppu.write(Ppu.Address.STAT, written)
@@ -39,7 +40,7 @@ class PpuRegistersTests extends FunSuite {
   }
 
   test("STAT does not modify LYC register") {
-    val ppu = Ppu()
+    val ppu = Ppu(Interrupts())
 
     val initialLyc = UByte(12)
     ppu.write(Ppu.Address.LYC, initialLyc)
@@ -50,7 +51,7 @@ class PpuRegistersTests extends FunSuite {
   }
 
   test("STAT mode bits reflect current PPU mode") {
-    val ppu = Ppu()
+    val ppu = Ppu(Interrupts())
     ppu.initialize()
 
     val modes = Seq(
@@ -77,7 +78,7 @@ class PpuRegistersTests extends FunSuite {
   }
 
   test("LCDC bit packing (write/read round trip)") {
-    val ppu = Ppu()
+    val ppu = Ppu(Interrupts())
     ppu.initialize()
 
     val written = 0xFF.toUByte
