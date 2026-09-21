@@ -93,14 +93,13 @@ class Ppu(interrupts: Interrupts, vram: Array[UByte], oam: Array[UByte]) extends
   def tick(): Unit = {
     updateDot()
     if (state.scanlineDot.isBoundary) updateScanline()
-    val nextMode = state.lcdStatus.ppuMode.tick(state, interrupts)
-    state.lcdStatus.ppuMode = nextMode
+    state.lcdStatus.ppuMode = state.lcdStatus.ppuMode.tick(state, interrupts)
   }
 
   private def updateDot(): Unit = {
     state.scanlineDot.current = state.scanlineDot.current + 1
     state.scanlineDot.cumulative = state.scanlineDot.cumulative + 1
-    if (state.scanlineDot.current > ScanlineDot.DOTS_PER_LINE) {
+    if (state.scanlineDot.current >= ScanlineDot.DOTS_PER_LINE) {
       state.scanlineDot.current = 0
       state.scanlineDot.cumulative = state.scanlineDot.cumulative + 1
     }
@@ -263,8 +262,8 @@ object Ppu {
   val VRAM_SIZE: Int = (Address.VRAM.END - Address.VRAM.START + 1.toUShort).toInt
   val OAM_SIZE: Int = (Address.OAM.END - Address.OAM.START + 1.toUShort).toInt
   val SCANLINES_PER_FRAME: UByte = UByte(154)
+  val TOTAL_VBLANK_SCANLINES: Int = (SCANLINES_PER_FRAME - PpuMode.VBLANK_START_LY).toInt // 10
   val FIFO_SIZE: Int = 16
-
 
   /**
    * While the PPU is accessing some video-related memory, that memory is inaccessible to the CPU

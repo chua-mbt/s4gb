@@ -7,7 +7,7 @@ package org.akaii.s4gb.emulator.components.ppu
  * @see [[https://gbdev.io/pandocs/Rendering.html#terminology]]
  */
 class ScanlineDot private (var current: Int, var cumulative: Int) {
-  def isBoundary: Boolean = current == ScanlineDot.DOTS_PER_LINE
+  def isBoundary: Boolean = current == 0
 }
 
 object ScanlineDot {

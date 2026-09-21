@@ -3,24 +3,27 @@ package org.akaii.s4gb.emulator.components.ppu
 import munit.FunSuite
 import org.akaii.s4gb.emulator.components.Interrupts
 import org.akaii.s4gb.extensions.byteops.*
+import PpuModeTests.*
 import spire.math.UByte
 
 class PpuModeTests extends FunSuite {
 
-  /**
-   * Helper to execute PPU ticks until the mode transitions, verifying total execution duration.
-   */
-  private def ticksUntilTransition(ppu: Ppu, expectedDots: Int): PpuMode = {
-    val initialMode = ppu.state.lcdStatus.ppuMode
-    var dotsElapsed = 0
+  test("OamScan transitions to Draw after 80 dots") {
+    val interrupts = Interrupts()
+    val ppu = Ppu(interrupts)
+    ppu.initialize()
 
-    while (ppu.state.lcdStatus.ppuMode == initialMode) {
-      ppu.tick()
-      dotsElapsed += 1
-    }
+    ppu.state.registers(Ppu.Address.LCDC) = UByte(0x00)
+    ppu.state.ly = 0.toUByte
+    ppu.state.lcdStatus.ppuMode = PpuMode.OamScan
+    ppu.state.scanlineDot.current = 0
 
-    assertEquals(dotsElapsed, expectedDots, s"Mode ${initialMode} did not run for the expected duration")
-    ppu.state.lcdStatus.ppuMode
+    ticksUntilTransition(
+      ppu,
+      expectedDots = PpuMode.OamScan.TOTAL_DOTS,
+      expectedFromMode = PpuMode.OamScan,
+      expectedToMode = PpuMode.Draw
+    )
   }
 
   test("HorizontalBlank transitions to VerticalBlank at the end of the visible frame") {
@@ -30,19 +33,20 @@ class PpuModeTests extends FunSuite {
 
     ppu.state.ly = PpuMode.VISIBLE_SCANLINES_END
     ppu.state.lcdStatus.ppuMode = PpuMode.HorizontalBlank
+    ppu.state.scanlineDot.current = 0
 
-    val hBlankStartDot = 252
-    ppu.state.scanlineDot.current = hBlankStartDot
-    val expectedDots = ScanlineDot.DOTS_PER_LINE - hBlankStartDot // 204 dots
+    ticksUntilTransition(
+      ppu,
+      expectedDots = ScanlineDot.DOTS_PER_LINE,
+      expectedFromMode = PpuMode.HorizontalBlank,
+      expectedToMode = PpuMode.VerticalBlank
+    )
 
-    val nextMode = ticksUntilTransition(ppu, expectedDots)
+    assertEquals(ppu.state.ly, PpuMode.VBLANK_START_LY)
 
-    assertEquals(nextMode, PpuMode.VerticalBlank)
-
-    // Verify VBlank Interrupt triggered
     val ifReg = interrupts(Interrupts.Address.INTERRUPT_FLAG)
     val vBlankRequested = (ifReg & 0x01.toUByte) != 0.toUByte
-    assert(vBlankRequested, "VBlank interrupt flag was not set upon entry")
+    assert(vBlankRequested)
   }
 
   test("HorizontalBlank on an early scanline transitions to OamScan at the boundary") {
@@ -53,29 +57,66 @@ class PpuModeTests extends FunSuite {
     ppu.state.ly = 0.toUByte
     ppu.state.lcdStatus.ppuMode = PpuMode.HorizontalBlank
 
-    val hBlankStartDot = 252
-    ppu.state.scanlineDot.current = hBlankStartDot
-    val expectedDots = ScanlineDot.DOTS_PER_LINE - hBlankStartDot // 204 dots
+    ppu.state.scanlineDot.current = 0
 
-    val nextMode = ticksUntilTransition(ppu, expectedDots)
+    ticksUntilTransition(
+      ppu,
+      expectedDots = ScanlineDot.DOTS_PER_LINE,
+      expectedFromMode = PpuMode.HorizontalBlank,
+      expectedToMode = PpuMode.OamScan
+    )
 
     assertEquals(ppu.state.ly, 1.toUByte)
-    assertEquals(nextMode, PpuMode.OamScan)
   }
 
-  test("VerticalBlank on the final scanline transitions back to OamScan and wraps LY") {
+  test("VerticalBlank persists for all 10 scanlines before transitioning to OamScan") {
     val interrupts = Interrupts()
     val ppu = Ppu(interrupts)
     ppu.initialize()
 
-    val finalVBlankScanline = Ppu.SCANLINES_PER_FRAME - 1.toUByte // 153
-    ppu.state.ly = finalVBlankScanline
+    ppu.state.ly = PpuMode.VBLANK_START_LY
     ppu.state.lcdStatus.ppuMode = PpuMode.VerticalBlank
     ppu.state.scanlineDot.current = 0
 
-    val nextMode = ticksUntilTransition(ppu, ScanlineDot.DOTS_PER_LINE)
+    val scanlinesUntilTransition = Ppu.TOTAL_VBLANK_SCANLINES - 1 // 9
+    val dotsUntilFinalScanline = scanlinesUntilTransition * ScanlineDot.DOTS_PER_LINE
+    // Tick through all but the last VBlank scanline. Mode should remain VBlank.
+    var dotsElapsed = 0
+    while (dotsElapsed < dotsUntilFinalScanline) {
+      ppu.tick()
+      dotsElapsed += 1
+      assertEquals(ppu.state.lcdStatus.ppuMode, PpuMode.VerticalBlank)
+    }
+    assertEquals(ppu.state.ly, PpuMode.VBLANK_START_LY + scanlinesUntilTransition.toUByte)
+
+    // Tick through the final VBlank scanline. Should transition to OamScan.
+    ticksUntilTransition(
+      ppu,
+      expectedDots = ScanlineDot.DOTS_PER_LINE,
+      expectedFromMode = PpuMode.VerticalBlank,
+      expectedToMode = PpuMode.OamScan
+    )
 
     assertEquals(ppu.state.ly, PpuMode.FRAME_WRAP_LY)
-    assertEquals(nextMode, PpuMode.OamScan)
+  }
+}
+
+object PpuModeTests {
+
+  /**
+   * Ticks the PPU until the mode transitions from expectedFromMode, verifying total execution duration.
+   */
+  def ticksUntilTransition(ppu: Ppu, expectedDots: Int, expectedFromMode: PpuMode, expectedToMode: PpuMode): PpuMode = {
+    assert(ppu.state.lcdStatus.ppuMode == expectedFromMode)
+    var dotsElapsed = 0
+
+    while (ppu.state.lcdStatus.ppuMode == expectedFromMode) {
+      ppu.tick()
+      dotsElapsed += 1
+    }
+
+    assert(dotsElapsed == expectedDots)
+    assert(ppu.state.lcdStatus.ppuMode == expectedToMode)
+    ppu.state.lcdStatus.ppuMode
   }
 }

@@ -27,7 +27,6 @@ sealed abstract class PpuMode(val statValue: UByte, val canAccessVram: Boolean, 
 }
 
 object PpuMode {
-  // Clear constants to document the Game Boy hardware limits
   val VISIBLE_SCANLINES_END: UByte = 143.toUByte
   val VBLANK_START_LY: UByte = 144.toUByte
   val FRAME_WRAP_LY: UByte = 0.toUByte
@@ -56,12 +55,13 @@ object PpuMode {
 
   case object OamScan extends PpuMode(UByte(0x02), canAccessVram = true, canAccessOam = false) {
     val END_DOT: Int = 79
+    val TOTAL_DOTS: Int = END_DOT + 1 // 80
 
     override def tick(state: Ppu.State, interrupts: Interrupts): PpuMode = {
-      OamScanner.scan(state)
-      if (state.scanlineDot.current >= END_DOT) {
+      if (state.scanlineDot.current > END_DOT) {
         interruptsAndTransition(Draw, state, interrupts)
       } else {
+        OamScanner.scan(state)
         OamScan
       }
     }

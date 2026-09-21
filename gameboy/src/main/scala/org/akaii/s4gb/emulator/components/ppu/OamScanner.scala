@@ -14,7 +14,8 @@ object OamScanner {
 
     val spriteHeight = LcdControl.spriteHeight(state.registers(Ppu.Address.LCDC))
 
-    if(state.scanlineDot.current % DOTS_PER_SCAN == 0) {
+    val isScanTick = state.scanlineDot.current % DOTS_PER_SCAN == 0
+    if (isScanTick) {
       val oamOffset = state.scanlineDot.current / DOTS_PER_SCAN
       val y = state.oam(oamOffset * OAM_BYTE_SIZE)
       val x = state.oam(oamOffset * OAM_BYTE_SIZE + 1)
