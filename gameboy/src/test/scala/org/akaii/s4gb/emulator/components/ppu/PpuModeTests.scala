@@ -33,6 +33,7 @@ class PpuModeTests extends FunSuite {
 
     ppu.state.ly = PpuMode.VISIBLE_SCANLINES_END
     ppu.state.lcdStatus.ppuMode = PpuMode.HorizontalBlank
+    ppu.state.lcdStatus.mode1Select = true
     ppu.state.scanlineDot.current = 0
 
     ticksUntilTransition(
@@ -43,10 +44,7 @@ class PpuModeTests extends FunSuite {
     )
 
     assertEquals(ppu.state.ly, PpuMode.VBLANK_START_LY)
-
-    val ifReg = interrupts(Interrupts.Address.INTERRUPT_FLAG)
-    val vBlankRequested = (ifReg & 0x01.toUByte) != 0.toUByte
-    assert(vBlankRequested)
+    assertInterrupts(interrupts, Interrupts.Source.VBlank, Interrupts.Source.LCDStat)
   }
 
   test("HorizontalBlank on an early scanline transitions to OamScan at the boundary") {
@@ -56,7 +54,7 @@ class PpuModeTests extends FunSuite {
 
     ppu.state.ly = 0.toUByte
     ppu.state.lcdStatus.ppuMode = PpuMode.HorizontalBlank
-
+    ppu.state.lcdStatus.mode2Select = true
     ppu.state.scanlineDot.current = 0
 
     ticksUntilTransition(
@@ -67,6 +65,7 @@ class PpuModeTests extends FunSuite {
     )
 
     assertEquals(ppu.state.ly, 1.toUByte)
+    assertInterrupts(interrupts, Interrupts.Source.LCDStat)
   }
 
   test("VerticalBlank persists for all 10 scanlines before transitioning to OamScan") {
@@ -76,6 +75,7 @@ class PpuModeTests extends FunSuite {
 
     ppu.state.ly = PpuMode.VBLANK_START_LY
     ppu.state.lcdStatus.ppuMode = PpuMode.VerticalBlank
+    ppu.state.lcdStatus.mode2Select = true
     ppu.state.scanlineDot.current = 0
 
     val scanlinesUntilTransition = Ppu.TOTAL_VBLANK_SCANLINES - 1 // 9
@@ -98,10 +98,23 @@ class PpuModeTests extends FunSuite {
     )
 
     assertEquals(ppu.state.ly, PpuMode.FRAME_WRAP_LY)
+    assertInterrupts(interrupts, Interrupts.Source.LCDStat)
   }
 }
 
 object PpuModeTests {
+
+  def assertInterrupts(interrupts: Interrupts, expected: Interrupts.Source*): Unit = {
+    val ifReg = interrupts(Interrupts.Address.INTERRUPT_FLAG)
+    Interrupts.Source.values.foreach { source =>
+      val mask = UByte(1 << source.bit)
+      if (expected.contains(source)) {
+        assert((ifReg & mask) != 0.toUByte, s"$source interrupt should be set")
+      } else {
+        assert((ifReg & mask) == 0.toUByte, s"$source interrupt should not be set")
+      }
+    }
+  }
 
   /**
    * Ticks the PPU until the mode transitions from expectedFromMode, verifying total execution duration.
