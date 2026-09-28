@@ -137,6 +137,7 @@ object Ppu {
     scanlineObjects: Array[GameboyObject] = Array.empty,
     backgroundFifo: RingBuffer[Pixel] = RingBuffer[Pixel](FIFO_SIZE),
     objectFifo: RingBuffer[Pixel] = RingBuffer[Pixel](FIFO_SIZE),
+    pixelFetcher: PixelFetcher = PixelFetcher(),
     scanlineDot: ScanlineDot = ScanlineDot(),
     lcdStatus: LcdStatus = LcdStatus(),
     lcdControl: LcdControl = LcdControl(),

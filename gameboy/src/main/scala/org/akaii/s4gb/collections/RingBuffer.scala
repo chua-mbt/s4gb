@@ -1,35 +1,42 @@
 package org.akaii.s4gb.collections
 
-class RingBuffer[A] private (capacity: Int) {
-  private val buffer: Array[Option[A]] = Array.fill(capacity)(None)
+import scala.reflect.ClassTag
+
+class RingBuffer[A] private (capacity: Int)(using ClassTag[A], Preallocated[A]) {
+  private val buffer: Array[A] = Array.fill(capacity)(summon[Preallocated[A]].allocate)
+  private val occupied: Array[Boolean] = Array.fill(capacity)(false)
   private var head: Int = 0
   private var tail: Int = 0
   private var count: Int = 0
 
   def enqueue(item: A): Unit =
     if (!isFull) {
-      buffer(tail) = Some(item)
+      summon[Preallocated[A]].copyInto(buffer(tail), item)
+      occupied(tail) = true
       tail = (tail + 1) % capacity
       count += 1
     }
 
-  def dequeue(): A =
-    if (isEmpty) throw new NoSuchElementException("Buffer is empty")
-    val item = buffer(head).get
-    buffer(head) = None
-    head = (head + 1) % capacity
-    count -= 1
-    item
+  def enqueueAll(items: Iterable[A]): Unit =
+    items.foreach(enqueue)
+
+  def dequeue(into: Array[A]): Int = {
+    val toCopy = math.min(count, into.length)
+    for (i <- 0 until toCopy) {
+      summon[Preallocated[A]].copyInto(into(i), buffer(head))
+      occupied(head) = false
+      head = (head + 1) % capacity
+      count -= 1
+    }
+    toCopy
+  }
 
   def clear(): Unit = {
     head = 0
     tail = 0
     count = 0
+    for (i <- 0 until capacity) occupied(i) = false
   }
-
-  def peek(): A =
-    if (isEmpty) throw new NoSuchElementException("Buffer is empty")
-    buffer(head).get
 
   def isFull: Boolean = count == capacity
 
@@ -39,7 +46,7 @@ class RingBuffer[A] private (capacity: Int) {
 }
 
 object RingBuffer {
-  def apply[A](capacity: Int): RingBuffer[A] =
+  def apply[A](capacity: Int)(using ct: ClassTag[A], p: Preallocated[A]): RingBuffer[A] =
     if (capacity <= 0) throw new IllegalArgumentException("Capacity must be positive")
     else new RingBuffer[A](capacity)
 }

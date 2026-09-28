@@ -20,7 +20,10 @@ sealed abstract class PpuMode(val statValue: UByte, val canAccessVram: Boolean, 
     val oamScanLStatInterrupt = target == PpuMode.OamScan && state.lcdStatus.mode2Select
     val lStatInterrupt = hblankLStatInterrupt || vblankLStatInterrupt || oamScanLStatInterrupt
 
-    if (vBlankEntry) interrupts.request(Interrupts.Source.VBlank)
+    if (vBlankEntry) {
+      state.pixelFetcher.resetWindowRowsRendered()
+      interrupts.request(Interrupts.Source.VBlank)
+    }
     if (lStatInterrupt) interrupts.request(Interrupts.Source.LCDStat)
     target
   }
@@ -68,6 +71,27 @@ object PpuMode {
   }
 
   case object Draw extends PpuMode(UByte(0x03), canAccessVram = false, canAccessOam = false) {
-    override def tick(state: Ppu.State, interrupts: Interrupts): PpuMode = this // TODO
+    override def tick(state: Ppu.State, interrupts: Interrupts): PpuMode = {
+      /*// 1. Check for Sprite Fetch Stall
+      if (state.spriteFetcher.isStalled) {
+        state.spriteFetcher.tick(state)
+      } else if (state.spriteFetcher.shouldStall(state.lcdX)) {
+        state.spriteFetcher.startFetch(state, state.lcdX)
+      } else {*/
+        // 2. Step the Background / Window Fetcher (if not stalled by sprite)
+        state.pixelFetcher.step.tick(state)
+      //}
+
+      // 3. Attempt to Pop & Mix Pixels to Display Buffer
+      //state.fifo.tryPopPixel(state)
+
+      // 4. Transition to HBlank once all 160 visible pixels are pushed
+      /*if (state.renderedPixelsThisLine >= 160) {
+        state.renderedPixelsThisLine = 0
+        HBlank
+      } else {*/
+        this
+      //}
+    }
   }
 }

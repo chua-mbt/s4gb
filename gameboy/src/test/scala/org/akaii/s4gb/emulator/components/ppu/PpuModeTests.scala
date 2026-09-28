@@ -3,10 +3,11 @@ package org.akaii.s4gb.emulator.components.ppu
 import munit.FunSuite
 import org.akaii.s4gb.emulator.components.Interrupts
 import org.akaii.s4gb.extensions.byteops.*
-import PpuModeTests.*
 import spire.math.UByte
 
 class PpuModeTests extends FunSuite {
+
+  import PpuModeTests.*
 
   test("OamScan transitions to Draw after 80 dots") {
     val interrupts = Interrupts()
@@ -35,6 +36,7 @@ class PpuModeTests extends FunSuite {
     ppu.state.lcdStatus.ppuMode = PpuMode.HorizontalBlank
     ppu.state.lcdStatus.mode1Select = true
     ppu.state.scanlineDot.current = 0
+    ppu.state.pixelFetcher.windowRowsRendered = 5
 
     ticksUntilTransition(
       ppu,
@@ -45,6 +47,7 @@ class PpuModeTests extends FunSuite {
 
     assertEquals(ppu.state.ly, PpuMode.VBLANK_START_LY)
     assertInterrupts(interrupts, Interrupts.Source.VBlank, Interrupts.Source.LCDStat)
+    assertEquals(ppu.state.pixelFetcher.windowRowsRendered, 0) // reset on VBlank entry
   }
 
   test("HorizontalBlank on an early scanline transitions to OamScan at the boundary") {

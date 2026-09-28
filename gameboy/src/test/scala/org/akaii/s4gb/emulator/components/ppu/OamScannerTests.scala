@@ -1,7 +1,6 @@
 package org.akaii.s4gb.emulator.components.ppu
 
 import munit.*
-import org.akaii.s4gb.collections.RingBuffer
 import spire.math.{UByte, UShort}
 
 import scala.collection.mutable
@@ -159,12 +158,7 @@ object OamScannerTests {
       Array.fill(Ppu.VRAM_SIZE)(UByte(0)),
       registers,
       Array.fill(OamScanner.OBJECTS_PER_SCANLINE)(GameboyObject()),
-      RingBuffer[Pixel](Ppu.FIFO_SIZE),
-      RingBuffer[Pixel](Ppu.FIFO_SIZE),
-      ScanlineDot(),
-      LcdStatus(),
-      LcdControl(),
-      ly,
+      ly = ly,
     )
     (state, oam)
   }
