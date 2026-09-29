@@ -15,7 +15,7 @@ case class PixelFetcher(
   var windowActive: Boolean = false,
   var windowRowsRendered: Int = 0,
   tile: Tile = Tile(),
-  pixels: Array[Pixel] = Array.fill(Tile.SIZE)(Pixel(Pixel.BG_PALETTE)),
+  pixels: Array[BackgroundPixel] = Array.fill(Tile.SIZE)(BackgroundPixel.empty),
 ) {
   def reset(): Unit = {
     step = PixelFetcher.GetTileStep
@@ -67,6 +67,7 @@ object PixelFetcher {
 
   /**
    * Get Tile - Finds reference to relevant tile
+   *
    * @see [[https://gbdev.io/pandocs/pixel_fifo.html#get-tile]]
    */
   case object GetTileStep extends TwoDotStep {
@@ -84,6 +85,7 @@ object PixelFetcher {
 
   /**
    * Get Tile Data Low - Pulls data for relevant tile
+   *
    * @see [[https://gbdev.io/pandocs/pixel_fifo.html#get-tile-data-low]]
    */
   case object GetTileDataLowStep extends TwoDotStep {
@@ -96,6 +98,7 @@ object PixelFetcher {
 
   /**
    * Get Tile Data High - Pulls data for relevant tile
+   *
    * @see [[https://gbdev.io/pandocs/pixel_fifo.html#get-tile-data-high]]
    */
   case object GetTileDataHighStep extends TwoDotStep {
@@ -116,25 +119,22 @@ object PixelFetcher {
 
   /**
    * Push - Pushes all pixels from the tile
+   *
    * @see [[https://gbdev.io/pandocs/pixel_fifo.html#push]]
    * @see [[https://github.com/Ashiepaws/GBEDG/blob/master/ppu/index.md#background-pixel-fetching]]
    */
   case object PushStep extends Step {
 
-    override protected def stepTick(ppuState: Ppu.State): Step = {
-      val fetcher = ppuState.pixelFetcher
-      val empty = ppuState.backgroundFifo.isEmpty
-      val next =
-        if (empty) {
-          tileToPixels(fetcher)
-          ppuState.backgroundFifo.enqueueAll(fetcher.pixels)
-          fetcher.fetcherX += 1
-          GetTileStep
-        } else {
-          this
-        }
-      next
-    }
+    override protected def stepTick(ppuState: Ppu.State): Step =
+      if (ppuState.backgroundFifo.isEmpty) {
+        val fetcher = ppuState.pixelFetcher
+        tileToPixels(fetcher)
+        ppuState.backgroundFifo.enqueueAll(fetcher.pixels)
+        fetcher.fetcherX += 1
+        GetTileStep
+      } else {
+        this
+      }
 
     private def tileToPixels(fetcher: PixelFetcher): Unit = {
       val low = fetcher.tile.tileDataLow.toInt

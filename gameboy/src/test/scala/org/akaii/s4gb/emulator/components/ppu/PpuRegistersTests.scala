@@ -5,13 +5,13 @@ import org.akaii.s4gb.emulator.components.Interrupts
 import org.akaii.s4gb.extensions.byteops.*
 import spire.math.UByte
 
-class PpuRegistersTests extends FunSuite {
+class PpuRegistersTests extends FunSuite with TestEmitters {
 
   import PpuRegistersTests.dataRegisters
 
   dataRegisters.foreach { case (name, addr) =>
     test(s"$name write/read round trip") {
-      val ppu = Ppu(Interrupts())
+      val ppu = Ppu(Interrupts(), nullEmitter)
       val value = UByte(0x3A)
 
       ppu.write(addr, value)
@@ -20,7 +20,7 @@ class PpuRegistersTests extends FunSuite {
   }
 
   test("STAT bit packing (write/read round trip)") {
-    val ppu = Ppu(Interrupts())
+    val ppu = Ppu(Interrupts(), nullEmitter)
     ppu.initialize()
     val written = 0xFF.toUByte
     ppu.write(Ppu.Address.STAT, written)
@@ -40,7 +40,7 @@ class PpuRegistersTests extends FunSuite {
   }
 
   test("STAT does not modify LYC register") {
-    val ppu = Ppu(Interrupts())
+    val ppu = Ppu(Interrupts(), nullEmitter)
 
     val initialLyc = UByte(12)
     ppu.write(Ppu.Address.LYC, initialLyc)
@@ -51,7 +51,7 @@ class PpuRegistersTests extends FunSuite {
   }
 
   test("STAT mode bits reflect current PPU mode") {
-    val ppu = Ppu(Interrupts())
+    val ppu = Ppu(Interrupts(), nullEmitter)
     ppu.initialize()
 
     val modes = Seq(
@@ -73,12 +73,8 @@ class PpuRegistersTests extends FunSuite {
     }
   }
 
-  test("STAT LYC coincidence bit reflects LY == LYC") {
-    // TODO: bit gets set when LY=LYC, and not in other cases, iterate over every LYC until wrap-around
-  }
-
   test("LCDC bit packing (write/read round trip)") {
-    val ppu = Ppu(Interrupts())
+    val ppu = Ppu(Interrupts(), nullEmitter)
     ppu.initialize()
 
     val written = 0xFF.toUByte

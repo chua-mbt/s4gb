@@ -31,6 +31,17 @@ class RingBuffer[A] private (capacity: Int)(using ClassTag[A], Preallocated[A]) 
     toCopy
   }
 
+  def pop(into: A): Boolean = {
+    if (isEmpty) false
+    else {
+      summon[Preallocated[A]].copyInto(into, buffer(head))
+      occupied(head) = false
+      head = (head + 1) % capacity
+      count -= 1
+      true
+    }
+  }
+
   def clear(): Unit = {
     head = 0
     tail = 0

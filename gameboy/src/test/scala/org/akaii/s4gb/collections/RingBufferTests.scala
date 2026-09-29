@@ -327,6 +327,30 @@ class RingBufferTests extends FunSuite {
     assert(!stored.flag)
     assertEquals(stored.letter, 'a')
   }
+
+  test("pop removes and returns item when not empty") {
+    val buffer = RingBuffer[Item](3)
+    val item1 = Item(number = 1)
+    val item2 = Item(number = 2)
+    buffer.enqueue(item1)
+    buffer.enqueue(item2)
+
+    val out = Item()
+    assert(buffer.pop(out))
+    assertEquals(out.number, 1)
+    assertEquals(buffer.size, 1)
+
+    assert(buffer.pop(out))
+    assertEquals(out.number, 2)
+    assertEquals(buffer.size, 0)
+  }
+
+  test("pop on empty returns false") {
+    val buffer = RingBuffer[Item](3)
+    val out = Item()
+    assert(!buffer.pop(out))
+    assertEquals(buffer.size, 0)
+  }
 }
 
 case class Item(

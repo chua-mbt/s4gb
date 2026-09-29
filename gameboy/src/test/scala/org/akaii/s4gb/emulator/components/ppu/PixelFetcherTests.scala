@@ -78,7 +78,7 @@ class PixelFetcherTests extends FunSuite {
     assertEquals(state.pixelFetcher.fetcherX, 1)
     assertEquals(state.backgroundFifo.size, Tile.SIZE)
     // ring buffer pixels and fetcher pixels must be distinct references
-    val ringBufferSink = Array.fill(Tile.SIZE)(Pixel(Pixel.BG_PALETTE))
+    val ringBufferSink = Array.fill(Tile.SIZE)(BackgroundPixel.empty)
     assertEquals(state.backgroundFifo.dequeue(ringBufferSink), Tile.SIZE)
     assertEquals(state.backgroundFifo.size, 0)
     val ringBufferPixels = ringBufferSink.toSeq
@@ -94,7 +94,7 @@ class PixelFetcherTests extends FunSuite {
     val state = makeState(ly = 0)
     state.pixelFetcher.tile.tileDataLow = UByte(0xFF)
     state.pixelFetcher.tile.tileDataHigh = UByte(0x00)
-    state.backgroundFifo.enqueue(Pixel(UByte(0)))
+    state.backgroundFifo.enqueue(BackgroundPixel.empty)
     state.pixelFetcher.step = PixelFetcher.PushStep
 
     state.pixelFetcher.step.tick(state)

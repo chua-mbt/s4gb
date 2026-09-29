@@ -5,13 +5,13 @@ import org.akaii.s4gb.emulator.components.Interrupts
 import org.akaii.s4gb.extensions.byteops.*
 import spire.math.UByte
 
-class PpuModeTests extends FunSuite {
-
+class PpuModeTests extends FunSuite with TestEmitters {
+  
   import PpuModeTests.*
 
   test("OamScan transitions to Draw after 80 dots") {
     val interrupts = Interrupts()
-    val ppu = Ppu(interrupts)
+    val ppu = Ppu(interrupts, nullEmitter)
     ppu.initialize()
 
     ppu.state.registers(Ppu.Address.LCDC) = UByte(0x00)
@@ -29,7 +29,7 @@ class PpuModeTests extends FunSuite {
 
   test("HorizontalBlank transitions to VerticalBlank at the end of the visible frame") {
     val interrupts = Interrupts()
-    val ppu = Ppu(interrupts)
+    val ppu = Ppu(interrupts, nullEmitter)
     ppu.initialize()
 
     ppu.state.ly = PpuMode.VISIBLE_SCANLINES_END
@@ -52,7 +52,7 @@ class PpuModeTests extends FunSuite {
 
   test("HorizontalBlank on an early scanline transitions to OamScan at the boundary") {
     val interrupts = Interrupts()
-    val ppu = Ppu(interrupts)
+    val ppu = Ppu(interrupts, nullEmitter)
     ppu.initialize()
 
     ppu.state.ly = 0.toUByte
@@ -73,7 +73,7 @@ class PpuModeTests extends FunSuite {
 
   test("VerticalBlank persists for all 10 scanlines before transitioning to OamScan") {
     val interrupts = Interrupts()
-    val ppu = Ppu(interrupts)
+    val ppu = Ppu(interrupts, nullEmitter)
     ppu.initialize()
 
     ppu.state.ly = PpuMode.VBLANK_START_LY

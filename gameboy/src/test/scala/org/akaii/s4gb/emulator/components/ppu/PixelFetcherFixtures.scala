@@ -62,7 +62,7 @@ trait PixelFetcherFixtures {
     (0 until 5).foreach(_ => tickUntilStepChange(state))
 
     // Now drain the FIFO. Based on previous behavior, it should contain 8 pixels (1 tile).
-    val sink = Array.fill(Tile.SIZE)(Pixel(Pixel.BG_PALETTE))
+    val sink = Array.fill(Tile.SIZE)(BackgroundPixel.empty)
     state.backgroundFifo.dequeue(sink)
     sink.toSeq.map(_.colorIndex)
   }

@@ -13,7 +13,7 @@ import scala.collection.mutable
  *
  * @see [[https://gbdev.io/pandocs/Rendering.html#ppu-modes]]
  */
-class Ppu(interrupts: Interrupts, vram: Array[UByte], oam: Array[UByte]) extends RegisterMap {
+class Ppu(interrupts: Interrupts, vram: Array[UByte], oam: Array[UByte], emitter: PixelEmitter) extends RegisterMap {
 
   import Ppu.*
   import Ppu.Address.*
@@ -126,18 +126,20 @@ object Ppu {
 
   def apply(
     interrupts: Interrupts,
+    emitter: PixelEmitter,
     vram: Array[UByte] = Array.fill(Ppu.VRAM_SIZE)(UByte(0)),
     oam: Array[UByte] = Array.fill(Ppu.OAM_SIZE)(UByte(0))
-  ): Ppu = new Ppu(interrupts, vram, oam)
+  ): Ppu = new Ppu(interrupts, vram, oam, emitter)
 
   case class State(
     oam: Array[UByte] = Array.empty,
     vram: Array[UByte] = Array.empty,
     registers: mutable.Map[UShort, UByte] = mutable.Map.empty,
     scanlineObjects: Array[GameboyObject] = Array.empty,
-    backgroundFifo: RingBuffer[Pixel] = RingBuffer[Pixel](FIFO_SIZE),
-    objectFifo: RingBuffer[Pixel] = RingBuffer[Pixel](FIFO_SIZE),
+    backgroundFifo: RingBuffer[BackgroundPixel] = RingBuffer[BackgroundPixel](FIFO_SIZE),
+    objectFifo: RingBuffer[ObjectPixel] = RingBuffer[ObjectPixel](FIFO_SIZE),
     pixelFetcher: PixelFetcher = PixelFetcher(),
+    pixelMixer: PixelMixer = PixelMixer(),
     scanlineDot: ScanlineDot = ScanlineDot(),
     lcdStatus: LcdStatus = LcdStatus(),
     lcdControl: LcdControl = LcdControl(),

@@ -2,12 +2,14 @@ package org.akaii.s4gb.emulator.components.ppu
 
 import munit.FunSuite
 import org.akaii.s4gb.emulator.components.Interrupts
+import org.akaii.s4gb.extensions.byteops.*
+import spire.math.UByte
 
-class PpuTests extends FunSuite {
+class PpuTests extends FunSuite with TestEmitters {
 
   test("tick advances exactly 456 dots per scanline") {
     val interrupts = Interrupts()
-    val ppu = Ppu(interrupts)
+    val ppu = Ppu(interrupts, nullEmitter)
     ppu.initialize()
 
     ppu.state.ly = PpuMode.VBLANK_START_LY
