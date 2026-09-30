@@ -19,12 +19,33 @@ class PpuModeTests extends FunSuite with TestEmitters {
     ppu.state.lcdStatus.ppuMode = PpuMode.OamScan
     ppu.state.scanlineDot.current = 0
 
+    // Mode 2 CPU access rules: VRAM accessible, OAM blocked (read returns garbage, write is a no-op)
+    ppu.write(Ppu.Address.VRAM.START, UByte(0x42))
+    assertEquals(ppu(Ppu.Address.VRAM.START), UByte(0x42))
+
+    ppu.write(Ppu.Address.OAM.START, UByte(0x42))
+    assertEquals(ppu(Ppu.Address.OAM.START), Ppu.GARBAGE)
+
+    ppu.state.lcdStatus.ppuMode = PpuMode.HorizontalBlank
+    assertEquals(ppu(Ppu.Address.OAM.START), UByte(0))
+    ppu.state.lcdStatus.ppuMode = PpuMode.OamScan
+
     ticksUntilTransition(
       ppu,
       expectedDots = PpuMode.OamScan.TOTAL_DOTS,
       expectedFromMode = PpuMode.OamScan,
       expectedToMode = PpuMode.Draw
     )
+
+    // Mode 3 CPU access rules: both VRAM and OAM blocked (read returns garbage, write is a no-op)
+    assertEquals(ppu(Ppu.Address.VRAM.START), Ppu.GARBAGE)
+    assertEquals(ppu(Ppu.Address.OAM.START), Ppu.GARBAGE)
+
+    ppu.write(Ppu.Address.VRAM.START, UByte(0x99))
+    ppu.write(Ppu.Address.OAM.START, UByte(0x99))
+    ppu.state.lcdStatus.ppuMode = PpuMode.HorizontalBlank
+    assertEquals(ppu(Ppu.Address.VRAM.START), UByte(0x42))
+    assertEquals(ppu(Ppu.Address.OAM.START), UByte(0))
   }
 
   test("HorizontalBlank transitions to VerticalBlank at the end of the visible frame") {

@@ -82,10 +82,10 @@ class Ppu(interrupts: Interrupts, vram: Array[UByte], oam: Array[UByte], emitter
       state.updateLycEqualsLy(interrupts)
     } else if (address == LY) {
       () // LY is read-only
-    } else if (isVram(address) && state.lcdStatus.ppuMode.canAccessVram) {
-      state.vram(vramIndex(address)) = value
-    } else if (isOam(address) && state.lcdStatus.ppuMode.canAccessOam) {
-      state.oam(oamIndex(address)) = value
+    } else if (isVram(address)) {
+      if (state.lcdStatus.ppuMode.canAccessVram) state.vram(vramIndex(address)) = value
+    } else if (isOam(address)) {
+      if (state.lcdStatus.ppuMode.canAccessOam) state.oam(oamIndex(address)) = value
     } else {
       super.write(address, value)
     }
