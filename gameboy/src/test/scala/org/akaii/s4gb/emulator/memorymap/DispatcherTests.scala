@@ -9,7 +9,7 @@ import spire.math.{UByte, UShort}
 
 class DispatcherTests extends FunSuite {
 
-  private def freshDispatcher = Dispatcher.withComponents
+  private def freshDispatcher = Dispatcher.withComponents()
 
   test("throws for unmapped address") {
     val dispatcher = freshDispatcher

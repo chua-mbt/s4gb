@@ -1,5 +1,6 @@
 package org.akaii.s4gb.emulator.components.ppu
 
+import org.akaii.s4gb.extensions.byteops.*
 import spire.math.UByte
 
 /**
@@ -136,17 +137,17 @@ object PixelFetcher {
         this
       }
 
-    private def tileToPixels(fetcher: PixelFetcher): Unit = {
+    @inline private def tileToPixels(fetcher: PixelFetcher): Unit = {
       val low = fetcher.tile.tileDataLow.toInt
       val high = fetcher.tile.tileDataHigh.toInt
-      val bitMask = 1
       var i = 0
       while (i < Tile.SIZE) {
         val bit = Tile.SIZE - 1 - i
-        val colorIndex = ((high >> bit) & bitMask) << 1 | ((low >> bit) & bitMask)
-        fetcher.pixels(i).colorIndex = UByte(colorIndex)
+        val colorIndex = ((high >> bit) & 1) << 1 | ((low >> bit) & 1)
+        fetcher.pixels(i).colorIndex = colorIndex.toUByte
         i += 1
       }
     }
+
   }
 }

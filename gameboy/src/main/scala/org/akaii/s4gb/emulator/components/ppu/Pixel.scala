@@ -1,6 +1,7 @@
 package org.akaii.s4gb.emulator.components.ppu
 
 import org.akaii.s4gb.collections.Preallocated
+import org.akaii.s4gb.extensions.byteops.*
 import spire.math.UByte
 
 /**
@@ -21,7 +22,7 @@ object Pixel {
    */
   def resolvePixelColor(colorIndex: UByte, palette: UByte): UByte = {
     val shift = colorIndex.toInt * bitsPerColorIndex
-    (palette >> shift) & colorIndexMask
+    ((palette.toInt >> shift) & colorIndexMask.toInt).toUByte
   }
 
 }

@@ -37,7 +37,7 @@ case class PixelMixer(
    * @see [[https://gbdev.io/pandocs/LCDC.html#lcdc1--obj-enable]]
    * @see [[https://gbdev.io/pandocs/OAM.html#drawing-priority]]
    */
-  private def mixAndEmit(
+  @inline private def mixAndEmit(
     state: Ppu.State,
     emitter: PixelEmitter
   ): Unit = {
