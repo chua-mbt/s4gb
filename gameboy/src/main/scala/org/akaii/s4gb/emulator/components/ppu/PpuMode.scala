@@ -21,7 +21,7 @@ sealed abstract class PpuMode(val statValue: UByte, val canAccessVram: Boolean, 
     val lStatInterrupt = hblankLStatInterrupt || vblankLStatInterrupt || oamScanLStatInterrupt
 
     if (vBlankEntry) {
-      state.pixelFetcher.resetWindowRowsRendered()
+      state.backgroundFetcher.resetWindowRowsRendered()
       interrupts.request(Interrupts.Source.VBlank)
     }
     if (lStatInterrupt) interrupts.request(Interrupts.Source.LCDStat)
@@ -79,7 +79,7 @@ object PpuMode {
         state.spriteFetcher.startFetch(state, state.lcdX)
       } else {*/
         // 2. Step the Background / Window Fetcher (if not stalled by sprite)
-        state.pixelFetcher.step.tick(state)
+        state.backgroundFetcher.step.tick(state)
       //}
 
       // 3. Attempt to Pop & Mix Pixels to Display Buffer

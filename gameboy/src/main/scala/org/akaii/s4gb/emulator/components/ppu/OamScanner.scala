@@ -17,10 +17,10 @@ object OamScanner {
     val isScanTick = state.scanlineDot.current % DOTS_PER_SCAN == 0
     if (isScanTick) {
       val oamOffset = state.scanlineDot.current / DOTS_PER_SCAN
-      val y = state.oam(oamOffset * OAM_BYTE_SIZE)
-      val x = state.oam(oamOffset * OAM_BYTE_SIZE + 1)
-      val tileIndex = state.oam(oamOffset * OAM_BYTE_SIZE + 2)
-      val attributes = state.oam(oamOffset * OAM_BYTE_SIZE + 3)
+      val y = state.oam(oamOffset * GameboyObject.BYTE_SIZE)
+      val x = state.oam(oamOffset * GameboyObject.BYTE_SIZE + 1)
+      val tileIndex = state.oam(oamOffset * GameboyObject.BYTE_SIZE + 2)
+      val attributes = state.oam(oamOffset * GameboyObject.BYTE_SIZE + 3)
 
       if (inScanline(y, state.ly, spriteHeight)) {
         state.scanlineObjects.find(_.notInUse).foreach(_.set(y, x, tileIndex, attributes))
@@ -32,15 +32,13 @@ object OamScanner {
     val objY = y.toInt
     val scanline = ly.toInt
 
-    val top = objY - SPRITE_Y_OFFSET
+    val top = GameboyObject.topScreenRow(objY)
     val bottom = top + spriteHeight
 
     scanline >= top && scanline < bottom
   }
 
   private val DOTS_PER_SCAN: Int = 2
-  private val OAM_BYTE_SIZE: Int = 4
-  private val SPRITE_Y_OFFSET: Int = 16
 
   val OBJECTS_PER_SCANLINE: Int = 10
 }

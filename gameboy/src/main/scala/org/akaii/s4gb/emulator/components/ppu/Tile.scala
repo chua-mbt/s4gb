@@ -4,7 +4,6 @@ import spire.math.UByte
 
 /**
  * Mutable tile state, reused across fetcher cycles to avoid allocation.
- * Not a case class — resolve updates fields in place.
  *
  * @see [[https://gbdev.io/pandocs/Tile_Data.html]]
  * @see [[https://gbdev.io/pandocs/Tile_Maps.html]]
@@ -16,7 +15,14 @@ class Tile {
   var tileDataLow: UByte = UByte(0)
   var tileDataHigh: UByte = UByte(0)
 
-  def resolve(state: Ppu.State, fetcherX: Int, windowRowsRendered: Int, window: Boolean): Unit = {
+  /**
+   * Look up a tile number in the background or window tile map and compute the
+   * address of the row to fetch.
+   *
+   * @see [[https://gbdev.io/pandocs/Tile_Maps.html]]
+   * @see [[https://gbdev.io/pandocs/Tile_Data.html]]
+   */
+  def resolveFromTileMap(state: Ppu.State, fetcherX: Int, windowRowsRendered: Int, window: Boolean): Unit = {
     val lcdc = state.lcdControl
     val scx = state.registers(Ppu.Address.SCX).toInt
     val scy = state.registers(Ppu.Address.SCY).toInt
@@ -37,6 +43,24 @@ class Tile {
       tileNumber = state.vram(tilemapIndex(wrappedX, wrappedY)).toInt
       tileDataAddress = computeTileDataAddress(tileNumber, (currentScanline + scy) % Tile.SIZE, lcdc.bgWindowTileData)
     }
+  }
+
+  /**
+   * Resolve an object's tile row from its OAM entry. There is no tile map
+   * lookup: the tile number comes straight from OAM and objects always use
+   * $8000 unsigned addressing.
+   *
+   * @see [[https://github.com/Ashiepaws/GBEDG/blob/master/ppu/index.md#sprite-fetching]]
+   * @see [[https://gbdev.io/pandocs/OAM.html#byte-0--y-position]]
+   * @see [[https://gbdev.io/pandocs/OAM.html#byte-2--tile-index]]
+   */
+  def resolveFromOam(state: Ppu.State, obj: GameboyObject): Unit = {
+    val tall = state.lcdControl.objSize
+    val height = if (tall) LcdControl.SPRITE_HEIGHT_16PX else Tile.SIZE
+    val lineInObject = obj.lineForScreenRow(state.ly.toInt, height)
+    tilemapBase = 0
+    tileNumber = obj.tileNumberFor(lineInObject, tall)
+    tileDataAddress = computeTileDataAddress(tileNumber, lineInObject % Tile.SIZE, unsignedMode = true)
   }
 
   /**

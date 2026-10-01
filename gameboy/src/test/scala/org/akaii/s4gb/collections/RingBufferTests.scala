@@ -351,6 +351,101 @@ class RingBufferTests extends FunSuite {
     assert(!buffer.pop(out))
     assertEquals(buffer.size, 0)
   }
+
+  test("fillFromHead fills an empty buffer to capacity") {
+    val buffer = RingBuffer[Item](3)
+    var anyOccupied = false
+    buffer.fillFromHead { (_, occupied, offset) =>
+      if (occupied) anyOccupied = true
+      Item(number = offset + 1)
+    }
+
+    assert(!anyOccupied)
+    assertEquals(buffer.size, 3)
+    assert(buffer.isFull)
+
+    val out = destination(3)
+    assertEquals(buffer.dequeue(out), 3)
+    assertEquals(out.map(_.number).toList, List(1, 2, 3))
+  }
+
+  test("fillFromHead offsets start at the head, not the backing index") {
+    val buffer = RingBuffer[Item](3)
+    buffer.enqueue(Item(number = 10))
+    buffer.enqueue(Item(number = 20))
+    buffer.enqueue(Item(number = 30))
+    assertEquals(buffer.dequeue(destination(1)), 1)
+
+    buffer.fillFromHead((_, _, offset) => Item(number = offset))
+
+    val out = destination(3)
+    assertEquals(buffer.dequeue(out), 3)
+    assertEquals(out.map(_.number).toList, List(0, 1, 2))
+  }
+
+  test("fillFromHead keeps a live cell when the caller returns the current value") {
+    val buffer = RingBuffer[Item](3)
+    buffer.enqueue(Item(number = 7))
+
+    buffer.fillFromHead { (current, occupied, offset) =>
+      if (occupied) current else Item(number = 100 + offset)
+    }
+
+    assertEquals(buffer.size, 3)
+    val out = destination(3)
+    assertEquals(buffer.dequeue(out), 3)
+    assertEquals(out.map(_.number).toList, List(7, 101, 102))
+  }
+
+  test("fillFromHead replaces a live cell when the caller returns a new value") {
+    val buffer = RingBuffer[Item](3)
+    buffer.enqueue(Item(number = 7))
+
+    buffer.fillFromHead((_, _, offset) => Item(number = offset))
+
+    val out = destination(3)
+    assertEquals(buffer.dequeue(out), 3)
+    assertEquals(out.map(_.number).toList, List(0, 1, 2))
+  }
+
+  test("fillFromHead offers a drained cell as unoccupied despite its stale value") {
+    val buffer = RingBuffer[Item](2)
+    buffer.enqueue(Item(number = 1))
+    buffer.enqueue(Item(number = 2))
+    assertEquals(buffer.dequeue(destination(2)), 2)
+
+    var seen = List.empty[(Int, Boolean)]
+    buffer.fillFromHead { (current, occupied, offset) =>
+      seen = seen :+ ((current.number, occupied))
+      Item(number = 50 + offset)
+    }
+
+    assertEquals(seen, List((1, false), (2, false)))
+    assertEquals(buffer.size, 2)
+  }
+
+  test("fillFromHead forces size to capacity from a partial buffer") {
+    val buffer = RingBuffer[Item](4)
+    buffer.enqueue(Item(number = 1))
+    buffer.enqueue(Item(number = 2))
+    assertEquals(buffer.size, 2)
+
+    buffer.fillFromHead((_, _, _) => Item(number = 9))
+
+    assertEquals(buffer.size, 4)
+    assert(buffer.isFull)
+  }
+
+  test("fillFromHead copies the caller's value rather than storing it") {
+    val buffer = RingBuffer[Item](2)
+    val supplied = Item(number = 5)
+    buffer.fillFromHead((_, _, _) => supplied)
+    supplied.number = 99
+
+    val out = destination(2)
+    assertEquals(buffer.dequeue(out), 2)
+    assertEquals(out.map(_.number).toList, List(5, 5))
+  }
 }
 
 case class Item(

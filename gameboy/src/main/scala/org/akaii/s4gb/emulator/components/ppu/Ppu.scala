@@ -2,6 +2,7 @@ package org.akaii.s4gb.emulator.components.ppu
 
 import org.akaii.s4gb.collections.RingBuffer
 import org.akaii.s4gb.emulator.components.Interrupts
+import org.akaii.s4gb.emulator.components.ppu.fetcher.{BackgroundFetcher, ObjectFetcher}
 import org.akaii.s4gb.emulator.memorymap.RegisterMap
 import org.akaii.s4gb.extensions.byteops.*
 import spire.math.{UByte, UShort}
@@ -135,10 +136,11 @@ object Ppu {
     oam: Array[UByte] = Array.empty,
     vram: Array[UByte] = Array.empty,
     registers: mutable.Map[UShort, UByte] = mutable.Map.empty,
-    scanlineObjects: Array[GameboyObject] = Array.empty,
+    scanlineObjects: Array[GameboyObject] = Array.fill(OamScanner.OBJECTS_PER_SCANLINE)(GameboyObject.empty),
     backgroundFifo: RingBuffer[BackgroundPixel] = RingBuffer[BackgroundPixel](FIFO_SIZE),
     objectFifo: RingBuffer[ObjectPixel] = RingBuffer[ObjectPixel](FIFO_SIZE),
-    pixelFetcher: PixelFetcher = PixelFetcher(),
+    backgroundFetcher: BackgroundFetcher.State = BackgroundFetcher.State(),
+    objectFetcher: ObjectFetcher.State = ObjectFetcher.State(),
     pixelMixer: PixelMixer = PixelMixer(),
     scanlineDot: ScanlineDot = ScanlineDot(),
     lcdStatus: LcdStatus = LcdStatus(),
@@ -266,7 +268,12 @@ object Ppu {
   val OAM_SIZE: Int = (Address.OAM.END - Address.OAM.START + 1.toUShort).toInt
   val SCANLINES_PER_FRAME: UByte = UByte(154)
   val TOTAL_VBLANK_SCANLINES: Int = (SCANLINES_PER_FRAME - PpuMode.VBLANK_START_LY).toInt // 10
-  val FIFO_SIZE: Int = 16
+  /**
+   * Pan Docs says 16, but neither FIFO ever holds more than 8 pixels.
+   *
+   * @see [[https://gbdev.io/pandocs/pixel_fifo.html]]
+   */
+  val FIFO_SIZE: Int = 8
 
   /**
    * While the PPU is accessing some video-related memory, that memory is inaccessible to the CPU

@@ -1,6 +1,7 @@
 package org.akaii.s4gb.emulator.components.ppu
 
 import munit.FunSuite
+import org.akaii.s4gb.emulator.components.ppu.fetcher.*
 import spire.math.UByte
 
 class TileTests extends FunSuite {
@@ -11,7 +12,7 @@ class TileTests extends FunSuite {
     val state = makeState(scx = 0, scy = 0, ly = 0)
     placeTile(state, tileNumber = TEST_TILE_NUMBER, x = 0, y = 0)
     val tile = Tile()
-    tile.resolve(state, fetcherX = 0, windowRowsRendered = 0, window = false)
+    tile.resolveFromTileMap(state, fetcherX = 0, windowRowsRendered = 0, window = false)
 
     assertEquals(tile.tilemapBase, Tile.PRIMARY_TILEMAP_ADDRESS)
     assertEquals(tile.tileNumber, TEST_TILE_NUMBER)
@@ -22,7 +23,7 @@ class TileTests extends FunSuite {
     val expectedX = 3
     placeTile(state, tileNumber = TEST_TILE_NUMBER, x = expectedX, y = 0)
     val tile = Tile()
-    tile.resolve(state, fetcherX = expectedX, windowRowsRendered = 0, window = false)
+    tile.resolveFromTileMap(state, fetcherX = expectedX, windowRowsRendered = 0, window = false)
 
     assertEquals(tile.tileNumber, TEST_TILE_NUMBER)
   }
@@ -32,7 +33,7 @@ class TileTests extends FunSuite {
     // SCX=16 -> tile offset = 16/8 = 2, fetcherX=0 -> tilemap x = (2+0)&31 = 2
     placeTile(state, tileNumber = TEST_TILE_NUMBER, x = 2, y = 0)
     val tile = Tile()
-    tile.resolve(state, fetcherX = 0, windowRowsRendered = 0, window = false)
+    tile.resolveFromTileMap(state, fetcherX = 0, windowRowsRendered = 0, window = false)
 
     assertEquals(tile.tileNumber, TEST_TILE_NUMBER)
   }
@@ -43,7 +44,7 @@ class TileTests extends FunSuite {
     val expectedY = 1
     placeTile(state, tileNumber = TEST_TILE_NUMBER, x = 0, y = expectedY)
     val tile = Tile()
-    tile.resolve(state, fetcherX = 0, windowRowsRendered = 0, window = false)
+    tile.resolveFromTileMap(state, fetcherX = 0, windowRowsRendered = 0, window = false)
 
     assertEquals(tile.tileNumber, TEST_TILE_NUMBER)
   }
@@ -54,7 +55,7 @@ class TileTests extends FunSuite {
     val expectedX = 0
     placeTile(state, tileNumber = TEST_TILE_NUMBER, x = expectedX, y = 0)
     val tile = Tile()
-    tile.resolve(state, fetcherX = 32, windowRowsRendered = 0, window = false)
+    tile.resolveFromTileMap(state, fetcherX = 32, windowRowsRendered = 0, window = false)
 
     assertEquals(tile.tileNumber, TEST_TILE_NUMBER)
   }
@@ -64,7 +65,7 @@ class TileTests extends FunSuite {
     // windowRowsRendered=0 -> y=0, fetcherX=0 -> x=0
     placeTile(state, tileNumber = TEST_TILE_NUMBER, x = 0, y = 0)
     val tile = Tile()
-    tile.resolve(state, fetcherX = 0, windowRowsRendered = 0, window = true)
+    tile.resolveFromTileMap(state, fetcherX = 0, windowRowsRendered = 0, window = true)
 
     assertEquals(tile.tileNumber, TEST_TILE_NUMBER)
   }
@@ -75,7 +76,7 @@ class TileTests extends FunSuite {
     val expectedY = 2
     placeTile(state, tileNumber = TEST_TILE_NUMBER, x = 0, y = expectedY)
     val tile = Tile()
-    tile.resolve(state, fetcherX = 0, windowRowsRendered = 16, window = true)
+    tile.resolveFromTileMap(state, fetcherX = 0, windowRowsRendered = 16, window = true)
 
     assertEquals(tile.tileNumber, TEST_TILE_NUMBER)
   }
@@ -85,7 +86,7 @@ class TileTests extends FunSuite {
     val expectedX = 5
     placeTile(state, tileNumber = TEST_TILE_NUMBER, x = expectedX, y = 0)
     val tile = Tile()
-    tile.resolve(state, fetcherX = expectedX, windowRowsRendered = 0, window = true)
+    tile.resolveFromTileMap(state, fetcherX = expectedX, windowRowsRendered = 0, window = true)
 
     assertEquals(tile.tileNumber, TEST_TILE_NUMBER)
   }
@@ -95,7 +96,7 @@ class TileTests extends FunSuite {
     val expectedTilemapBase = Tile.SECONDARY_TILEMAP_ADDRESS
     placeTile(state, tileNumber = TEST_TILE_NUMBER, tilemapBase = expectedTilemapBase, x = 0, y = 0)
     val tile = Tile()
-    tile.resolve(state, fetcherX = 0, windowRowsRendered = 0, window = false)
+    tile.resolveFromTileMap(state, fetcherX = 0, windowRowsRendered = 0, window = false)
 
     assertEquals(tile.tilemapBase, expectedTilemapBase)
     assertEquals(tile.tileNumber, TEST_TILE_NUMBER)
@@ -106,10 +107,45 @@ class TileTests extends FunSuite {
     val expectedTilemapBase = Tile.SECONDARY_TILEMAP_ADDRESS
     placeTile(state, tileNumber = TEST_TILE_NUMBER, tilemapBase = expectedTilemapBase, x = 0, y = 0)
     val tile = Tile()
-    tile.resolve(state, fetcherX = 0, windowRowsRendered = 0, window = true)
+    tile.resolveFromTileMap(state, fetcherX = 0, windowRowsRendered = 0, window = true)
 
     assertEquals(tile.tilemapBase, expectedTilemapBase)
     assertEquals(tile.tileNumber, TEST_TILE_NUMBER)
+  }
+
+  test("resolve object tile at origin") {
+    val state = makeState(ly = 0)
+    val obj = GameboyObject(y = UByte(GameboyObject.Y_OFFSET), tileIndex = UByte(TEST_TILE_NUMBER))
+    val tile = Tile()
+    tile.resolveFromOam(state, obj)
+
+    assertEquals(tile.tilemapBase, 0)
+    assertEquals(tile.tileNumber, TEST_TILE_NUMBER)
+  }
+
+  test("resolve object tile overwrites a previous resolve") {
+    val state = makeState(ly = 0)
+    placeTile(state, tileNumber = 11, x = 0, y = 0)
+    val tile = Tile()
+    tile.resolveFromTileMap(state, fetcherX = 0, windowRowsRendered = 0, window = false)
+    assertEquals(tile.tileNumber, 11)
+
+    val obj = GameboyObject(y = UByte(GameboyObject.Y_OFFSET), tileIndex = UByte(TEST_TILE_NUMBER))
+    tile.resolveFromOam(state, obj)
+
+    assertEquals(tile.tilemapBase, 0)
+    assertEquals(tile.tileNumber, TEST_TILE_NUMBER)
+    assertEquals(tile.tileDataAddress, 80)
+  }
+
+  test("resolve object tile in 8x16 mode") {
+    val state = makeState(ly = 0, objSize = true)
+    val obj = GameboyObject(y = UByte(GameboyObject.Y_OFFSET), tileIndex = UByte(TEST_TILE_NUMBER))
+    val tile = Tile()
+    tile.resolveFromOam(state, obj)
+
+    // 8x16 ignores the low bit of the OAM tile index, so 5 becomes 4
+    assertEquals(tile.tileNumber, 4)
   }
 
   test("tile data address unsigned mode tile 0 row 0") {
@@ -118,7 +154,7 @@ class TileTests extends FunSuite {
     val expectedTileDataAddress = 0
     placeTile(state, tileNumber = expectedTileNumber, x = 0, y = 0)
     val tile = Tile()
-    tile.resolve(state, fetcherX = 0, windowRowsRendered = 0, window = false)
+    tile.resolveFromTileMap(state, fetcherX = 0, windowRowsRendered = 0, window = false)
 
     assertEquals(tile.tileDataAddress, expectedTileDataAddress)
   }
@@ -130,7 +166,7 @@ class TileTests extends FunSuite {
     val expectedTileDataAddress = 86
     placeTile(state, tileNumber = expectedTileNumber, x = 0, y = 0)
     val tile = Tile()
-    tile.resolve(state, fetcherX = 0, windowRowsRendered = 0, window = false)
+    tile.resolveFromTileMap(state, fetcherX = 0, windowRowsRendered = 0, window = false)
 
     assertEquals(tile.tileDataAddress, expectedTileDataAddress)
   }
@@ -142,7 +178,7 @@ class TileTests extends FunSuite {
     val expectedTileDataAddress = 4260
     placeTile(state, tileNumber = expectedTileNumber, x = 0, y = 0)
     val tile = Tile()
-    tile.resolve(state, fetcherX = 0, windowRowsRendered = 0, window = false)
+    tile.resolveFromTileMap(state, fetcherX = 0, windowRowsRendered = 0, window = false)
 
     assertEquals(tile.tileDataAddress, expectedTileDataAddress)
   }
@@ -154,7 +190,7 @@ class TileTests extends FunSuite {
     val expectedTileDataAddress = 3200
     placeTile(state, tileNumber = expectedTileNumber, x = 0, y = 0)
     val tile = Tile()
-    tile.resolve(state, fetcherX = 0, windowRowsRendered = 0, window = false)
+    tile.resolveFromTileMap(state, fetcherX = 0, windowRowsRendered = 0, window = false)
 
     assertEquals(tile.tileDataAddress, expectedTileDataAddress)
   }
@@ -166,9 +202,33 @@ class TileTests extends FunSuite {
     val expectedTileDataAddress = 58
     placeTile(state, tileNumber = expectedTileNumber, x = 0, y = 0)
     val tile = Tile()
-    tile.resolve(state, fetcherX = 0, windowRowsRendered = 5, window = true)
+    tile.resolveFromTileMap(state, fetcherX = 0, windowRowsRendered = 5, window = true)
 
     assertEquals(tile.tileDataAddress, expectedTileDataAddress)
+  }
+
+  test("tile data address object uses unsigned mode with LCDC bit 4 clear") {
+    val state = makeState(ly = 3, bgWindowTileData = false)
+    val obj = GameboyObject(y = UByte(GameboyObject.Y_OFFSET), tileIndex = UByte(TEST_TILE_NUMBER))
+    val tile = Tile()
+    tile.resolveFromOam(state, obj)
+
+    // $8000 unsigned: 5 * 16 + 3 * 2 = 86, where signed mode would add 0x1000
+    assertEquals(tile.tileDataAddress, 86)
+  }
+
+  test("tile data address object applies Y flip to the row") {
+    val state = makeState(ly = 0)
+    val obj = GameboyObject(
+      y = UByte(GameboyObject.Y_OFFSET),
+      tileIndex = UByte(TEST_TILE_NUMBER),
+      attributes = UByte(0x40),
+    )
+    val tile = Tile()
+    tile.resolveFromOam(state, obj)
+
+    // Row 0 mirrors to row 7: 5 * 16 + 7 * 2 = 94
+    assertEquals(tile.tileDataAddress, 94)
   }
 
   test("primary and secondary tilemaps occupy distinct VRAM regions for background tiles") {
@@ -177,12 +237,12 @@ class TileTests extends FunSuite {
     state.vram(vramIndex(Tile.SECONDARY_TILEMAP_ADDRESS, 0, 0)) = UByte(22)
 
     val tile1 = Tile()
-    tile1.resolve(state, fetcherX = 0, windowRowsRendered = 0, window = false)
+    tile1.resolveFromTileMap(state, fetcherX = 0, windowRowsRendered = 0, window = false)
     assertEquals(tile1.tileNumber, 11)
 
     state.lcdControl.bgTileMap = true // switch to secondary tilemap
     val tile2 = Tile()
-    tile2.resolve(state, fetcherX = 0, windowRowsRendered = 0, window = false)
+    tile2.resolveFromTileMap(state, fetcherX = 0, windowRowsRendered = 0, window = false)
     assertEquals(tile2.tileNumber, 22)
   }
 
@@ -192,12 +252,12 @@ class TileTests extends FunSuite {
     state.vram(vramIndex(Tile.SECONDARY_TILEMAP_ADDRESS, 0, 0)) = UByte(22)
 
     val tile1 = Tile()
-    tile1.resolve(state, fetcherX = 0, windowRowsRendered = 0, window = true)
+    tile1.resolveFromTileMap(state, fetcherX = 0, windowRowsRendered = 0, window = true)
     assertEquals(tile1.tileNumber, 11)
 
     state.lcdControl.windowTileMap = true // switch to secondary tilemap
     val tile2 = Tile()
-    tile2.resolve(state, fetcherX = 0, windowRowsRendered = 0, window = true)
+    tile2.resolveFromTileMap(state, fetcherX = 0, windowRowsRendered = 0, window = true)
     assertEquals(tile2.tileNumber, 22)
   }
 
@@ -206,10 +266,10 @@ class TileTests extends FunSuite {
     // fetcherX = 1 -> x = (31 + 1) & 31 = 0
     placeTile(state, tileNumber = TEST_TILE_NUMBER, x = 0, y = 0)
     val tile = Tile()
-    tile.resolve(state, fetcherX = 1, windowRowsRendered = 0, window = false)
+    tile.resolveFromTileMap(state, fetcherX = 1, windowRowsRendered = 0, window = false)
 
     assertEquals(tile.tileNumber, TEST_TILE_NUMBER)
   }
 }
 
-object TileTests extends PixelFetcherFixtures
+object TileTests extends BackgroundFetcherFixtures

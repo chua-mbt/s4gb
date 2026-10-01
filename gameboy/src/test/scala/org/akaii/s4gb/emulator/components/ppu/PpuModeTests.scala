@@ -57,7 +57,7 @@ class PpuModeTests extends FunSuite with TestEmitters {
     ppu.state.lcdStatus.ppuMode = PpuMode.HorizontalBlank
     ppu.state.lcdStatus.mode1Select = true
     ppu.state.scanlineDot.current = 0
-    ppu.state.pixelFetcher.windowRowsRendered = 5
+    ppu.state.backgroundFetcher.windowRowsRendered = 5
 
     ticksUntilTransition(
       ppu,
@@ -68,7 +68,7 @@ class PpuModeTests extends FunSuite with TestEmitters {
 
     assertEquals(ppu.state.ly, PpuMode.VBLANK_START_LY)
     assertInterrupts(interrupts, Interrupts.Source.VBlank, Interrupts.Source.LCDStat)
-    assertEquals(ppu.state.pixelFetcher.windowRowsRendered, 0) // reset on VBlank entry
+    assertEquals(ppu.state.backgroundFetcher.windowRowsRendered, 0) // reset on VBlank entry
   }
 
   test("HorizontalBlank on an early scanline transitions to OamScan at the boundary") {

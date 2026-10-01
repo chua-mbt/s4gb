@@ -1,70 +1,45 @@
-package org.akaii.s4gb.emulator.components.ppu
+package org.akaii.s4gb.emulator.components.ppu.fetcher
 
+import org.akaii.s4gb.emulator.components.ppu.{BackgroundPixel, Ppu, Tile}
 import org.akaii.s4gb.extensions.byteops.*
 import spire.math.UByte
 
 /**
- * FIFO Pixel Fetcher - Produces pixels from background and window only
+ * Background Pixel Fetcher - Produces pixels from background and window only
  *
  * @see [[https://gbdev.io/pandocs/pixel_fifo.html#fifo-pixel-fetcher]]
  * @see [[https://github.com/Ashiepaws/GBEDG/blob/master/ppu/index.md#background-pixel-fetching]]
  */
-case class PixelFetcher(
-  var step: PixelFetcher.Step = PixelFetcher.GetTileStep,
-  var dot: Int = 0,
-  var fetcherX: Int = 0,
-  var windowActive: Boolean = false,
-  var windowRowsRendered: Int = 0,
-  tile: Tile = Tile(),
-  pixels: Array[BackgroundPixel] = Array.fill(Tile.SIZE)(BackgroundPixel.empty),
-) {
-  def reset(): Unit = {
-    step = PixelFetcher.GetTileStep
-    dot = 0
-    fetcherX = 0
-    windowActive = false
-  }
+object BackgroundFetcher {
 
-  def resetWindowRowsRendered(): Unit = windowRowsRendered = 0
+  private val WX_OFFSET: Int = 7 // WX is "X position plus 7" per pandocs; WX=7 places window at screen pixel 0
 
-  def advanceWindowRowsRendered(): Unit = windowRowsRendered += 1
-}
+  case class State(
+    var step: PixelFetcher.Step = BackgroundFetcher.GetTileStep,
+    var windowRowsRendered: Int = 0,
+    pixels: Array[BackgroundPixel] = Array.fill(Tile.SIZE)(BackgroundPixel.empty),
+    private[fetcher] var dot: Int = 0,
+    private[fetcher] var fetcherX: Int = 0,
+    private[fetcher] var windowActive: Boolean = false,
+    override private[fetcher] val tile: Tile = Tile(),
+  ) extends PixelFetcher.State {
+    def resetWindowRowsRendered(): Unit = windowRowsRendered = 0
 
-object PixelFetcher {
+    private[fetcher] def advanceWindowRowsRendered(): Unit = windowRowsRendered += 1
 
-  val WX_OFFSET: Int = 7 // WX is "X position plus 7" per pandocs; WX=7 places window at screen pixel 0
-  val TWO_DOT_MAX: Int = 2
-
-  sealed trait Step {
-    final def tick(ppuState: Ppu.State): Unit =
-      ppuState.pixelFetcher.step = stepTick(ppuState)
-
-    protected def stepTick(ppuState: Ppu.State): Step
-  }
-
-  sealed abstract class TwoDotStep extends Step {
-
-    /**
-     * Step-specific behaviours on final tick
-     */
-    def finalTick(ppuState: Ppu.State): Step
-
-    /**
-     * Each step takes 2 dots: address on dot 1, data latch on dot 2.
-     * VRAM doesn't mutate during Mode 3 (CPU writes blocked), so we just act on the read on the final dot.
-     */
-    override protected def stepTick(ppuState: Ppu.State): Step = {
-      val fetcher = ppuState.pixelFetcher
-      fetcher.dot += 1
-      if (fetcher.dot >= TWO_DOT_MAX) {
-        fetcher.dot = 0
-        val next = finalTick(ppuState)
-        next
-      } else {
-        this
-      }
+    override private[fetcher] def reset(): Unit = {
+      step = BackgroundFetcher.GetTileStep
+      dot = 0
+      fetcherX = 0
+      windowActive = false
     }
   }
+
+  sealed trait Step extends PixelFetcher.Step {
+    final protected def fetcherOf(ppuState: Ppu.State): PixelFetcher.State = ppuState.backgroundFetcher
+  }
+
+  sealed abstract class TwoDotStep extends PixelFetcher.TwoDotStep with Step
 
   /**
    * Get Tile - Finds reference to relevant tile
@@ -73,13 +48,13 @@ object PixelFetcher {
    */
   case object GetTileStep extends TwoDotStep {
     override def finalTick(ppuState: Ppu.State): Step = {
-      val fetcher = ppuState.pixelFetcher
+      val fetcher = ppuState.backgroundFetcher
       val lcdc = ppuState.lcdControl
       val wx = ppuState.registers(Ppu.Address.WX).toInt - WX_OFFSET
       val wy = ppuState.registers(Ppu.Address.WY).toInt
       val ly = ppuState.ly.toInt
       fetcher.windowActive = lcdc.windowEnable && (wy <= ly) && (fetcher.fetcherX * Tile.SIZE >= wx)
-      fetcher.tile.resolve(ppuState, fetcher.fetcherX, fetcher.windowRowsRendered, fetcher.windowActive)
+      fetcher.tile.resolveFromTileMap(ppuState, fetcher.fetcherX, fetcher.windowRowsRendered, fetcher.windowActive)
       GetTileDataLowStep
     }
   }
@@ -91,7 +66,7 @@ object PixelFetcher {
    */
   case object GetTileDataLowStep extends TwoDotStep {
     override def finalTick(ppuState: Ppu.State): Step = {
-      val fetcher = ppuState.pixelFetcher
+      val fetcher = ppuState.backgroundFetcher
       fetcher.tile.tileDataLow = ppuState.vram(fetcher.tile.tileDataAddress)
       GetTileDataHighStep
     }
@@ -104,7 +79,7 @@ object PixelFetcher {
    */
   case object GetTileDataHighStep extends TwoDotStep {
     override def finalTick(ppuState: Ppu.State): Step = {
-      val fetcher = ppuState.pixelFetcher
+      val fetcher = ppuState.backgroundFetcher
       fetcher.tile.tileDataHigh = ppuState.vram(fetcher.tile.tileDataAddress + 1)
       SleepStep
     }
@@ -126,18 +101,18 @@ object PixelFetcher {
    */
   case object PushStep extends Step {
 
-    override protected def stepTick(ppuState: Ppu.State): Step =
+    override protected def stepTick(ppuState: Ppu.State, fetcher: PixelFetcher.State): Step =
       if (ppuState.backgroundFifo.isEmpty) {
-        val fetcher = ppuState.pixelFetcher
-        tileToPixels(fetcher)
-        ppuState.backgroundFifo.enqueueAll(fetcher.pixels)
-        fetcher.fetcherX += 1
+        val background = ppuState.backgroundFetcher
+        tileToPixels(background)
+        ppuState.backgroundFifo.enqueueAll(background.pixels)
+        background.fetcherX += 1
         GetTileStep
       } else {
         this
       }
 
-    @inline private def tileToPixels(fetcher: PixelFetcher): Unit = {
+    @inline private def tileToPixels(fetcher: BackgroundFetcher.State): Unit = {
       val low = fetcher.tile.tileDataLow.toInt
       val high = fetcher.tile.tileDataHigh.toInt
       var i = 0

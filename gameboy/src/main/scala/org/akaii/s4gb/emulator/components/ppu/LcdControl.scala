@@ -14,7 +14,7 @@ case class LcdControl(
   var windowEnable: Boolean = false,
   var bgWindowTileData: Boolean = false,
   var bgTileMap: Boolean = false,
-  var objSize: Boolean = false,
+  var objSize: Boolean = false, // LCDC.2: true = 8x16, false = 8x8
   var objEnable: Boolean = false,
   var bgEnable: Boolean = false
 ) {
@@ -79,7 +79,7 @@ object LcdControl {
 
   private val SPRITE_SIZE_BIT: UByte = 0x04.toUByte
   private val SPRITE_HEIGHT_8PX: Int = 8
-  private val SPRITE_HEIGHT_16PX: Int = 16
+  private[ppu] val SPRITE_HEIGHT_16PX: Int = 16
 
   def spriteHeight(lcdc: UByte): Int =
     if ((lcdc & SPRITE_SIZE_BIT) == 0.toUByte) SPRITE_HEIGHT_8PX else SPRITE_HEIGHT_16PX
