@@ -35,7 +35,7 @@ class BackgroundFetcherTests extends FunSuite {
     assertEquals(state.backgroundFetcher.tile.tileDataLow, expectedTileDataLow)
   }
 
-  test("GetTileDataHighStep reads high byte, transitions to SleepStep") {
+  test("GetTileDataHighStep reads high byte, transitions to PushStep") {
     val state = makeState(ly = 0)
     val expectedTileDataHigh = UByte(0xCD)
     state.backgroundFetcher.tile.tileDataAddress = 100
@@ -43,28 +43,9 @@ class BackgroundFetcherTests extends FunSuite {
     state.backgroundFetcher.step = BackgroundFetcher.GetTileDataHighStep
 
     val (next, dots) = tickBackgroundUntilStepChange(state)
-    assertEquals(next, BackgroundFetcher.SleepStep)
-    assertEquals(dots, PixelFetcher.TWO_DOT_MAX)
-    assertEquals(state.backgroundFetcher.tile.tileDataHigh, expectedTileDataHigh)
-  }
-
-  test("SleepStep transitions to PushStep without changing state") {
-    val state = makeState()
-    state.backgroundFetcher.fetcherX = 3
-    state.backgroundFetcher.tile.tileNumber = 7
-    state.backgroundFetcher.tile.tileDataLow = UByte(0xAB)
-    state.backgroundFetcher.tile.tileDataHigh = UByte(0xCD)
-    state.backgroundFetcher.step = BackgroundFetcher.SleepStep
-
-    val (next, dots) = tickBackgroundUntilStepChange(state)
     assertEquals(next, BackgroundFetcher.PushStep)
     assertEquals(dots, PixelFetcher.TWO_DOT_MAX)
-
-    // unchanged
-    assertEquals(state.backgroundFetcher.fetcherX, 3)
-    assertEquals(state.backgroundFetcher.tile.tileNumber, 7)
-    assertEquals(state.backgroundFetcher.tile.tileDataLow, UByte(0xAB))
-    assertEquals(state.backgroundFetcher.tile.tileDataHigh, UByte(0xCD))
+    assertEquals(state.backgroundFetcher.tile.tileDataHigh, expectedTileDataHigh)
   }
 
   test("PushStep extracts 8 pixels MSB first, advances fetcherX, transitions to GetTileStep") {

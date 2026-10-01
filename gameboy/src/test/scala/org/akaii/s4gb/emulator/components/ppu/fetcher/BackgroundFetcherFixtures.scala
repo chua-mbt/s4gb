@@ -17,8 +17,8 @@ trait BackgroundFetcherFixtures extends PixelFetcherFixtures {
     tickUntilStepChange(state, state.backgroundFetcher, maxTicks)
 
   def runFetcherStepCycle(state: Ppu.State): Seq[UByte] = {
-    // GetTileStep (1)-> GetTileDataLowStep (2)-> GetTileDataHighStep (3)-> SleepStep (4)-> PushStep (5)-> GetTileStep
-    (0 until 5).foreach(_ => tickBackgroundUntilStepChange(state))
+    // GetTileStep (1)-> GetTileDataLowStep (2)-> GetTileDataHighStep (3)-> PushStep (4)-> GetTileStep
+    (0 until 4).foreach(_ => tickBackgroundUntilStepChange(state))
 
     // Now drain the FIFO. Based on previous behavior, it should contain 8 pixels (1 tile).
     val sink = Array.fill(Tile.SIZE)(BackgroundPixel.empty)

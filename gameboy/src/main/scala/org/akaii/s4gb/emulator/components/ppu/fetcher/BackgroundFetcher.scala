@@ -7,6 +7,9 @@ import spire.math.UByte
 /**
  * Background Pixel Fetcher - Produces pixels from background and window only
  *
+ * Pan Docs lists a Sleep step between Get Tile Data High and Push. No evidence for
+ * it was found in GBEDG, SameBoy or Gambatte, so the ladder here omits it.
+ *
  * @see [[https://gbdev.io/pandocs/pixel_fifo.html#fifo-pixel-fetcher]]
  * @see [[https://github.com/Ashiepaws/GBEDG/blob/master/ppu/index.md#background-pixel-fetching]]
  */
@@ -81,16 +84,8 @@ object BackgroundFetcher {
     override def finalTick(ppuState: Ppu.State): Step = {
       val fetcher = ppuState.backgroundFetcher
       fetcher.tile.tileDataHigh = ppuState.vram(fetcher.tile.tileDataAddress + 1)
-      SleepStep
+      PushStep
     }
-  }
-
-  /**
-   * Sleep
-   * https://gbdev.io/pandocs/pixel_fifo.html#get-tile
-   */
-  case object SleepStep extends TwoDotStep {
-    override def finalTick(ppuState: Ppu.State): Step = PushStep
   }
 
   /**
