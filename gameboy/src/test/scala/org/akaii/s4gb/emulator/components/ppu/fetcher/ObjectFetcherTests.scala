@@ -127,7 +127,7 @@ class ObjectFetcherTests extends FunSuite {
     assertEquals(sink.toSeq.map(_.colorIndex), expectedColors)
   }
 
-  test("PushStep leaves pixels left of screen x=0 transparent when OAM X is below 8") {
+  test("PushStep loads the rightmost 7 pixels when OAM X is below 8") {
     val state = makeState(ly = 0)
     placeObject(state, tileIndex = 0, x = 7)
     state.objectFetcher.tile.tileDataLow = UByte(0xFF)
@@ -139,8 +139,41 @@ class ObjectFetcherTests extends FunSuite {
     assertEquals(state.objectFifo.size, Tile.SIZE)
     val sink = Array.fill(Tile.SIZE)(ObjectPixel.empty)
     assertEquals(state.objectFifo.dequeue(sink), Tile.SIZE)
-    assertEquals(sink.head.colorIndex, ObjectPixel.transparentColor)
-    sink.tail.foreach(pixel => assertEquals(pixel.colorIndex, 3.toUByte))
+    // left edge sits at x -1, so the shifter is already one column along the row
+    sink.take(Tile.SIZE - 1).foreach(pixel => assertEquals(pixel.colorIndex, 3.toUByte))
+    assertEquals(sink.last.colorIndex, ObjectPixel.transparentColor)
+  }
+
+  test("PushStep drops the pixels the shifter has already passed when the fetch starts late") {
+    val state = makeState(ly = 0)
+    placeObject(state, tileIndex = 0, x = 8)
+    state.objectFetcher.tile.tileDataLow = UByte(0xFF)
+    state.objectFetcher.tile.tileDataHigh = UByte(0xF0)
+    state.objectFetcher.step = ObjectFetcher.PushStep
+    state.pixelMixer.shiftPosition = 3
+
+    state.objectFetcher.step.tick(state)
+
+    // 0xFF / 0xF0 is 3,3,3,3,1,1,1,1 MSB first, so the row as loaded starts on pixel 3
+    val sink = Array.fill(Tile.SIZE)(ObjectPixel.empty)
+    assertEquals(state.objectFifo.dequeue(sink), Tile.SIZE)
+    assertEquals(sink.toSeq.map(_.colorIndex), Seq(3, 1, 1, 1, 1, 0, 0, 0).map(_.toUByte))
+  }
+
+  test("PushStep loads the whole row when the object starts right of the shifter") {
+    val state = makeState(ly = 0)
+    placeObject(state, tileIndex = 0, x = 16)
+    state.objectFetcher.tile.tileDataLow = UByte(0xFF)
+    state.objectFetcher.tile.tileDataHigh = UByte(0xFF)
+    state.objectFetcher.step = ObjectFetcher.PushStep
+    state.pixelMixer.shiftPosition = 0
+
+    state.objectFetcher.step.tick(state)
+
+    // leftEdge is 8, so the row would start behind the head of the FIFO and is clamped to 0
+    val sink = Array.fill(Tile.SIZE)(ObjectPixel.empty)
+    assertEquals(state.objectFifo.dequeue(sink), Tile.SIZE)
+    sink.foreach(pixel => assertEquals(pixel.colorIndex, 3.toUByte))
   }
 
   test("PushStep pads the object FIFO out to a full tile") {
@@ -183,7 +216,7 @@ class ObjectFetcherTests extends FunSuite {
     }
   }
 
-  test("4-step GetTile -> Push") {
+  test("3-cycle GetTile -> Push") {
     val state = makeState(ly = 0)
     val cycleData = Seq(
       CycleData(UByte(0xAA), UByte(0x55), Seq(1, 2, 1, 2, 1, 2, 1, 2)),
@@ -215,21 +248,36 @@ class ObjectFetcherTests extends FunSuite {
     state.objectFetcher.startFetch(4)
     assertEquals(state.objectFetcher.isFetching, true)
     assertEquals(state.objectFetcher.step, ObjectFetcher.GetTileStep)
-    assertEquals(state.objectFetcher.objectIndex, 4)
+    assertEquals(state.objectFetcher.fetchingObjectIndex, 4)
     assertEquals(state.objectFetcher.dot, 0)
+  }
+
+  test("cancel abandons the fetch without rewinding the sequence") {
+    val state = makeState()
+    state.objectFetcher.startFetch(2)
+    state.objectFetcher.step = ObjectFetcher.PushStep
+    state.objectFetcher.dot = 1
+
+    state.objectFetcher.cancel()
+
+    assertEquals(state.objectFetcher.isFetching, false)
+    assertEquals(state.objectFetcher.step, ObjectFetcher.PushStep)
+    assertEquals(state.objectFetcher.dot, 1)
   }
 
   test("reset clears all state") {
     val state = makeState()
     state.objectFetcher.startFetch(7)
     state.objectFetcher.dot = 1
+    state.objectFetcher.scanlineObjectIndex = 3
 
     state.objectFetcher.reset()
 
     assertEquals(state.objectFetcher.isFetching, false)
     assertEquals(state.objectFetcher.step, ObjectFetcher.GetTileStep)
-    assertEquals(state.objectFetcher.objectIndex, 0)
+    assertEquals(state.objectFetcher.fetchingObjectIndex, 0)
     assertEquals(state.objectFetcher.dot, 0)
+    assertEquals(state.objectFetcher.scanlineObjectIndex, 0)
   }
 }
 

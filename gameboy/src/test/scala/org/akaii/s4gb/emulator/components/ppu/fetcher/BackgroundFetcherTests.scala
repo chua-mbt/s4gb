@@ -22,6 +22,21 @@ class BackgroundFetcherTests extends FunSuite {
     assertEquals(state.backgroundFetcher.tile.tileDataAddress, 86)
   }
 
+  test("GetTileStep resolves from the window tile map when the window is active") {
+    val state = makeState(ly = 0)
+    // windowRowsRendered 16 puts the window at tile row 2, the background stays at row 0.
+    placeTile(state, tileNumber = 7, x = 0, y = 2)
+    placeTile(state, tileNumber = 3, x = 0, y = 0)
+    state.backgroundFetcher.windowRowsRendered = 16
+    state.backgroundFetcher.windowActive = true
+    state.backgroundFetcher.step = BackgroundFetcher.GetTileStep
+
+    val (next, _) = tickBackgroundUntilStepChange(state)
+
+    assertEquals(next, BackgroundFetcher.GetTileDataLowStep)
+    assertEquals(state.backgroundFetcher.tile.tileNumber, 7)
+  }
+
   test("GetTileDataLowStep reads low byte, transitions to GetTileDataHighStep") {
     val state = makeState(ly = 0)
     val expectedTileDataLow = UByte(0xAB)
@@ -114,37 +129,102 @@ class BackgroundFetcherTests extends FunSuite {
     assertEquals(state.backgroundFifo.size, 0)
   }
 
-  test("windowActive is false when windowEnable is false") {
+  test("window does not start when windowEnable is false") {
     val state = makeState(windowEnable = false, wy = 0, ly = 0, wx = 7)
-    state.backgroundFetcher.fetcherX = 0
-    state.backgroundFetcher.step = BackgroundFetcher.GetTileStep
-    tickBackgroundUntilStepChange(state)
+    state.backgroundFetcher.startWindow(state)
     assertEquals(state.backgroundFetcher.windowActive, false)
   }
 
-  test("windowActive is false when WY > LY") {
+  test("window does not start when WY is below LY") {
     val state = makeState(windowEnable = true, wy = 5, ly = 3, wx = 7)
-    state.backgroundFetcher.fetcherX = 0
-    state.backgroundFetcher.step = BackgroundFetcher.GetTileStep
-    tickBackgroundUntilStepChange(state)
+    state.backgroundFetcher.startWindow(state)
     assertEquals(state.backgroundFetcher.windowActive, false)
   }
 
-  test("windowActive is false when fetcherX * 8 < WX - 7") {
+  test("window does not start while the shifter is short of WX - 7") {
     val state = makeState(windowEnable = true, wy = 0, ly = 0, wx = 20)
-    state.backgroundFetcher.fetcherX = 0
-    state.backgroundFetcher.step = BackgroundFetcher.GetTileStep
-    tickBackgroundUntilStepChange(state)
+    state.pixelMixer.shiftPosition = 12
+    state.backgroundFetcher.startWindow(state)
     assertEquals(state.backgroundFetcher.windowActive, false)
   }
 
-  test("windowActive is true when all conditions met") {
-    val state = makeState(windowEnable = true, wy = 0, ly = 0, wx = 7)
-    placeTile(state, tileNumber = 0)
-    state.backgroundFetcher.fetcherX = 0
-    state.backgroundFetcher.step = BackgroundFetcher.GetTileStep
-    tickBackgroundUntilStepChange(state)
+  test("window does not start when the background is disabled") {
+    val state = makeState(windowEnable = true, wy = 0, ly = 0, wx = 7, bgEnable = false)
+    state.backgroundFetcher.startWindow(state)
+    assertEquals(state.backgroundFetcher.windowActive, false)
+  }
+
+  test("window starts once the shifter reaches WX - 7") {
+    val state = makeState(windowEnable = true, wy = 0, ly = 0, wx = 20)
+    state.pixelMixer.shiftPosition = 13
+    state.backgroundFetcher.startWindow(state)
     assertEquals(state.backgroundFetcher.windowActive, true)
+  }
+
+  test("window starts immediately when WX is 0") {
+    val state = makeState(windowEnable = true, wy = 0, ly = 0, wx = 0)
+    state.backgroundFetcher.startWindow(state)
+    assertEquals(state.backgroundFetcher.windowActive, true)
+  }
+
+  test("starting the window rewinds the fetch sequence onto the window's left tile") {
+    val state = makeState(windowEnable = true, wy = 0, ly = 0, wx = 20)
+    state.pixelMixer.shiftPosition = 13
+    state.backgroundFetcher.step = BackgroundFetcher.PushStep
+    state.backgroundFetcher.dot = 1
+    state.backgroundFetcher.fetcherX = 4
+
+    state.backgroundFetcher.startWindow(state)
+
+    assertEquals(state.backgroundFetcher.step, BackgroundFetcher.GetTileStep)
+    assertEquals(state.backgroundFetcher.dot, 0)
+    assertEquals(state.backgroundFetcher.fetcherX, 0)
+  }
+
+  test("window stays on for the rest of the scanline once started") {
+    val state = makeState(windowEnable = true, wy = 0, ly = 0, wx = 7)
+    state.backgroundFetcher.windowActive = true
+    state.backgroundFetcher.step = BackgroundFetcher.PushStep
+    state.backgroundFetcher.dot = 1
+    state.backgroundFetcher.fetcherX = 4
+    state.backgroundFetcher.startWindow(state)
+    assertEquals(state.backgroundFetcher.windowActive, true)
+    assertEquals(state.backgroundFetcher.step, BackgroundFetcher.PushStep)
+    assertEquals(state.backgroundFetcher.dot, 1)
+    assertEquals(state.backgroundFetcher.fetcherX, 4)
+  }
+
+  test("restartForObjectFetch rewinds the fetch sequence but keeps the position in the tile map") {
+    val state = makeState(ly = 0)
+    state.backgroundFetcher.step = BackgroundFetcher.PushStep
+    state.backgroundFetcher.dot = 1
+    state.backgroundFetcher.fetcherX = 3
+    state.backgroundFetcher.windowActive = true
+
+    state.backgroundFetcher.restartForObjectFetch()
+
+    assertEquals(state.backgroundFetcher.step, BackgroundFetcher.GetTileStep)
+    assertEquals(state.backgroundFetcher.dot, 0)
+    assertEquals(state.backgroundFetcher.fetcherX, 3)
+    assertEquals(state.backgroundFetcher.windowActive, true)
+  }
+
+  test("beginScanline advances the window row when visible and clears the fetch sequence") {
+    val visible = makeState(ly = 0)
+    visible.backgroundFetcher.windowActive = true
+    visible.backgroundFetcher.step = BackgroundFetcher.PushStep
+    visible.backgroundFetcher.dot = 1
+    visible.backgroundFetcher.fetcherX = 4
+    visible.backgroundFetcher.beginScanline()
+    assertEquals(visible.backgroundFetcher.windowRowsRendered, 1)
+    assertEquals(visible.backgroundFetcher.step, BackgroundFetcher.GetTileStep)
+    assertEquals(visible.backgroundFetcher.dot, 0)
+    assertEquals(visible.backgroundFetcher.fetcherX, 0)
+
+    val hidden = makeState(ly = 0)
+    hidden.backgroundFetcher.windowActive = false
+    hidden.backgroundFetcher.beginScanline()
+    assertEquals(hidden.backgroundFetcher.windowRowsRendered, 0)
   }
 
   test("reset clears all state") {

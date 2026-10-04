@@ -56,8 +56,7 @@ class Tile {
    */
   def resolveFromOam(state: Ppu.State, obj: GameboyObject): Unit = {
     val tall = state.lcdControl.objSize
-    val height = if (tall) LcdControl.SPRITE_HEIGHT_16PX else Tile.SIZE
-    val lineInObject = obj.lineForScreenRow(state.ly.toInt, height)
+    val lineInObject = obj.lineForScreenRow(state.ly.toInt, state.lcdControl.objectHeight)
     tilemapBase = 0
     tileNumber = obj.tileNumberFor(lineInObject, tall)
     tileDataAddress = computeTileDataAddress(tileNumber, lineInObject % Tile.SIZE, unsignedMode = true)
@@ -67,21 +66,21 @@ class Tile {
    * Wrapping the visible area of the background
    * @see [[https://gbdev.io/pandocs/Tile_Maps.html#background-bg]]
    */
-  @inline private def wrap(v: Int): Int =
+  private def wrap(v: Int): Int =
     v & Tile.TILEMAP_DIMENSION_MASK
 
   /**
    * Index computation based on current values
    * @see [[https://gbdev.io/pandocs/Tile_Maps.html#tile-indexes]]
    */
-  @inline private def tilemapIndex(x: Int, y: Int): Int =
+  private def tilemapIndex(x: Int, y: Int): Int =
     tilemapBase + (y * Tile.TILES_PER_ROW + x)
 
   /**
    * Tile number signed/unsigned addressing
    * @see [[https://gbdev.io/pandocs/Tile_Data.html]]
    */
-  @inline private def computeTileDataAddress(tileNumber: Int, rowOffset: Int, unsignedMode: Boolean): Int = {
+  private def computeTileDataAddress(tileNumber: Int, rowOffset: Int, unsignedMode: Boolean): Int = {
     val bytesPerRow = Tile.BYTES_PER_ROW
     val rowBytes = Tile.SIZE * bytesPerRow
     if (unsignedMode) {

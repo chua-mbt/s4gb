@@ -4,29 +4,60 @@ import org.akaii.s4gb.extensions.byteops.*
 import spire.math.UByte
 
 /**
- * Pixel Mixing Logic
+ * Pixel Mixing Logic. Controls pixel shifting, so it also owns the tracking for how far
+ * along the line to shift.
  *
- * @see [[https://gbdev.io/pandocs/pixel_fifo.html]]
- * @see [[https://gbdev.io/pandocs/Rendering.html#pixel-rendering]]
+ * @param backgroundPixel Reused holder the background FIFO pops into.
+ * @param objectPixel Reused holder the object FIFO pops into.
+ * @param shiftPosition Shifter position, counting the pixels the fine scroll drops.
+ * @param fineScroll Fine scroll offset locked from SCX at the scanline start, `SCX % 8`.
+ *
+ * @see [[https://gbdev.io/pandocs/pixel_fifo.html#pixel-rendering]]
+ * @see [[https://gbdev.io/pandocs/pixel_fifo.html#pushing-pixels-to-the-lcd]]
+ * @see [[https://gbdev.io/pandocs/Rendering.html#obj-penalty-algorithm]]
+ * @see [[https://github.com/Ashiepaws/GBEDG/blob/master/ppu/index.md#scx-at-a-sub-tile-layer]]
  */
 case class PixelMixer(
   backgroundPixel: BackgroundPixel = BackgroundPixel.empty,
-  objectPixel: ObjectPixel = ObjectPixel.empty
+  objectPixel: ObjectPixel = ObjectPixel.empty,
+  var shiftPosition: Int = 0,
+  private var fineScroll: Int = 0
 ) {
 
+  /** Pixels emitted this scanline, also the output x. The fine scroll drops the first
+   * `fineScroll` positions, so this lags [[shiftPosition]] by that much until they meet.
+   * @see [[https://gbdev.io/pandocs/pixel_fifo.html#pushing-pixels-to-the-lcd]] */
+  def renderedPixels: Int = math.max(0, shiftPosition - fineScroll)
+
   /**
-   * Only pop when there's a pixel in both queues.
+   * Resets the counters for a new scanline, taking the fine scroll from SCX.
+   *
+   * @see [[https://gbdev.io/pandocs/Scrolling.html#mid-frame-behavior]]
+   */
+  def beginScanline(state: Ppu.State): Unit = {
+    shiftPosition = 0
+    fineScroll = state.registers(Ppu.Address.SCX).toInt % Tile.SIZE
+  }
+
+  /**
+   * The background FIFO is the gate: an empty object FIFO contributes a
+   * transparent pixel rather than stalling the line.
+   *
+   * @see [[https://gbdev.io/pandocs/pixel_fifo.html#pixel-rendering]]
    */
   def tick(state: Ppu.State, emitter: PixelEmitter): Unit = {
-    // Stop processing if we have reached the end of the scanline
-    if (state.scanlineDot.current >= 160) return
+    if (renderedPixels >= Ppu.VISIBLE_WIDTH) return
 
-    // Both queues are synchronized
-    if (!state.backgroundFifo.isEmpty && !state.objectFifo.isEmpty) {
-      state.backgroundFifo.pop(backgroundPixel)
-      state.objectFifo.pop(objectPixel)
-      mixAndEmit(state, emitter)
+    if (!state.backgroundFifo.pop(backgroundPixel)) return
+    if (!state.objectFifo.pop(objectPixel)) objectPixel.colorIndex = ObjectPixel.transparentColor
+
+    if (shiftPosition < fineScroll) {
+      shiftPosition += 1
+      return
     }
+
+    mixAndEmit(state, emitter)
+    shiftPosition += 1
   }
 
   /**
@@ -37,7 +68,7 @@ case class PixelMixer(
    * @see [[https://gbdev.io/pandocs/LCDC.html#lcdc1--obj-enable]]
    * @see [[https://gbdev.io/pandocs/OAM.html#drawing-priority]]
    */
-  @inline private def mixAndEmit(
+  private def mixAndEmit(
     state: Ppu.State,
     emitter: PixelEmitter
   ): Unit = {
@@ -61,6 +92,6 @@ case class PixelMixer(
 
     val color = Pixel.resolvePixelColor(colorIndex, palette)
 
-    emitter.emit(state.scanlineDot.current, state.ly.toInt, color)
+    emitter.emit(renderedPixels, state.ly.toInt, color)
   }
 }

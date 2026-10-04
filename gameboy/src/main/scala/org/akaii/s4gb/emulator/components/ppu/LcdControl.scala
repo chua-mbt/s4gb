@@ -1,6 +1,5 @@
 package org.akaii.s4gb.emulator.components.ppu
 
-import org.akaii.s4gb.extensions.byteops.toUByte
 import spire.math.UByte
 
 /**
@@ -62,6 +61,14 @@ case class LcdControl(
     objEnable = (b & LcdControl.Masks.OBJ_ENABLE.toInt) != 0
     bgEnable = (b & LcdControl.Masks.BG_ENABLE.toInt) != 0
   }
+
+  /**
+   * Height in pixels of every object, from LCDC.2.
+   *
+   * @see [[https://gbdev.io/pandocs/LCDC.html#lcdc2--obj-size]]
+   */
+  def objectHeight: Int =
+    if (objSize) LcdControl.OBJECT_HEIGHT_16PX else LcdControl.OBJECT_HEIGHT_8PX
 }
 
 object LcdControl {
@@ -77,10 +84,6 @@ object LcdControl {
     val BG_ENABLE: UByte = UByte(0x01)
   }
 
-  private val SPRITE_SIZE_BIT: UByte = 0x04.toUByte
-  private val SPRITE_HEIGHT_8PX: Int = 8
-  private[ppu] val SPRITE_HEIGHT_16PX: Int = 16
-
-  def spriteHeight(lcdc: UByte): Int =
-    if ((lcdc & SPRITE_SIZE_BIT) == 0.toUByte) SPRITE_HEIGHT_8PX else SPRITE_HEIGHT_16PX
+  private val OBJECT_HEIGHT_8PX: Int = 8
+  private val OBJECT_HEIGHT_16PX: Int = 16
 }

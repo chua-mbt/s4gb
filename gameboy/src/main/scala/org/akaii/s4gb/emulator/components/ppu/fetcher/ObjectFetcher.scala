@@ -11,25 +11,45 @@ import spire.math.UByte
  */
 object ObjectFetcher {
 
+  /**
+   * Object fetch state: the step in the 8-dot fetch sequence, the reused decoded row,
+   * and the cursors naming the object in flight and the next one due.
+   *
+   * @param fetchingObjectIndex Object index the in-flight fetch is reading.
+   * @param scanlineObjectIndex Cursor into the sorted scanline objects.
+   * @see [[https://gbdev.io/pandocs/Rendering.html#obj-penalty-algorithm]]
+   */
   case class State(
-    var step: PixelFetcher.Step = ObjectFetcher.GetTileStep,
     pixels: Array[ObjectPixel] = Array.fill(Tile.SIZE)(ObjectPixel.empty),
+    var step: PixelFetcher.Step = ObjectFetcher.GetTileStep,
     private[fetcher] var dot: Int = 0,
-    private[fetcher] var objectIndex: Int = 0,
-    private[fetcher] var isFetching: Boolean = false,
+    private[fetcher] var fetchingObjectIndex: Int = 0,
+    private[ppu] var isFetching: Boolean = false,
+    private[ppu] var scanlineObjectIndex: Int = 0,
     override private[fetcher] val tile: Tile = Tile(),
   ) extends PixelFetcher.State {
-    def startFetch(objectIndex: Int): Unit = {
-      this.objectIndex = objectIndex
+
+    def startFetch(index: Int): Unit = {
+      this.fetchingObjectIndex = index
       this.dot = 0
       step = ObjectFetcher.GetTileStep
       isFetching = true
     }
 
+    /**
+     * A cancelled fetch never reaches the FIFO, so its row is discarded.
+     *
+     * @see [[https://gbdev.io/pandocs/pixel_fifo.html#object-fetch-canceling]]
+     */
+    def cancel(): Unit = isFetching = false
+
+    def beginScanline(): Unit = reset()
+
     override private[fetcher] def reset(): Unit = {
       step = ObjectFetcher.GetTileStep
       dot = 0
-      objectIndex = 0
+      fetchingObjectIndex = 0
+      scanlineObjectIndex = 0
       isFetching = false
     }
   }
@@ -48,7 +68,7 @@ object ObjectFetcher {
   case object GetTileStep extends TwoDotStep {
     override def finalTick(ppuState: Ppu.State): Step = {
       val fetcher = ppuState.objectFetcher
-      fetcher.tile.resolveFromOam(ppuState, ppuState.scanlineObjects(fetcher.objectIndex))
+      fetcher.tile.resolveFromOam(ppuState, ppuState.scanlineObjects(fetcher.fetchingObjectIndex))
       GetTileDataLowStep
     }
   }
@@ -88,32 +108,36 @@ object ObjectFetcher {
 
     override protected def stepTick(ppuState: Ppu.State, fetcher: PixelFetcher.State): Step = {
       val objectFetcher = ppuState.objectFetcher
-      decodeRow(objectFetcher, ppuState.scanlineObjects(objectFetcher.objectIndex))
-      mergeIntoFifo(ppuState, objectFetcher)
+      val obj = ppuState.scanlineObjects(objectFetcher.fetchingObjectIndex)
+      writePixelsFromOamRow(objectFetcher, obj)
+      mergeIntoFifo(ppuState, objectFetcher, objectPixelForFifo(obj, ppuState))
       objectFetcher.isFetching = false
       GetTileStep
     }
 
     /**
-     * Decode the tile row into object pixels, applying horizontal flip.
+     * Which of the object's 8 pixels is due, `shiftPosition - leftEdge`, clamped at 0 so
+     * an object off the left edge drops its whole row.
      *
-     * Pixels that land left of screen x=0 are left transparent so the merge
-     * skips them, which is how an object with an OAM X below 8 is clipped.
+     * @see [[https://github.com/Ashiepaws/GBEDG/blob/master/ppu/index.md#sprite-fetching]]
+     */
+    private def objectPixelForFifo(obj: GameboyObject, state: Ppu.State): Int =
+      math.max(0, state.pixelMixer.shiftPosition - obj.leftEdge)
+
+    /**
+     * Decode the tile row into object pixels, applying horizontal flip.
      *
      * @see [[https://gbdev.io/pandocs/OAM.html#byte-1--x-position]]
      * @see [[https://gbdev.io/pandocs/OAM.html#byte-3--attributesflags]]
      */
-    @inline private def decodeRow(fetcher: ObjectFetcher.State, obj: GameboyObject): Unit = {
+    private def writePixelsFromOamRow(fetcher: ObjectFetcher.State, obj: GameboyObject): Unit = {
       val low = fetcher.tile.tileDataLow.toInt
       val high = fetcher.tile.tileDataHigh.toInt
-      val clipped = math.max(0, Tile.SIZE - obj.x.toInt)
       var i = 0
       while (i < Tile.SIZE) {
         val bit = if (obj.xFlipped) i else Tile.SIZE - 1 - i
         val pixel = fetcher.pixels(i)
-        pixel.colorIndex =
-          if (i < clipped) ObjectPixel.transparentColor
-          else ((((high >> bit) & 1) << 1) | ((low >> bit) & 1)).toUByte
+        pixel.colorIndex = ((((high >> bit) & 1) << 1) | ((low >> bit) & 1)).toUByte
         pixel.usePalette0 = obj.usePalette0
         pixel.backgroundPriority = obj.backgroundPriority
         i += 1
@@ -121,20 +145,23 @@ object ObjectFetcher {
     }
 
     /**
-     * Merge the decoded row into the first eight slots of the object FIFO.
+     * Merge the decoded row into the object FIFO, offset by [[objectPixelForFifo]] and
+     * padded to a full tile. An opaque pixel from an earlier object is left alone, so
+     * the object fetched first wins the overlap.
      *
-     * The FIFO is padded out to a full tile of transparent pixels first so that
-     * the slots always exist, and an opaque pixel already held there by an
-     * earlier object is never overwritten. The object fetched first therefore
-     * wins any overlap, and the padding is what makes the FIFO usable by the
-     * mixer when no object pixel lands on a given column.
-     *
+     * @see [[https://gbdev.io/pandocs/OAM.html#drawing-priority]]
      * @see [[https://github.com/Ashiepaws/GBEDG/blob/master/ppu/index.md#sprite-fetching]]
      */
-    @inline private def mergeIntoFifo(state: Ppu.State, fetcher: ObjectFetcher.State): Unit =
-      state.objectFifo.fillFromHead { (current, occupied, offset) =>
+    private def mergeIntoFifo(
+      state: Ppu.State,
+      fetcher: ObjectFetcher.State,
+      objectPixelForFifo: Int
+    ): Unit =
+      state.objectFifo.fillFromHead { (current, occupied, slot) =>
+        val objectPixelIndex = slot + objectPixelForFifo
         if (occupied && current.isOpaque) current
-        else fetcher.pixels(offset)
+        else if (objectPixelIndex < Tile.SIZE) fetcher.pixels(objectPixelIndex)
+        else ObjectPixel.empty
       }
   }
 }

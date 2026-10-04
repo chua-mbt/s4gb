@@ -27,6 +27,16 @@ sealed abstract class PpuMode(val statValue: UByte, val canAccessVram: Boolean, 
     if (lStatInterrupt) interrupts.request(Interrupts.Source.LCDStat)
     target
   }
+
+  /**
+   * Scans here so object zero is read on the first dot of mode 2.
+   *
+   * @see [[https://gbdev.io/pandocs/Rendering.html#obj-penalty-algorithm]]
+   */
+  protected def beginOamScan(state: Ppu.State, interrupts: Interrupts): PpuMode = {
+    OamScanner.scan(state)
+    interruptsAndTransition(PpuMode.OamScan, state, interrupts)
+  }
 }
 
 object PpuMode {
@@ -40,7 +50,7 @@ object PpuMode {
         case VBLANK_START_LY if state.scanlineDot.isBoundary =>
           interruptsAndTransition(VerticalBlank, state, interrupts)
         case _ if state.scanlineDot.isBoundary =>
-          interruptsAndTransition(OamScan, state, interrupts)
+          beginOamScan(state, interrupts)
         case _ =>
           HorizontalBlank
       }
@@ -50,48 +60,88 @@ object PpuMode {
     override def tick(state: Ppu.State, interrupts: Interrupts): PpuMode =
       state.ly match {
         case FRAME_WRAP_LY if state.scanlineDot.isBoundary =>
-          interruptsAndTransition(OamScan, state, interrupts)
+          beginOamScan(state, interrupts)
         case _ =>
           VerticalBlank
       }
   }
 
   case object OamScan extends PpuMode(UByte(0x02), canAccessVram = true, canAccessOam = false) {
-    val END_DOT: Int = 79
-    val TOTAL_DOTS: Int = END_DOT + 1 // 80
+    val TOTAL_DOTS: Int = 80
 
     override def tick(state: Ppu.State, interrupts: Interrupts): PpuMode = {
-      if (state.scanlineDot.current > END_DOT) {
+      if (state.scanlineDot.current >= TOTAL_DOTS) {
+        OamScanner.sortByDrawingPriority(state)
+        beginMode3(state)
         interruptsAndTransition(Draw, state, interrupts)
       } else {
         OamScanner.scan(state)
         OamScan
       }
     }
+
+    /**
+     * Both FIFOs are cleared at the start of mode 3.
+     *
+     * @see [[https://gbdev.io/pandocs/pixel_fifo.html#mode-3-operation]]
+     */
+    private def beginMode3(state: Ppu.State): Unit = {
+      state.backgroundFetcher.beginScanline()
+      state.objectFetcher.beginScanline()
+      state.resetFifos()
+      state.pixelMixer.beginScanline(state)
+    }
   }
 
   case object Draw extends PpuMode(UByte(0x03), canAccessVram = false, canAccessOam = false) {
     override def tick(state: Ppu.State, interrupts: Interrupts): PpuMode = {
-      /*// 1. Check for Sprite Fetch Stall
-      if (state.spriteFetcher.isStalled) {
-        state.spriteFetcher.tick(state)
-      } else if (state.spriteFetcher.shouldStall(state.lcdX)) {
-        state.spriteFetcher.startFetch(state, state.lcdX)
-      } else {*/
-        // 2. Step the Background / Window Fetcher (if not stalled by sprite)
+      val renderPixel = advanceFetch(state)
+      if (renderPixel) state.pixelMixer.tick(state, state.emitter)
+
+      val scanlineCompleted = state.pixelMixer.renderedPixels >= Ppu.VISIBLE_WIDTH
+      if (scanlineCompleted) interruptsAndTransition(HorizontalBlank, state, interrupts)
+      else this
+    }
+
+    /**
+     * An object fetch owns the dot: the background fetcher is reset and paused, and no
+     * pixel is rendered while it runs.
+     *
+     * @see [[https://github.com/Ashiepaws/GBEDG/blob/master/ppu/index.md#sprite-fetching]]
+     */
+    private def advanceFetch(state: Ppu.State): Boolean = {
+      val fetcher = state.objectFetcher
+      if (fetcher.isFetching) {
+        if (state.lcdControl.objEnable) fetcher.step.tick(state)
+        else fetcher.cancel()
+        false
+      } else if (objectFetchReady(state)) {
+        fetcher.startFetch(fetcher.scanlineObjectIndex)
+        fetcher.scanlineObjectIndex += 1
+        state.backgroundFetcher.restartForObjectFetch()
+        false
+      } else {
+        state.backgroundFetcher.startWindow(state)
         state.backgroundFetcher.step.tick(state)
-      //}
+        true
+      }
+    }
 
-      // 3. Attempt to Pop & Mix Pixels to Display Buffer
-      //state.fifo.tryPopPixel(state)
-
-      // 4. Transition to HBlank once all 160 visible pixels are pushed
-      /*if (state.renderedPixelsThisLine >= 160) {
-        state.renderedPixelsThisLine = 0
-        HBlank
-      } else {*/
-        this
-      //}
+    /**
+     * Whether the next object is due on this scanline. Objects come due left to right,
+     * so the buffer having been put into draw order makes the first one not yet passed
+     * the rule for the rest.
+     *
+     * @see [[https://github.com/Ashiepaws/GBEDG/blob/master/ppu/index.md#sprite-fetching]]
+     */
+    private def objectFetchReady(state: Ppu.State): Boolean = {
+      val fetcher = state.objectFetcher
+      state.lcdControl.objEnable &&
+        GameboyObject.isObjectAtIndexReady(
+          state.scanlineObjects,
+          fetcher.scanlineObjectIndex,
+          state.pixelMixer.shiftPosition
+        )
     }
   }
 }

@@ -5,7 +5,7 @@ import spire.math.{UByte, UShort}
 
 import scala.collection.mutable
 
-trait PixelFetcherFixtures {
+trait PixelFetcherFixtures extends TestEmitters {
 
   def makeState(
     scx: Int = 0,
@@ -13,6 +13,7 @@ trait PixelFetcherFixtures {
     ly: Int = 0,
     wx: Int = 7,
     wy: Int = 0,
+    bgEnable: Boolean = true,
     bgWindowTileData: Boolean = true,
     bgTileMap: Boolean = false,
     windowTileMap: Boolean = false,
@@ -27,6 +28,7 @@ trait PixelFetcherFixtures {
       Ppu.Address.WY -> UByte(wy),
     )
     val lcdc = LcdControl(
+      bgEnable = bgEnable,
       bgWindowTileData = bgWindowTileData,
       bgTileMap = bgTileMap,
       windowTileMap = windowTileMap,
@@ -34,6 +36,7 @@ trait PixelFetcherFixtures {
       objSize = objSize,
     )
     val state = Ppu.State(
+      emitter = nullEmitter,
       vram = vram,
       registers = registers,
       lcdControl = lcdc,

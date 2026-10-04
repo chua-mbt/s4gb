@@ -37,6 +37,7 @@ class Ppu(interrupts: Interrupts, vram: Array[UByte], oam: Array[UByte], emitter
     oam = oam.clone(),
     vram = vram.clone(),
     registers = registers,
+    emitter = emitter
   )
 
   /**
@@ -114,13 +115,13 @@ class Ppu(interrupts: Interrupts, vram: Array[UByte], oam: Array[UByte], emitter
     state.updateLycEqualsLy(interrupts)
   }
 
-  @inline private def isVram(address: UShort): Boolean = address >= VRAM.START && address <= VRAM.END
+  private def isVram(address: UShort): Boolean = address >= VRAM.START && address <= VRAM.END
 
-  @inline private def isOam(address: UShort): Boolean = address >= OAM.START && address <= OAM.END
+  private def isOam(address: UShort): Boolean = address >= OAM.START && address <= OAM.END
 
-  @inline private def vramIndex(address: UShort): Int = address.toInt - VRAM.START.toInt
+  private def vramIndex(address: UShort): Int = address.toInt - VRAM.START.toInt
 
-  @inline private def oamIndex(address: UShort): Int = address.toInt - OAM.START.toInt
+  private def oamIndex(address: UShort): Int = address.toInt - OAM.START.toInt
 }
 
 object Ppu {
@@ -133,6 +134,7 @@ object Ppu {
   ): Ppu = new Ppu(interrupts, vram, oam, emitter)
 
   case class State(
+    emitter: PixelEmitter,
     oam: Array[UByte] = Array.empty,
     vram: Array[UByte] = Array.empty,
     registers: mutable.Map[UShort, UByte] = mutable.Map.empty,
@@ -268,6 +270,8 @@ object Ppu {
   val OAM_SIZE: Int = (Address.OAM.END - Address.OAM.START + 1.toUShort).toInt
   val SCANLINES_PER_FRAME: UByte = UByte(154)
   val TOTAL_VBLANK_SCANLINES: Int = (SCANLINES_PER_FRAME - PpuMode.VBLANK_START_LY).toInt // 10
+  val VISIBLE_WIDTH: Int = 160
+  val VISIBLE_HEIGHT: Int = PpuMode.VBLANK_START_LY.toInt
   /**
    * Pan Docs says 16, but neither FIFO ever holds more than 8 pixels.
    *

@@ -18,20 +18,11 @@ class GameboyObjectTests extends FunSuite {
     assertEquals(GameboyObject(attributes = UByte(0x10)).usePalette0, false)
   }
 
-  test("attribute accessors all read as set when byte 3 is $F0") {
-    val obj = GameboyObject(attributes = UByte(0xF0))
-
-    assertEquals(obj.backgroundPriority, true)
-    assertEquals(obj.yFlipped, true)
-    assertEquals(obj.xFlipped, true)
-    assertEquals(obj.usePalette0, false)
-  }
-
-  test("topScreenRow removes the 16 pixel OAM bias") {
-    assertEquals(GameboyObject.topScreenRow(0), -16)
-    assertEquals(GameboyObject.topScreenRow(16), 0)
-    assertEquals(GameboyObject.topScreenRow(30), 14)
-    assertEquals(GameboyObject.topScreenRow(152), 136)
+  test("topEdge removes the 16 pixel OAM bias") {
+    assertEquals(GameboyObject.topEdge(0), -16)
+    assertEquals(GameboyObject.topEdge(16), 0)
+    assertEquals(GameboyObject.topEdge(30), 14)
+    assertEquals(GameboyObject.topEdge(152), 136)
   }
 
   test("lineForScreenRow translates a screen row into object space") {
@@ -99,5 +90,28 @@ class GameboyObjectTests extends FunSuite {
     assertEquals(obj.notInUse, true)
     assertEquals(obj.y, UByte(10))
     assertEquals(obj.x, UByte(20))
+  }
+
+  test("readyToFetch is true once the current pixel reaches the object's left edge") {
+    val obj = GameboyObject(x = UByte(16), used = true) // left edge at screen x 8
+
+    assertEquals(obj.readyToFetch(pixelX = 7), false)
+    assertEquals(obj.readyToFetch(pixelX = 8), true)
+    assertEquals(obj.readyToFetch(pixelX = 100), true)
+  }
+
+  test("readyToFetch is false for an unused scanline slot") {
+    val obj = GameboyObject(x = UByte(16))
+
+    assertEquals(obj.readyToFetch(pixelX = 8), false)
+  }
+
+  test("isObjectAtIndexReady on the scanline buffer asks the object at the tracked index") {
+    val objects = Array(GameboyObject(x = UByte(16), used = true), GameboyObject.empty)
+
+    assertEquals(GameboyObject.isObjectAtIndexReady(objects, nextIndex = 0, pixelX = 7), false)
+    assertEquals(GameboyObject.isObjectAtIndexReady(objects, nextIndex = 0, pixelX = 8), true)
+    assertEquals(GameboyObject.isObjectAtIndexReady(objects, nextIndex = 1, pixelX = 8), false)
+    assertEquals(GameboyObject.isObjectAtIndexReady(objects, nextIndex = 2, pixelX = 8), false)
   }
 }

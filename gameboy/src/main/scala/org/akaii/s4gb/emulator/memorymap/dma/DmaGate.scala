@@ -23,6 +23,6 @@ class DmaGate(val state: DmaState, bus: MemoryMap) extends MemoryMap {
   override def write(address: UShort, value: UByte): Unit =
     if (!state.isActive || isHram(address)) bus.write(address, value)
 
-  @inline private def isHram(address: UShort): Boolean =
+  private def isHram(address: UShort): Boolean =
     address >= Hram.Address.HRAM_START && address <= Hram.Address.HRAM_END
 }

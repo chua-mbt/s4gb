@@ -13,7 +13,7 @@ import org.akaii.s4gb.emulator.components.ppu.{Ppu, Tile}
  */
 object PixelFetcher {
 
-  private[fetcher] val TWO_DOT_MAX: Int = 2
+  private[ppu] val TWO_DOT_MAX: Int = 2
 
   trait State {
 

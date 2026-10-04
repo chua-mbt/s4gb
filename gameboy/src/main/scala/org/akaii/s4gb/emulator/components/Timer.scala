@@ -48,14 +48,14 @@ class Timer(val interrupts: Interrupts) extends RegisterMap {
     case other => super.write(other, value)
   }
 
-  @inline private def isTimerEnabled: Boolean = (registers(TAC) & Masks.TAC_ENABLE) != UByte(0)
+  private def isTimerEnabled: Boolean = (registers(TAC) & Masks.TAC_ENABLE) != UByte(0)
 
-  @inline private def atFrequencyBoundary(previous: UShort, current: UShort): Boolean = {
+  private def atFrequencyBoundary(previous: UShort, current: UShort): Boolean = {
     val watchedBit = watchedBitForTAC(registers(TAC))
     ((previous >>> watchedBit) & UShort(1)) == UShort(1) && ((current >>> watchedBit) & UShort(1)) == UShort(0)
   }
 
-  @inline private def incrementTIMA(previous: UShort, current: UShort): Unit =
+  private def incrementTIMA(previous: UShort, current: UShort): Unit =
     if (isTimerEnabled && atFrequencyBoundary(previous, current)) {
       if (registers(TIMA) == UByte(0xFF)) {
         registers(TIMA) = registers(TMA)
@@ -145,7 +145,7 @@ object Timer {
     val for16_384: Int = 7
   }
 
-  @inline private[components] def watchedBitForTAC(tac: UByte): Int = (tac & Masks.TAC_CLOCK_SELECT).toInt match {
+  private[components] def watchedBitForTAC(tac: UByte): Int = (tac & Masks.TAC_CLOCK_SELECT).toInt match {
     case 0x00 => CounterBit.for4096
     case 0x01 => CounterBit.for262_144
     case 0x02 => CounterBit.for65_536
