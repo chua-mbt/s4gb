@@ -1,6 +1,4 @@
-package org.akaii.s4gb.integration.report
-
-import org.akaii.s4gb.integration.results.IntegrationResult
+package org.akaii.s4gb.integration
 
 import java.io.{File, PrintWriter}
 import scala.collection.mutable

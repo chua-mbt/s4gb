@@ -1,6 +1,6 @@
-package org.akaii.s4gb.integration.results
+package org.akaii.s4gb.integration
 
-import org.akaii.s4gb.integration.results.IntegrationResult.Status
+import org.akaii.s4gb.integration.IntegrationResult.Status
 
 /**
  * Outcome of a single ROM run.

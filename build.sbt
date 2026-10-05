@@ -79,8 +79,9 @@ lazy val integrationTests = (project in file("integration-tests"))
       s"-Ds4gb.roms.mooneye=${(baseDirectory.value / ".rom-cache" / "mooneye-test-suite").getPath}",
     ),
     // Tests are forked, so a -D on the sbt command line stays in the sbt JVM.
-    // Forward it explicitly or -DgenerateReport=true silently does nothing.
+    // Forward it explicitly or it silently does nothing.
     Test / javaOptions ++= sys.props.get("generateReport").map(v => s"-DgenerateReport=$v").toSeq,
+    Test / javaOptions ++= sys.props.get("s4gb.mooneye.roms").map(v => s"-Ds4gb.mooneye.roms=$v").toSeq,
     // Forked tests run with the subproject directory as their cwd, so the report
     // directory is passed in absolute rather than resolved against the repo root.
     Test / javaOptions += s"-Ds4gb.reports=${(baseDirectory.value / "target" / "reports").getPath}"
