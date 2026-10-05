@@ -21,3 +21,6 @@ Thumbs.db
 
 # Build
 .bsp
+
+# Fetched test ROM caches
+.rom-cache/

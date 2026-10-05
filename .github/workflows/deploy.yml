@@ -45,7 +45,7 @@ jobs:
       - name: Prepare Pages Artifact
         run: |
           mkdir -p _site
-          cp -r blargg-test/target/reports/* _site/ 2>/dev/null || true
+          cp -r integration-tests/target/reports/* _site/ 2>/dev/null || true
           cp -r opcode-table/target/docs/* _site/ 2>/dev/null || true
           cat > _site/index.html << 'EOF'
           <!DOCTYPE html>
@@ -54,7 +54,7 @@ jobs:
           <body>
             <h1>s4gb Artifacts</h1>
             <ul>
-              <li><a href="report.html">Blargg Test Report</a></li>
+              <li><a href="report.html">Integration Test Report</a></li>
               <li><a href="opcode-table.html">Opcode Table</a></li>
             </ul>
           </body>
