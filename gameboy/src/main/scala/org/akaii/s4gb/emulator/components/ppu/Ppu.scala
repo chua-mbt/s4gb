@@ -78,10 +78,12 @@ class Ppu(interrupts: Interrupts, vram: Array[UByte], oam: Array[UByte], emitter
     if (address == STAT) {
       state.lcdStatus.write(value)
     } else if (address == LCDC) {
+      val wasEnabled = state.lcdControl.lcdEnable
       state.lcdControl.write(value)
+      if (!wasEnabled && state.lcdControl.lcdEnable) state.restartFrame(interrupts)
     } else if (address == LYC) {
       registers(LYC) = value
-      state.updateLycEqualsLy(interrupts)
+      state.updateLycEqualsLy(interrupts, mayRequest = false)
     } else if (address == LY) {
       () // LY is read-only
     } else if (isVram(address)) {
@@ -156,11 +158,37 @@ object Ppu {
       objectFifo.clear()
     }
 
-    def updateLycEqualsLy(interrupts: Interrupts): Unit = {
-      val hit = ly == registers(Ppu.Address.LYC)
-      if(hit && lcdStatus.lycSelect) interrupts.request(Interrupts.Source.LCDStat)
-      lcdStatus.lycEqualsLy = hit
+    /**
+     * Puts the PPU back to the top of a frame and restarts the LY=LYC comparison clock.
+     *
+     * Pan Docs says nothing about the LCD on-edge. Mooneye's `stat_lyc_onoff` requires
+     * mode 0 to still read back four dots after it.
+     *
+     * @see [[https://gbdev.io/pandocs/LCDC.html#lcdc7--lcd-enable]]
+     */
+    def restartFrame(interrupts: Interrupts): Unit = {
+      ly = 0.toUByte
+      scanlineDot.current = 0
+      lcdStatus.ppuMode = PpuMode.HorizontalBlank
+      updateLycEqualsLy(interrupts)
     }
+
+    /**
+     * Recomputes the LY=LYC coincidence flag, requesting the STAT interrupt when the
+     * coincidence becomes newly true.
+     *
+     * Pan Docs calls the flag "constantly updated" and says nothing about the LCD being
+     * off. Mooneye's `stat_lyc_onoff` requires it to hold its last value while it is.
+     *
+     * @see [[https://gbdev.io/pandocs/STAT.html#ff41--stat-lcd-status]]
+     */
+    def updateLycEqualsLy(interrupts: Interrupts, mayRequest: Boolean = true): Unit =
+      if (lcdControl.lcdEnable) {
+        val hit = ly == registers(Ppu.Address.LYC)
+        val becameEqual = hit && !lcdStatus.lycEqualsLy
+        if (mayRequest && becameEqual && lcdStatus.lycSelect) interrupts.request(Interrupts.Source.LCDStat)
+        lcdStatus.lycEqualsLy = hit
+      }
   }
 
   object Address {

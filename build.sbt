@@ -53,7 +53,6 @@ lazy val integrationTests = (project in file("integration-tests"))
         log.info("Blargg test ROMs already present")
       }
     },
-    /** Mealybug Tearoom: 31 prebuilt ROMs from a 45KB zip, pinned to a commit SHA. */
     mealybugRoms := RomSources.fetch(
       streams.value.log,
       baseDirectory.value,
@@ -61,7 +60,6 @@ lazy val integrationTests = (project in file("integration-tests"))
       "https://raw.githubusercontent.com/mattcurrie/mealybug-tearoom-tests" +
         "/70e88fb90b59d19dfbb9c3ac36c64105202bb1f4/mealybug-tearoom-tests.zip"
     ),
-    /** Mooneye: 115 prebuilt ROMs from a pinned per-build archive, PPU tests under acceptance/ppu. */
     mooneyeRoms := RomSources.fetch(
       streams.value.log,
       baseDirectory.value,

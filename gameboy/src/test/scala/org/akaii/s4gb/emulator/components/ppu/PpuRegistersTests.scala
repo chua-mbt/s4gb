@@ -52,7 +52,7 @@ class PpuRegistersTests extends FunSuite with TestEmitters {
     assert(lcdStatus.lycEqualsLy)
     assertEquals(lcdStatus.ppuMode, PpuMode.VerticalBlank)
 
-    assertEquals(ppu(Ppu.Address.STAT), 0xF5.toUByte)
+    assertEquals(ppu(Ppu.Address.STAT), 0xFD.toUByte) // 0xFF written, bit 7 unused so still reads set
   }
 
   test("STAT does not modify LYC register") {
@@ -79,7 +79,19 @@ class PpuRegistersTests extends FunSuite with TestEmitters {
 
     ppu.write(Ppu.Address.LYC, UByte(0x42))
     assertEquals(ppu(Ppu.Address.STAT) & LcdStatus.Masks.LYC_EQUALS_LY, LcdStatus.Masks.LYC_EQUALS_LY)
-    assertEquals(interrupts(Interrupts.Address.INTERRUPT_FLAG) & lcdStatMask, lcdStatMask)
+  }
+
+  test("writing LYC to the current LY does not request the coincidence interrupt") {
+    val interrupts = Interrupts()
+    val ppu = Ppu(interrupts, nullEmitter)
+    ppu.initialize()
+    ppu.state.ly = UByte(0x42)
+    val lcdStatMask = UByte(1 << Interrupts.Source.LCDStat.bit)
+
+    ppu.write(Ppu.Address.LYC, UByte(0x42))
+
+    assertEquals(ppu(Ppu.Address.STAT) & LcdStatus.Masks.LYC_EQUALS_LY, LcdStatus.Masks.LYC_EQUALS_LY)
+    assertEquals(interrupts(Interrupts.Address.INTERRUPT_FLAG) & lcdStatMask, UByte(0))
   }
 
   test("STAT mode bits reflect current PPU mode") {

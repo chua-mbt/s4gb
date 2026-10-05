@@ -26,6 +26,12 @@ object MooneyeSuite extends Suite {
   val name = "mooneye"
   val maxCycles = 30000000
 
+  /** ROMs known to pass. Everything else is opt in via `-Ds4gb.mooneye.roms`. */
+val DefaultRoms: List[String] = List(
+    "acceptance/instr/daa.gb",
+    "acceptance/ppu/stat_lyc_onoff.gb",
+  )
+
   private val romRoot: Path = {
     val base = Paths.get(sys.props.getOrElse(ROM_ROOT_PROPERTY, "integration-tests/.rom-cache/mooneye-test-suite"))
     nestedRoot(base)
@@ -35,11 +41,11 @@ object MooneyeSuite extends Suite {
     if (!Files.isDirectory(romRoot)) Left(s"ROMs not found at $romRoot, run: sbt \"integrationTests/mooneyeRoms\"")
     else Right(requested)
 
-  /** Defaults to the one ROM this harness was developed against; override with a comma separated list. */
+  /** Defaults to the ROMs known to pass; override with a comma separated list. */
   private def requested: List[Path] =
     sys.props.get(ROM_LIST_PROPERTY) match {
-      case Some(list) => list.split(",").toList.map(_.trim).filter(_.nonEmpty).map(romRoot.resolve(_))
-      case None => List(romRoot.resolve("acceptance/instr/daa.gb"))
+      case Some(list) => list.split(",").toList.map(_.trim).filter(_.nonEmpty).map(romRoot.resolve)
+      case None => DefaultRoms.map(romRoot.resolve)
     }
 
   /** Cache directory as laid down by RomSources.fetch, which nests Mooneye under its build name. */
@@ -63,7 +69,13 @@ object MooneyeSuite extends Suite {
   def completed(machine: Emulator, io: TestMemoryMap): Boolean = io.serialBytes.size >= VerdictLength
 
   def result(rom: Path, machine: Emulator, io: TestMemoryMap, cycles: Int, elapsedNs: Long): IntegrationResult = {
-    val verdict = io.serialBytes.take(VerdictLength)
+    val all = io.serialBytes
+    val failedAt = all.indexOfSlice(Failed)
+    // A run that never reports a failure is a pass or a timeout, and the verdict is
+    // then whatever the ROM committed to first. Slicing on failedAt would wrap to -1
+    // and read backwards off the end.
+    val verdict = if (failedAt >= 0) all.slice(failedAt, failedAt + VerdictLength) else all.take(VerdictLength)
+    val message = if (failedAt >= 0) all.take(failedAt).map(_.toChar).mkString.trim else ""
     val hexVerdict = verdict.map(b => f"${b & 0xFF}%02X").mkString(" ")
     val ly = machine.ppu(Ppu.Address.LY).toInt
 
@@ -72,7 +84,8 @@ object MooneyeSuite extends Suite {
       else if (verdict == Failed) Status.Fail
       else Status.Timeout
 
-    IntegrationResult(name, rom.getFileName.toString, status, cycles, elapsedNs, f"verdict=[$hexVerdict], LY=0x${ly.toInt}%02X")
+    val detail = f"verdict=[$hexVerdict], LY=0x$ly%02X" + (if (message.isEmpty) "" else s", msg=$message")
+    IntegrationResult(name, rom.getFileName.toString, status, cycles, elapsedNs, detail)
   }
 }
 

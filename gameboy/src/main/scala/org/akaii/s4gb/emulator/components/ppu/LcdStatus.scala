@@ -31,7 +31,7 @@ case class LcdStatus(
   }
 
   def read(lcdEnabled: Boolean): UByte = {
-    var b = 0
+    var b = LcdStatus.Masks.UNUSED.toInt
     if (lycSelect) b |= LcdStatus.Masks.LYC_SELECT.toInt
     if (mode2Select) b |= LcdStatus.Masks.MODE2_SELECT.toInt
     if (mode1Select) b |= LcdStatus.Masks.MODE1_SELECT.toInt
@@ -52,11 +52,13 @@ case class LcdStatus(
 }
 
 object LcdStatus {
+
   object Masks {
-    val LYC_SELECT: UByte = UByte(0x80)
-    val MODE2_SELECT: UByte = UByte(0x40)
-    val MODE1_SELECT: UByte = UByte(0x20)
-    val MODE0_SELECT: UByte = UByte(0x10)
+    val UNUSED: UByte = UByte(0x80)
+    val LYC_SELECT: UByte = UByte(0x40)
+    val MODE2_SELECT: UByte = UByte(0x20)
+    val MODE1_SELECT: UByte = UByte(0x10)
+    val MODE0_SELECT: UByte = UByte(0x08)
     val LYC_EQUALS_LY: UByte = UByte(0x04)
     val PPU_MODE: UByte = UByte(0x03)
     val MODE_MASK: UByte = UByte(0xFC)

@@ -13,7 +13,7 @@ class LcdStatusTests extends FunSuite {
     assertEquals(status.mode0Select, false)
     assertEquals(status.lycEqualsLy, false)
     assertEquals(status.ppuMode, PpuMode.HorizontalBlank)
-    assertEquals(status.read(true), UByte(0x00))
+    assertEquals(status.read(true), UByte(0x80))
   }
 
   test("initialize resets to power-up state") {
@@ -23,25 +23,26 @@ class LcdStatusTests extends FunSuite {
     status.ppuMode = PpuMode.OamScan
 
     status.initialize()
+
     assertEquals(status.lycSelect, true)
     assertEquals(status.mode2Select, false)
     assertEquals(status.mode1Select, false)
     assertEquals(status.mode0Select, false)
     assertEquals(status.lycEqualsLy, true)
     assertEquals(status.ppuMode, PpuMode.VerticalBlank)
-    assertEquals(status.read(true), UByte(0x85))
+    assertEquals(status.read(true), UByte(0xC5))
   }
 
   test("write updates interrupt select bits") {
     val status = LcdStatus()
     status.initialize()
 
-    status.write(UByte(0xF0))
+    status.write(UByte(0x78))
     assertEquals(status.lycSelect, true)
     assertEquals(status.mode2Select, true)
     assertEquals(status.mode1Select, true)
     assertEquals(status.mode0Select, true)
-    assertEquals(status.read(true), UByte(0xF5))
+    assertEquals(status.read(true), UByte(0xFD))
   }
 
   test("write preserves read-only bits") {
@@ -51,8 +52,8 @@ class LcdStatusTests extends FunSuite {
     status.lycEqualsLy = true
     status.ppuMode = PpuMode.OamScan
 
-    status.write(UByte(0x80))
-    assertEquals(status.lycSelect, true)
+    status.write(UByte(0x00))
+    assertEquals(status.lycSelect, false)
     assertEquals(status.mode2Select, false)
     assertEquals(status.mode1Select, false)
     assertEquals(status.mode0Select, false)
@@ -61,26 +62,36 @@ class LcdStatusTests extends FunSuite {
     assertEquals(status.read(true), UByte(0x86))
   }
 
+  test("write ignores the unused bit 7") {
+    val status = LcdStatus()
+    status.initialize()
+
+    status.write(UByte(0x80))
+
+    assertEquals(status.lycSelect, false)
+    assertEquals(status.read(true), UByte(0x85))
+  }
+
   test("read-only bits reflected in read") {
     val status = LcdStatus()
     status.initialize()
 
     status.lycEqualsLy = true
     status.ppuMode = PpuMode.Draw
-    assertEquals(status.read(true), UByte(0x87))
+    assertEquals(status.read(true), UByte(0xC7))
 
     status.ppuMode = PpuMode.VerticalBlank
-    assertEquals(status.read(true), UByte(0x85))
+    assertEquals(status.read(true), UByte(0xC5))
   }
 
   test("round trip write then read") {
     val combinations = Seq(
-      (0x00, 0x05),
-      (0x10, 0x15),
-      (0x20, 0x25),
-      (0x40, 0x45),
-      (0x80, 0x85),
-      (0xF0, 0xF5),
+      (0x00, 0x85),
+      (0x08, 0x8D),
+      (0x10, 0x95),
+      (0x20, 0xA5),
+      (0x40, 0xC5),
+      (0x78, 0xFD),
     )
 
     combinations.foreach { case (writeVal, expectedRead) =>
@@ -114,6 +125,6 @@ class LcdStatusTests extends FunSuite {
     status.initialize()
     status.ppuMode = PpuMode.Draw
 
-    assertEquals(status.read(false), UByte(0x84))  // mode bits forced to 0
+    assertEquals(status.read(false), UByte(0xC4)) // mode bits forced to 0, rest unchanged
   }
 }
