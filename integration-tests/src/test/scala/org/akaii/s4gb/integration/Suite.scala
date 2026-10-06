@@ -2,12 +2,9 @@ package org.akaii.s4gb.integration
 
 import munit.FunSuite
 import org.akaii.s4gb.emulator.{Config, Emulator}
-import org.akaii.s4gb.emulator.components.ppu.Ppu
-import org.akaii.s4gb.emulator.components.{Interrupts, Rom, Timer}
-import org.akaii.s4gb.emulator.cpu.{Cpu, Registers}
-import org.akaii.s4gb.emulator.memorymap.{Dispatcher, MemoryMap}
+import org.akaii.s4gb.emulator.components.Rom
 import org.akaii.s4gb.integration.IntegrationResult.Status
-import spire.math.{UByte, UShort}
+import spire.math.UByte
 
 import java.nio.file.{Files, Path}
 
@@ -34,26 +31,15 @@ trait Suite {
 
 object Suite {
 
-  private val AfterRom: UShort = UShort(0x8000)
-  private val EndOfMemory: UShort = UShort(0xFFFF)
-
   /** Reads a ROM, masking so bytes read as unsigned. */
   def readRom(path: Path): Array[Byte] = Files.readAllBytes(path).map(b => (b & 0xFF).toByte)
 
-  /**
-   * Loads a ROM into a ticking machine. The boot ROM is stood in for by starting the
-   * CPU at `$0100` with the LCD enabled, so ranges are wired up here by hand.
-   */
+  /** Loads a ROM into a ticking machine, starting the CPU at `$0100` in place of the boot ROM. */
   def boot(romData: Array[Byte]): (Emulator, TestMemoryMap) = {
-    val rom = Rom(romData.map(UByte(_)))
     val io = new TestMemoryMap
-    val interrupts = Interrupts()
-    val timer = Timer(interrupts)
-    val ppu = Ppu(interrupts, NoopPixelEmitter)
-    val cpu = Cpu(Cpu.State(Registers(), memory(rom, io, timer, interrupts, ppu), config = Config()))
-    cpu.initialize()
-    ppu.initialize()
-    (Emulator(cpu, ppu, timer), io)
+    val machine = Emulator(Rom(romData.map(UByte(_))), io, NoopPixelEmitter, Config())
+    machine.initialize()
+    (machine, io)
   }
 
   /**
@@ -78,28 +64,8 @@ object Suite {
     loop(0)
   }
 
-  private def memory(
-    rom: Rom,
-    io: TestMemoryMap,
-    timer: Timer,
-    interrupts: Interrupts,
-    ppu: Ppu
-  ): MemoryMap =
-    Dispatcher.withRanges(
-      (Rom.Address.ROM_START, Rom.Address.ROM_END) -> rom,
-      (Ppu.Address.VRAM.START, Ppu.Address.VRAM.END) -> ppu,
-      (Ppu.Address.OAM.START, Ppu.Address.OAM.END) -> ppu,
-      (Ppu.Address.LCDC, Ppu.Address.LYC) -> ppu,
-      (Ppu.Address.BGP, Ppu.Address.WX) -> ppu,
-      (Timer.Address.TIMER_START, Timer.Address.TIMER_END) -> timer,
-      (Interrupts.Address.INTERRUPT_FLAG, Interrupts.Address.INTERRUPT_FLAG) -> interrupts,
-      (Interrupts.Address.INTERRUPT_ENABLE, Interrupts.Address.INTERRUPT_ENABLE) -> interrupts,
-      (AfterRom, EndOfMemory) -> io,
-    )
-
   }
 
-/** Runs one suite, one munit test per ROM. Suites share a JVM, the report is written on exit. */
 abstract class SuiteTests(suite: Suite) extends FunSuite {
 
   suite.roms match {

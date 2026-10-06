@@ -27,7 +27,7 @@ object MooneyeSuite extends Suite {
   val maxCycles = 30000000
 
   /** ROMs known to pass. Everything else is opt in via `-Ds4gb.mooneye.roms`. */
-val DefaultRoms: List[String] = List(
+  val DefaultRoms: List[String] = List(
     "acceptance/instr/daa.gb",
     "acceptance/ppu/stat_lyc_onoff.gb",
   )
