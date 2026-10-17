@@ -7,7 +7,7 @@ import spire.math.{UByte, UShort}
 
 class PpuRegistersTests extends FunSuite with TestEmitters {
 
-  import PpuRegistersTests.dataRegisters
+  import PpuRegistersTests.{LcdOff, LcdOn, dataRegisters, dirtyTheFrame, tick}
 
   test("initialize resets registers to power-up values") {
     val ppu = Ppu(Interrupts(), nullEmitter)
@@ -149,6 +149,60 @@ class PpuRegistersTests extends FunSuite with TestEmitters {
     ppu.write(Ppu.Address.LY, UByte(0x00))
     assertEquals(ppu.state.ly, UByte(0x42))
   }
+
+  test("disabling the LCD stops the PPU at the top of a frame in mode 0") {
+    val ppu = Ppu(Interrupts(), nullEmitter)
+    ppu.initialize()
+    dirtyTheFrame(ppu)
+
+    ppu.write(Ppu.Address.LCDC, LcdOff)
+
+    assertEquals(ppu.state.ly, UByte(0))
+    assertEquals(ppu.state.scanlineDot.current, 0)
+    assertEquals(ppu.state.lcdStatus.ppuMode, PpuMode.HorizontalBlank)
+
+    // Mode 0 is what grants the access. The permission comes from the mode, not LCDC.7.
+    ppu.write(Ppu.Address.VRAM.START, UByte(0x5A))
+    ppu.write(Ppu.Address.OAM.START, UByte(0xA5))
+    assertEquals(ppu(Ppu.Address.VRAM.START), UByte(0x5A))
+    assertEquals(ppu(Ppu.Address.OAM.START), UByte(0xA5))
+
+    // And nothing runs, so none of it drifts.
+    tick(ppu, 5000)
+
+    assertEquals(ppu.state.ly, UByte(0))
+    assertEquals(ppu.state.scanlineDot.current, 0)
+    assertEquals(ppu.state.lcdStatus.ppuMode, PpuMode.HorizontalBlank)
+  }
+
+  test("enabling the LCD starts the frame at the top and resumes the dot counter") {
+    val ppu = Ppu(Interrupts(), nullEmitter)
+    ppu.initialize()
+    ppu.write(Ppu.Address.LCDC, LcdOff)
+
+    ppu.write(Ppu.Address.LCDC, LcdOn)
+
+    assertEquals(ppu.state.ly, UByte(0))
+    assertEquals(ppu.state.scanlineDot.current, 0)
+    assertEquals(ppu.state.lcdStatus.ppuMode, PpuMode.HorizontalBlank)
+
+    val before = ppu.state.scanlineDot.current
+    ppu.tick()
+
+    assertEquals(ppu.state.scanlineDot.current, before + 1)
+  }
+
+  test("VRAM and OAM are inaccessible during mode 3") {
+    val ppu = Ppu(Interrupts(), nullEmitter)
+    ppu.initialize()
+    ppu.state.lcdStatus.ppuMode = PpuMode.Draw
+
+    ppu.write(Ppu.Address.VRAM.START, UByte(0x5A))
+    ppu.write(Ppu.Address.OAM.START, UByte(0xA5))
+
+    assertEquals(ppu(Ppu.Address.VRAM.START), Ppu.GARBAGE)
+    assertEquals(ppu(Ppu.Address.OAM.START), Ppu.GARBAGE)
+  }
 }
 
 object PpuRegistersTests {
@@ -162,4 +216,16 @@ object PpuRegistersTests {
     ("OBP0", Ppu.Address.OBP0),
     ("OBP1", Ppu.Address.OBP1),
   )
+
+  val LcdOn: UByte = UByte(0x80)
+  val LcdOff: UByte = UByte(0x00)
+
+  /** Drives the PPU to the middle of a frame, in the mode that blocks VRAM and OAM. */
+  def dirtyTheFrame(ppu: Ppu): Unit = {
+    ppu.state.ly = UByte(57)
+    ppu.state.scanlineDot.current = 300
+    ppu.state.lcdStatus.ppuMode = PpuMode.Draw
+  }
+
+  def tick(ppu: Ppu, times: Int): Unit = (0 until times).foreach(_ => ppu.tick())
 }

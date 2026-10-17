@@ -80,7 +80,8 @@ class Ppu(interrupts: Interrupts, vram: Array[UByte], oam: Array[UByte], emitter
     } else if (address == LCDC) {
       val wasEnabled = state.lcdControl.lcdEnable
       state.lcdControl.write(value)
-      if (!wasEnabled && state.lcdControl.lcdEnable) state.restartFrame(interrupts)
+      if (wasEnabled && !state.lcdControl.lcdEnable) state.disableLcd()
+      else if (!wasEnabled && state.lcdControl.lcdEnable) state.enableLcd(interrupts)
     } else if (address == LYC) {
       registers(LYC) = value
       state.updateLycEqualsLy(interrupts, mayRequest = false)
@@ -95,6 +96,8 @@ class Ppu(interrupts: Interrupts, vram: Array[UByte], oam: Array[UByte], emitter
     }
 
   def tick(): Unit = {
+    if (!state.lcdControl.lcdEnable) return
+
     updateDot()
     if (state.scanlineDot.isBoundary) updateScanline()
     state.lcdStatus.ppuMode = state.lcdStatus.ppuMode.tick(state, interrupts)
@@ -159,18 +162,26 @@ object Ppu {
     }
 
     /**
-     * Puts the PPU back to the top of a frame and restarts the LY=LYC comparison clock.
-     *
-     * Pan Docs says nothing about the LCD on-edge. Mooneye's `stat_lyc_onoff` requires
-     * mode 0 to still read back four dots after it.
+     * Enable LCD
      *
      * @see [[https://gbdev.io/pandocs/LCDC.html#lcdc7--lcd-enable]]
      */
-    def restartFrame(interrupts: Interrupts): Unit = {
+    def enableLcd(interrupts: Interrupts): Unit = {
       ly = 0.toUByte
       scanlineDot.current = 0
       lcdStatus.ppuMode = PpuMode.HorizontalBlank
       updateLycEqualsLy(interrupts)
+    }
+
+    /**
+     * Disable LCD
+     *
+     * @see [[https://gbdev.io/pandocs/LCDC.html#lcdc7--lcd-enable]]
+     */
+    def disableLcd(): Unit = {
+      ly = 0.toUByte
+      scanlineDot.current = 0
+      lcdStatus.ppuMode = PpuMode.HorizontalBlank
     }
 
     /**

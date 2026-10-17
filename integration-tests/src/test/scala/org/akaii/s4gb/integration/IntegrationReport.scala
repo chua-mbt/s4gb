@@ -43,11 +43,16 @@ object IntegrationReport {
     sections.foreach { (suite, suiteResults) =>
       pw.write(s"<h2>${escape(suite)}</h2>")
       pw.write("<table border=\"1\">")
-      pw.write(
-        "<tr><th>Test Name</th><th>Cycles</th><th>ns</th><th>ns/cycle</th><th>Status</th><th>Detail</th></tr>"
-      )
+
+      // Columns are per section, since a suite either renders visuals or it does not.
+      val visualLabels = suiteResults.flatMap(_.visuals.map(_.label)).distinct
+      val metricLabels = suiteResults.flatMap(_.metrics.map(_.label)).distinct
+
+      val headers = Seq("Test Name", "Cycles", "ns", "ns/cycle", "Status", "Detail") ++
+        visualLabels ++ metricLabels
+      pw.write(headers.map(h => s"<th>${escape(h)}</th>").mkString("<tr>", "", "</tr>"))
+
       suiteResults.foreach { result =>
-        pw.write("<tr>")
         val cells = Seq(
           escape(result.name),
           result.cycles.toString,
@@ -55,7 +60,9 @@ object IntegrationReport {
           result.nsPerCycle.toString,
           escape(result.status.toString),
           s"<pre>${escape(result.detail)}</pre>"
-        )
+        ) ++ visualCells(visualLabels, result) ++ metricCells(metricLabels, result)
+
+        pw.write("<tr>")
         cells.foreach(cell => pw.write(s"<td>$cell</td>"))
         pw.write("</tr>")
       }
@@ -66,6 +73,20 @@ object IntegrationReport {
     pw.close()
     println(s"Report written to: ${file.getAbsolutePath}")
   }
+
+  /** Thumbnails at 3x, so a 160x144 frame is readable in the page. */
+  private def visualCells(labels: Seq[String], result: IntegrationResult): Seq[String] =
+    labels.map { label =>
+      result.visuals.find(_.label == label) match {
+        case Some(visual) =>
+          val src = visual.file.getFileName.toString
+          s"<figure><img src=\"${escape(src)}\" width=\"480\"><figcaption>${escape(label)}</figcaption></figure>"
+        case None => ""
+      }
+    }
+
+  private def metricCells(labels: Seq[String], result: IntegrationResult): Seq[String] =
+    labels.map(label => result.metrics.find(_.label == label).map(_.value).getOrElse(""))
 
   /** Suites in the order they first reported, each with its results in report order. */
   private def sections: List[(String, List[IntegrationResult])] = {

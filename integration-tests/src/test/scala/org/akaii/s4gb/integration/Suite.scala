@@ -3,6 +3,7 @@ package org.akaii.s4gb.integration
 import munit.FunSuite
 import org.akaii.s4gb.emulator.{Config, Emulator}
 import org.akaii.s4gb.emulator.components.Rom
+import org.akaii.s4gb.emulator.components.ppu.PixelEmitter
 import org.akaii.s4gb.integration.IntegrationResult.Status
 import spire.math.UByte
 
@@ -25,6 +26,9 @@ trait Suite {
   /** Whether this ROM has committed to a verdict. Only asked on instruction boundaries. */
   def completed(machine: Emulator, io: TestMemoryMap): Boolean
 
+  /** Where the rendered pixels go. Only the suites that judge the output replace it. */
+  def emitter: PixelEmitter = NoopPixelEmitter
+
   /** Turns a finished run into the suite-neutral result the reporter renders. */
   def result(rom: Path, machine: Emulator, io: TestMemoryMap, cycles: Int, elapsedNs: Long): IntegrationResult
 }
@@ -35,9 +39,12 @@ object Suite {
   def readRom(path: Path): Array[Byte] = Files.readAllBytes(path).map(b => (b & 0xFF).toByte)
 
   /** Loads a ROM into a ticking machine, starting the CPU at `$0100` in place of the boot ROM. */
-  def boot(romData: Array[Byte]): (Emulator, TestMemoryMap) = {
+  def boot(romData: Array[Byte]): (Emulator, TestMemoryMap) = boot(romData, NoopPixelEmitter)
+
+  /** As above, for the suites that judge the ROM on its rendered output rather than a verdict. */
+  def boot(romData: Array[Byte], emitter: PixelEmitter): (Emulator, TestMemoryMap) = {
     val io = new TestMemoryMap
-    val machine = Emulator(Rom(romData.map(UByte(_))), io, NoopPixelEmitter, Config())
+    val machine = Emulator(Rom(romData.map(UByte(_))), io, emitter, Config())
     machine.initialize()
     (machine, io)
   }
@@ -95,7 +102,7 @@ abstract class SuiteTests(suite: Suite) extends FunSuite {
   }
 
   private def execute(suite: Suite, rom: Path): IntegrationResult = {
-    val (machine, io) = Suite.boot(Suite.readRom(rom))
+    val (machine, io) = Suite.boot(Suite.readRom(rom), suite.emitter)
 
     val startTime = System.nanoTime()
     val cycles = Suite.run(machine, io, suite.maxCycles)(suite.completed)

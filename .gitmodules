@@ -1,3 +1,6 @@
 [submodule "integration-tests/src/test/resources/blargg-test-roms"]
 	path = integration-tests/src/test/resources/blargg-test-roms
 	url = https://github.com/retrio/gb-test-roms
+[submodule "integration-tests/src/test/resources/dmg-acid2"]
+	path = integration-tests/src/test/resources/dmg-acid2
+	url = https://github.com/mattcurrie/dmg-acid2
