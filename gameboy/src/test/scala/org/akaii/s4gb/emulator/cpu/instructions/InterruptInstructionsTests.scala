@@ -71,4 +71,22 @@ class InterruptInstructionsTests extends InstructionsTest {
       expectedExecutionMode = ExecutionMode.Halted
     )
   }
+
+  test("INTERRUPT_HANDLING services only sources that IE enables") {
+    // VBlank and LCDStat are both flagged, but IE allows only LCDStat. Picking from IF alone
+    // services VBlank, leaves LCDStat pending, and fires it a second time.
+    val state = setupTest(
+      setupRegister = registers => registers.sp = UShort(0xFFFE),
+      setupMemory = (_, memory) => {
+        memory.write(Interrupts.Address.INTERRUPT_FLAG, UByte(0x03))
+        memory.write(Interrupts.Address.INTERRUPT_ENABLE, UByte(0x02))
+      }
+    )
+
+    val finalState = exhaustInstruction(Instruction.INTERRUPT_HANDLING, state)
+
+    assertEquals(finalState.registers.pc, Interrupts.Source.LCDStat.handler)
+    // The serviced bit is cleared, the disabled one is left alone.
+    assertEquals(finalState.memory(Interrupts.Address.INTERRUPT_FLAG) & UByte(0x03), UByte(0x01))
+  }
 }

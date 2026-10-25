@@ -19,11 +19,12 @@ class PseudoInstructionsTests extends InstructionsTest {
 
   test("INTERRUPT_HANDLING") {
     Interrupts.Source.values.foreach { source =>
+      val mask = (1 << source.bit).toUByte
       val state = setupTest(
         setupRegister = regs => regs.sp = 0xFFFE.toUShort,
         setupMemory = (_, memory) => {
-          val mask = (1 << source.bit).toUByte
           memory.write(Interrupts.Address.INTERRUPT_FLAG, mask)
+          memory.write(Interrupts.Address.INTERRUPT_ENABLE, mask)
         },
         initialIME = Cpu.IMEEnabled
       )

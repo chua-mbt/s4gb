@@ -74,13 +74,17 @@ object IntegrationReport {
     println(s"Report written to: ${file.getAbsolutePath}")
   }
 
-  /** Thumbnails at 3x, so a 160x144 frame is readable in the page. */
+  /**
+   * Thumbnails at 1x, the frame's natural size. Each links to the same file, which the
+   * browser then shows at full size, so this needs no script and no lightbox.
+   */
   private def visualCells(labels: Seq[String], result: IntegrationResult): Seq[String] =
     labels.map { label =>
       result.visuals.find(_.label == label) match {
         case Some(visual) =>
-          val src = visual.file.getFileName.toString
-          s"<figure><img src=\"${escape(src)}\" width=\"480\"><figcaption>${escape(label)}</figcaption></figure>"
+          val src = escape(visual.file.getFileName.toString)
+          s"<figure><a href=\"$src\"><img src=\"$src\" width=\"80\"></a>" +
+            s"<figcaption>${escape(label)}</figcaption></figure>"
         case None => ""
       }
     }

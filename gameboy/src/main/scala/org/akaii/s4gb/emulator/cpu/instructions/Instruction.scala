@@ -2835,7 +2835,10 @@ object Instruction {
       },
       Micro.modifyPC { state =>
         val register = state.memory(Interrupts.Address.INTERRUPT_FLAG)
-        val source = Interrupts.Source.highestPriority(register)
+        val enabled = state.memory(Interrupts.Address.INTERRUPT_ENABLE)
+        // Dispatch on IF & IE. Choosing from IF alone lets a source that IE disables be
+        // serviced, which leaves the enabled source pending and fires it a second time.
+        val source = Interrupts.Source.highestPriority(register & enabled)
         val mask = (1 << source.bit).toUByte
         state.memory.write(Interrupts.Address.INTERRUPT_FLAG, register & ~mask)
         state.registers.pc = source.handler
