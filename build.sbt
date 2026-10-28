@@ -3,19 +3,22 @@ ThisBuild / version := "0.1.0-SNAPSHOT"
 ThisBuild / testFrameworks += new TestFramework("utest.runner.Framework")
 
 val munitVersion = "1.2.4"
+val spireVersion = "0.18.0"
 
 lazy val romSources = taskKey[Unit]("Ensure the test ROM submodules are initialized")
 lazy val mealybugRoms = taskKey[File]("Fetch and unpack the prebuilt Mealybug Tearoom ROMs")
 lazy val mooneyeRoms = taskKey[File]("Fetch and unpack the prebuilt Mooneye test suite ROMs")
 lazy val acid2Roms = taskKey[File]("Fetch the prebuilt dmg-acid2 ROM from its release")
 
-lazy val gameboy = (project in file("gameboy"))
+lazy val gameboy = crossProject(JVMPlatform, JSPlatform)
+  .crossType(CrossType.Pure)
+  .in(file("gameboy"))
   .settings(
     name := "s4gb-gameboy",
     libraryDependencies ++= Seq(
-      "org.typelevel" %% "spire" % "0.18.0",
-      "org.typelevel" %% "spire-macros" % "0.18.0",
-      "org.scalameta" %% "munit" % munitVersion % Test
+      "org.typelevel" %%% "spire" % spireVersion,
+      "org.typelevel" %%% "spire-macros" % spireVersion,
+      "org.scalameta" %%% "munit" % munitVersion % Test
     ),
     scalacOptions ++= Seq(
       "-deprecation",
@@ -25,8 +28,11 @@ lazy val gameboy = (project in file("gameboy"))
     )
   )
 
+lazy val gameboyJVM = gameboy.jvm
+lazy val gameboyJS = gameboy.js
+
 lazy val jvmShell = (project in file("jvm-shell"))
-  .dependsOn(gameboy)
+  .dependsOn(gameboyJVM)
   .settings(
     name := "s4gb-jvm-shell",
     scalacOptions ++= Seq("-deprecation", "-feature", "-unchecked"),
@@ -34,10 +40,52 @@ lazy val jvmShell = (project in file("jvm-shell"))
     Compile / run / mainClass := Some("org.akaii.s4gb.jvmshell.Shell")
   )
 
+lazy val generateHtml = taskKey[File]("Generate a static HTML file embedding the js-shell")
+lazy val openHtml = taskKey[Unit]("Open the generated HTML in the default browser")
+
+lazy val jsShell = (project in file("js-shell"))
+  .dependsOn(gameboyJS)
+  .enablePlugins(ScalaJSPlugin)
+  .settings(
+    name := "s4gb-js-shell",
+    scalacOptions ++= Seq("-deprecation", "-feature", "-unchecked"),
+    scalaJSUseMainModuleInitializer := true,
+    Compile / mainClass := Some("org.akaii.s4gb.jsshell.Shell"),
+    libraryDependencies += "org.scala-js" %%% "scalajs-dom" % "2.8.1",
+    generateHtml := {
+      (Compile / fullLinkJS).value
+      val outDir = (Compile / fullLinkJS / scalaJSLinkerOutputDirectory).value
+      val js = IO.read(outDir / "main.js")
+      val html =
+        "<!DOCTYPE html>\n" +
+        "<html lang=\"en\">\n" +
+        "<head>\n" +
+        "  <meta charset=\"utf-8\" />\n" +
+        "  <title>s4gb js-shell</title>\n" +
+        "</head>\n" +
+        "<body>\n" +
+        "  <h1>s4gb js-shell</h1>\n" +
+        "  <script>\n" + js + "\n</script>\n" +
+        "</body>\n" +
+        "</html>\n"
+      val file = outDir / "index.html"
+      IO.write(file, html)
+      file
+    },
+    openHtml := {
+      val file = generateHtml.value
+      if (java.awt.Desktop.isDesktopSupported && java.awt.Desktop.getDesktop.isSupported(java.awt.Desktop.Action.BROWSE)) {
+        java.awt.Desktop.getDesktop.browse(file.toURI)
+      } else {
+        println(file.getAbsolutePath)
+      }
+    }
+  )
+
 lazy val generateOpcodeTable = taskKey[Unit]("Generate HTML opcode table")
 
 lazy val opcodeTable = (project in file("opcode-table"))
-  .dependsOn(gameboy)
+  .dependsOn(gameboyJVM)
   .settings(
     name := "s4gb-opcode-table",
     generateOpcodeTable := {
@@ -46,7 +94,7 @@ lazy val opcodeTable = (project in file("opcode-table"))
   )
 
 lazy val integrationTests = (project in file("integration-tests"))
-  .dependsOn(gameboy)
+  .dependsOn(gameboyJVM)
   .settings(
     name := "s4gb-integration-tests",
     romSources := {
@@ -122,6 +170,6 @@ lazy val integrationTests = (project in file("integration-tests"))
       (integrationTests / romSources).value
       (integrationTests / mooneyeRoms).value
       (integrationTests / acid2Roms).value
-      (gameboy / Test / test).value
+      (gameboyJVM / Test / test).value
       (integrationTests / Test / test).value
     }
