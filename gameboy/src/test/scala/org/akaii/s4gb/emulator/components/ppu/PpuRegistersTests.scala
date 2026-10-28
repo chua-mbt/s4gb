@@ -94,6 +94,22 @@ class PpuRegistersTests extends FunSuite with TestEmitters {
     assertEquals(interrupts(Interrupts.Address.INTERRUPT_FLAG) & lcdStatMask, UByte(0))
   }
 
+  test("LY advancing onto LYC requests the coincidence interrupt") {
+    val interrupts = Interrupts()
+    val ppu = Ppu(interrupts, nullEmitter)
+    ppu.initialize()
+    ppu.state.ly = UByte(0x00)
+    ppu.state.scanlineDot.current = ScanlineDot.DOTS_PER_LINE - 1
+    val lcdStatMask = UByte(1 << Interrupts.Source.LCDStat.bit)
+
+    ppu.write(Ppu.Address.LYC, UByte(0x01))
+    ppu.tick()
+
+    assertEquals(ppu.state.ly, UByte(0x01))
+    assertEquals(ppu(Ppu.Address.STAT) & LcdStatus.Masks.LYC_EQUALS_LY, LcdStatus.Masks.LYC_EQUALS_LY)
+    assertEquals(interrupts(Interrupts.Address.INTERRUPT_FLAG) & lcdStatMask, lcdStatMask)
+  }
+
   test("STAT mode bits reflect current PPU mode") {
     val ppu = Ppu(Interrupts(), nullEmitter)
     ppu.initialize()

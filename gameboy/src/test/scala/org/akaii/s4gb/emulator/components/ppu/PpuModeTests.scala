@@ -114,7 +114,27 @@ class PpuModeTests extends FunSuite with TestEmitters {
     }
   }
 
-  test("Draw arbitrates between the background and object fetchers") {
+  test("Draw adds a background fetch penalty when the window takes over") {
+    val backgroundOnly = drawDotsWithObjectAt(OBJECT_LEFT_EDGE + 9, withObject = false)
+
+    val withWindow = drawDotsWithWindowAt(WINDOW_WX)
+
+    // The window restarts the fetch sequence on its left tile, so the line pays the
+    // three two-dot steps of the fetch it interrupted.
+    assertEquals(withWindow - backgroundOnly, BACKGROUND_FETCH_DOTS)
+  }
+
+  test("Draw adds separate window and object fetch penalties") {
+    val backgroundOnly = drawDotsWithObjectAt(OBJECT_LEFT_EDGE + 9, withObject = false)
+    val objectOnly = drawDotsWithObjectAt(OBJECT_LEFT_EDGE + 9, withObject = true)
+
+    val withWindowAndObject = drawDotsWithWindowAt(WINDOW_WX, Some(OBJECT_LEFT_EDGE + 9))
+
+    assertEquals(objectOnly - backgroundOnly, OBJECT_FETCH_DOTS + 1)
+    assertEquals(withWindowAndObject - backgroundOnly, BACKGROUND_FETCH_DOTS + OBJECT_FETCH_DOTS + 1)
+  }
+
+  test("Draw decides fetcher priority between object and background") {
     val oam = Array.fill(Ppu.OAM_SIZE)(UByte(0))
     writeOamObject(oam, index = 0, x = OBJECT_LEFT_EDGE + 8, tileIndex = OBJECT_TILE_A)
     writeOamObject(oam, index = 1, x = OBJECT_LEFT_EDGE + 40, tileIndex = OBJECT_TILE_B)
@@ -294,6 +314,9 @@ object PpuModeTests {
   private val OBJECT_TILE_B: Int = 31
   private val OBJECT_LEFT_EDGE: Int = 16
 
+  /** WX 15 puts the window at screen pixel 8, where it takes over during a background fetch. */
+  private val WINDOW_WX: Int = 15
+
   /** The boundary tick advances LY before mode 2 reads it, so the scanline drawn is 1. */
   private val DRAWN_ROW: Int = 1
 
@@ -312,6 +335,9 @@ object PpuModeTests {
    * GetTile, GetTileDataLow and GetTileDataHigh, and Push is a single dot.
    */
   private val OBJECT_FETCH_DOTS: Int = 3 * PixelFetcher.TWO_DOT_MAX + 1
+
+  /** Dots the background fetcher spends on its three two-dot steps before Push. */
+  private val BACKGROUND_FETCH_DOTS: Int = 3 * PixelFetcher.TWO_DOT_MAX
 
   /** Visible area is 20 tiles wide, with the scroll registers at zero. */
   private val TILES_PER_LINE: Int = Ppu.VISIBLE_WIDTH / Tile.SIZE
@@ -423,6 +449,23 @@ object PpuModeTests {
     fillTile(vram, OBJECT_TILE_A, low = 0xFF, high = 0xFF)
     val oam = if (withObject) objectInOam(0, x, OBJECT_TILE_A) else Array.fill(Ppu.OAM_SIZE)(UByte(0))
     renderScanline(scanlinePpu(RecordingEmitter(), vram, oam = oam, objEnable = withObject))
+  }
+
+  private def drawDotsWithWindowAt(wx: Int, objectX: Option[Int] = None): Int = {
+    val vram = checkerboardVram(windowTile = OBJECT_TILE_A)
+    fillTile(vram, OBJECT_TILE_A, low = 0xFF, high = 0xFF)
+    val oam = objectX.fold(Array.fill(Ppu.OAM_SIZE)(UByte(0)))(x => objectInOam(0, x, OBJECT_TILE_A))
+    renderScanline(
+      scanlinePpu(
+        RecordingEmitter(),
+        vram,
+        oam = oam,
+        wx = wx,
+        objEnable = objectX.isDefined,
+        windowEnable = true,
+        windowTileMap = true
+      )
+    )
   }
 
   def assertInterrupts(interrupts: Interrupts, expected: Interrupts.Source*): Unit = {
