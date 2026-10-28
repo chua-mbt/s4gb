@@ -66,9 +66,9 @@ object MooneyeSuite extends Suite {
    * The ROM commits to a verdict then spins in an infinite `jr`, so six bytes is as
    * final as it gets. `cpu.isStopped` is no use here: Mooneye never executes `STOP`.
    */
-  def completed(machine: Emulator, io: TestMemoryMap): Boolean = io.serialBytes.size >= VerdictLength
+  def completed(machine: Emulator, io: SerialCapture): Boolean = io.serialBytes.size >= VerdictLength
 
-  def result(rom: Path, machine: Emulator, io: TestMemoryMap, cycles: Int, elapsedNs: Long): IntegrationResult = {
+  def result(rom: Path, machine: Emulator, io: SerialCapture, cycles: Int, elapsedNs: Long): IntegrationResult = {
     val all = io.serialBytes
     val failedAt = all.indexOfSlice(Failed)
     // A run that never reports a failure is a pass or a timeout, and the verdict is

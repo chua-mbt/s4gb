@@ -1,7 +1,7 @@
 package org.akaii.s4gb.emulator.memorymap.dma
 
 import org.akaii.s4gb.emulator.components.ppu.Ppu
-import org.akaii.s4gb.emulator.memorymap.{Hram, MemoryMap}
+import org.akaii.s4gb.emulator.memorymap.{MemoryMap, StorageMap}
 import spire.math.{UByte, UShort}
 
 /**
@@ -24,5 +24,5 @@ class DmaGate(val state: DmaState, bus: MemoryMap) extends MemoryMap {
     if (!state.isActive || isHram(address)) bus.write(address, value)
 
   private def isHram(address: UShort): Boolean =
-    address >= Hram.Address.HRAM_START && address <= Hram.Address.HRAM_END
+    address >= StorageMap.Address.HRAM_START && address <= StorageMap.Address.HRAM_END
 }

@@ -25,6 +25,15 @@ lazy val gameboy = (project in file("gameboy"))
     )
   )
 
+lazy val jvmShell = (project in file("jvm-shell"))
+  .dependsOn(gameboy)
+  .settings(
+    name := "s4gb-jvm-shell",
+    scalacOptions ++= Seq("-deprecation", "-feature", "-unchecked"),
+    Compile / run / fork := true,
+    Compile / run / mainClass := Some("org.akaii.s4gb.jvmshell.Shell")
+  )
+
 lazy val generateOpcodeTable = taskKey[Unit]("Generate HTML opcode table")
 
 lazy val opcodeTable = (project in file("opcode-table"))

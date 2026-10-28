@@ -24,13 +24,13 @@ trait Suite {
   def roms: Either[String, List[Path]]
 
   /** Whether this ROM has committed to a verdict. Only asked on instruction boundaries. */
-  def completed(machine: Emulator, io: TestMemoryMap): Boolean
+  def completed(machine: Emulator, io: SerialCapture): Boolean
 
   /** Where the rendered pixels go. Only the suites that judge the output replace it. */
   def emitter: PixelEmitter = NoopPixelEmitter
 
   /** Turns a finished run into the suite-neutral result the reporter renders. */
-  def result(rom: Path, machine: Emulator, io: TestMemoryMap, cycles: Int, elapsedNs: Long): IntegrationResult
+  def result(rom: Path, machine: Emulator, io: SerialCapture, cycles: Int, elapsedNs: Long): IntegrationResult
 }
 
 object Suite {
@@ -39,14 +39,13 @@ object Suite {
   def readRom(path: Path): Array[Byte] = Files.readAllBytes(path).map(b => (b & 0xFF).toByte)
 
   /** Loads a ROM into a ticking machine, starting the CPU at `$0100` in place of the boot ROM. */
-  def boot(romData: Array[Byte]): (Emulator, TestMemoryMap) = boot(romData, NoopPixelEmitter)
+  def boot(romData: Array[Byte]): (Emulator, SerialCapture) = boot(romData, NoopPixelEmitter)
 
   /** As above, for the suites that judge the ROM on its rendered output rather than a verdict. */
-  def boot(romData: Array[Byte], emitter: PixelEmitter): (Emulator, TestMemoryMap) = {
-    val io = new TestMemoryMap
-    val machine = Emulator(Rom(romData.map(UByte(_))), io, emitter, Config())
+  def boot(romData: Array[Byte], emitter: PixelEmitter): (Emulator, SerialCapture) = {
+    val machine = Emulator(Rom(romData.map(UByte(_))), emitter, Config())
     machine.initialize()
-    (machine, io)
+    (machine, new SerialCapture(machine.bus))
   }
 
   /**
@@ -54,12 +53,15 @@ object Suite {
    * the m-cycles used. The rule is only asked on an instruction boundary, since
    * mid-instruction the state a suite reads means nothing.
    */
-  def run(machine: Emulator, io: TestMemoryMap, maxCycles: Int)(
-    completed: (Emulator, TestMemoryMap) => Boolean
+  def run(machine: Emulator, io: SerialCapture, maxCycles: Int)(
+    completed: (Emulator, SerialCapture) => Boolean
   ): Int = {
     @annotation.tailrec
     def loop(cycles: Int): Int = {
-      val done = machine.cpu.state.isInstructionBoundary && completed(machine, io)
+      val done = machine.cpu.state.isInstructionBoundary && {
+        io.observe()
+        completed(machine, io)
+      }
 
       if (done || cycles >= maxCycles) cycles
       else {

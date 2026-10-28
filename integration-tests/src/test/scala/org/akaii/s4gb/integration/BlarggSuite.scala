@@ -40,10 +40,10 @@ object BlarggSuite extends Suite {
   }
 
   /** Unlike Mooneye, these ROMs do execute `STOP`, which ends a test as surely as the text does. */
-  def completed(machine: Emulator, io: TestMemoryMap): Boolean =
+  def completed(machine: Emulator, io: SerialCapture): Boolean =
     machine.cpu.isStopped || decided(io.serialOutput)
 
-  def result(rom: Path, machine: Emulator, io: TestMemoryMap, cycles: Int, elapsedNs: Long): IntegrationResult = {
+  def result(rom: Path, machine: Emulator, io: SerialCapture, cycles: Int, elapsedNs: Long): IntegrationResult = {
     val serial = io.serialOutput
     val status = statusOf(serial)
 

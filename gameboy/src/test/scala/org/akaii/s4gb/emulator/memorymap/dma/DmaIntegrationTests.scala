@@ -3,7 +3,7 @@ package org.akaii.s4gb.emulator.memorymap.dma
 import munit.FunSuite
 import org.akaii.s4gb.emulator.components.ppu.Ppu
 import org.akaii.s4gb.emulator.components.{Interrupts, Joypad, Rom}
-import org.akaii.s4gb.emulator.memorymap.{Dispatcher, Hram, MemoryMap}
+import org.akaii.s4gb.emulator.memorymap.{Dispatcher, MemoryMap, StorageMap}
 import spire.math.{UByte, UShort}
 
 import scala.collection.mutable
@@ -31,8 +31,8 @@ class DmaIntegrationTests extends FunSuite {
     assertEquals(fixture.source(SOURCE_START), UByte(0))
     assertEquals(fixture.interrupts(Interrupts.Address.INTERRUPT_FLAG), ifBefore)
 
-    fixture.gate.write(Hram.Address.HRAM_START, UByte(0x77))
-    assertEquals(fixture.gate(Hram.Address.HRAM_START), UByte(0x77))
+    fixture.gate.write(StorageMap.Address.HRAM_START, UByte(0x77))
+    assertEquals(fixture.gate(StorageMap.Address.HRAM_START), UByte(0x77))
   }
 
   test("transfer reads source and writes oam while both are blocked for the cpu") {
@@ -50,8 +50,8 @@ class DmaIntegrationTests extends FunSuite {
     assertEquals(fixture.gate(SOURCE_START), Ppu.GARBAGE)
     assertEquals(fixture.gate(Ppu.Address.OAM.START), Ppu.GARBAGE)
 
-    fixture.gate.write(Hram.Address.HRAM_START, UByte(0x55))
-    assertEquals(fixture.gate(Hram.Address.HRAM_START), UByte(0x55))
+    fixture.gate.write(StorageMap.Address.HRAM_START, UByte(0x55))
+    assertEquals(fixture.gate(StorageMap.Address.HRAM_START), UByte(0x55))
   }
 
   test("transfer bypasses the gate, copies all bytes, and releases the bus") {
@@ -69,8 +69,8 @@ class DmaIntegrationTests extends FunSuite {
     fixture.gate.write(UShort(0xFE05), UByte(0xFF))
     assertEquals(fixture.oam(UShort(0xFE05)), UByte(5))
 
-    fixture.gate.write(Hram.Address.HRAM_END, UByte(0x66))
-    assertEquals(fixture.gate(Hram.Address.HRAM_END), UByte(0x66))
+    fixture.gate.write(StorageMap.Address.HRAM_END, UByte(0x66))
+    assertEquals(fixture.gate(StorageMap.Address.HRAM_END), UByte(0x66))
 
     for (_ <- 1 to DmaTransfer.DOTS_PER_TRANSFER - 60 * DmaTransfer.DOTS_PER_BYTE) {
       DmaTransfer.tick(fixture.state, fixture.source, fixture.oam)
@@ -153,7 +153,7 @@ object DmaIntegrationTests {
       (Joypad.Address.JOYPAD -> Joypad.Address.JOYPAD) -> Joypad(interrupts),
       (Interrupts.Address.INTERRUPT_FLAG -> Interrupts.Address.INTERRUPT_FLAG) -> interrupts,
       (Interrupts.Address.INTERRUPT_ENABLE -> Interrupts.Address.INTERRUPT_ENABLE) -> interrupts,
-      (Hram.Address.HRAM_START -> Hram.Address.HRAM_END) -> Hram(),
+      (StorageMap.Address.HRAM_START -> StorageMap.Address.HRAM_END) -> StorageMap(StorageMap.Address.HRAM_START, StorageMap.Address.HRAM_END),
     )
     Fixture(new DmaRegister(state), new DmaGate(state, bus), state, source, oam, rom, interrupts)
   }

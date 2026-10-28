@@ -94,11 +94,11 @@ class DispatcherTests extends FunSuite {
 
   test("HRAM range boundaries round trip") {
     val dispatcher = freshDispatcher()
-    dispatcher.write(Hram.Address.HRAM_START, UByte(0x5A))
-    dispatcher.write(Hram.Address.HRAM_END, UByte(0xA5))
+    dispatcher.write(StorageMap.Address.HRAM_START, UByte(0x5A))
+    dispatcher.write(StorageMap.Address.HRAM_END, UByte(0xA5))
 
-    assertEquals(dispatcher(Hram.Address.HRAM_START), UByte(0x5A))
-    assertEquals(dispatcher(Hram.Address.HRAM_END), UByte(0xA5))
+    assertEquals(dispatcher(StorageMap.Address.HRAM_START), UByte(0x5A))
+    assertEquals(dispatcher(StorageMap.Address.HRAM_END), UByte(0xA5))
   }
 }
 
@@ -117,7 +117,7 @@ object DispatcherTests {
       (DmaRegister.Address.DMA -> DmaRegister.Address.DMA) -> DmaRegister(dmaState),
       (Interrupts.Address.INTERRUPT_FLAG -> Interrupts.Address.INTERRUPT_FLAG) -> interrupts,
       (Interrupts.Address.INTERRUPT_ENABLE -> Interrupts.Address.INTERRUPT_ENABLE) -> interrupts,
-      (Hram.Address.HRAM_START -> Hram.Address.HRAM_END) -> Hram(),
+      (StorageMap.Address.HRAM_START -> StorageMap.Address.HRAM_END) -> StorageMap(StorageMap.Address.HRAM_START, StorageMap.Address.HRAM_END),
     )
   }
 

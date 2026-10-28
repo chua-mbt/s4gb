@@ -2,7 +2,7 @@ package org.akaii.s4gb.emulator.memorymap.dma
 
 import munit.FunSuite
 import org.akaii.s4gb.emulator.components.ppu.Ppu
-import org.akaii.s4gb.emulator.memorymap.{Hram, MemoryMap}
+import org.akaii.s4gb.emulator.memorymap.{MemoryMap, StorageMap}
 import spire.math.{UByte, UShort}
 
 import scala.collection.mutable
@@ -46,10 +46,10 @@ class DmaGateTests extends FunSuite {
   test("hram stays readable and writable while DMA is active") {
     val (gate, bus) = freshFixture()
     gate.state.isActive = true
-    gate.write(Hram.Address.HRAM_START, UByte(0x77))
-    assertEquals(gate(Hram.Address.HRAM_START), UByte(0x77))
-    gate.write(Hram.Address.HRAM_END, UByte(0x99))
-    assertEquals(bus(Hram.Address.HRAM_END), UByte(0x99))
+    gate.write(StorageMap.Address.HRAM_START, UByte(0x77))
+    assertEquals(gate(StorageMap.Address.HRAM_START), UByte(0x77))
+    gate.write(StorageMap.Address.HRAM_END, UByte(0x99))
+    assertEquals(bus(StorageMap.Address.HRAM_END), UByte(0x99))
   }
 }
 

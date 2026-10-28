@@ -55,12 +55,12 @@ object Acid2Suite extends Suite {
     else Right(List(rom))
 
   /** Asked on instruction boundaries, so this is where the framebuffer is fed and read. */
-  def completed(machine: Emulator, io: TestMemoryMap): Boolean = {
+  def completed(machine: Emulator, io: SerialCapture): Boolean = {
     recorder.sampleLy(machine.ppu(Ppu.Address.LY).toInt)
     recorder.settled
   }
 
-  def result(rom: Path, machine: Emulator, io: TestMemoryMap, cycles: Int, elapsedNs: Long): IntegrationResult =
+  def result(rom: Path, machine: Emulator, io: SerialCapture, cycles: Int, elapsedNs: Long): IntegrationResult =
     recorder.lastFrame match {
       case None =>
         IntegrationResult(name, rom.getFileName.toString, Status.Timeout, cycles, elapsedNs, "no frame completed")

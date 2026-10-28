@@ -4,8 +4,7 @@ import org.akaii.s4gb.emulator.components.*
 import org.akaii.s4gb.emulator.components.ppu.{PixelEmitter, Ppu}
 import org.akaii.s4gb.emulator.cpu.{Cpu, Registers}
 import org.akaii.s4gb.emulator.memorymap.dma.{DmaGate, DmaRegister, DmaState, DmaTransfer}
-import org.akaii.s4gb.emulator.memorymap.{Dispatcher, Hram, MemoryMap}
-import spire.math.UShort
+import org.akaii.s4gb.emulator.memorymap.{Dispatcher, MemoryMap, StorageMap}
 
 case class Emulator(
   cpu: Cpu,
@@ -13,7 +12,6 @@ case class Emulator(
   timer: Timer,
   interrupts: Interrupts,
   joypad: Joypad,
-  hram: Hram,
   dma: DmaState,
   bus: MemoryMap
 ) {
@@ -51,34 +49,49 @@ case class Emulator(
 object Emulator {
   private val TCYCLES_PER_MCYCLE: Int = 4
 
-  def apply(rom: Rom, io: MemoryMap, emitter: PixelEmitter, config: Config): Emulator = {
+  def apply(rom: Rom, emitter: PixelEmitter, config: Config): Emulator = {
     val interrupts = Interrupts()
     val timer = Timer(interrupts)
     val ppu = Ppu(interrupts, emitter)
     val joypad = Joypad(interrupts)
-    val hram = Hram()
     val dma = DmaState()
+
+    val serial = StorageMap(StorageMap.Address.SERIAL_START, StorageMap.Address.SERIAL_END)
+    val externalRam = StorageMap(StorageMap.Address.EXTERNAL_RAM_START, StorageMap.Address.EXTERNAL_RAM_END)
+    val wram0 = StorageMap(StorageMap.Address.WRAM_0_START, StorageMap.Address.WRAM_0_END)
+    val wram1 = StorageMap(StorageMap.Address.WRAM_1_START, StorageMap.Address.WRAM_1_END)
+    val echoRam = StorageMap(StorageMap.Address.ECHO_RAM_START, StorageMap.Address.ECHO_RAM_END)
+    val notUsable = StorageMap(StorageMap.Address.NOT_USABLE_START, StorageMap.Address.NOT_USABLE_END)
+    val hram = StorageMap(StorageMap.Address.HRAM_START, StorageMap.Address.HRAM_END)
+    val unusedIo03 = StorageMap(StorageMap.Address.UNUSED_IO_03_START, StorageMap.Address.UNUSED_IO_03_END)
+    val unusedIo08 = StorageMap(StorageMap.Address.UNUSED_IO_08_START, StorageMap.Address.UNUSED_IO_08_END)
+    val audio = StorageMap(StorageMap.Address.AUDIO_START, StorageMap.Address.AUDIO_END)
+    val unusedIo4C = StorageMap(StorageMap.Address.UNUSED_IO_4C_START, StorageMap.Address.UNUSED_IO_4C_END)
 
     val bus = Dispatcher.withRanges(
       (Rom.Address.ROM_START, Rom.Address.ROM_END) -> rom,
       (Ppu.Address.VRAM.START, Ppu.Address.VRAM.END) -> ppu,
+      (externalRam.start, externalRam.end) -> externalRam,
+      (wram0.start, wram0.end) -> wram0,
+      (wram1.start, wram1.end) -> wram1,
+      (echoRam.start, echoRam.end) -> echoRam,
       (Ppu.Address.OAM.START, Ppu.Address.OAM.END) -> ppu,
-      (Ppu.Address.LCDC, Ppu.Address.LYC) -> ppu,
-      (Ppu.Address.BGP, Ppu.Address.WX) -> ppu,
+      (notUsable.start, notUsable.end) -> notUsable,
       (Joypad.Address.JOYPAD, Joypad.Address.JOYPAD) -> joypad,
-      (DmaRegister.Address.DMA, DmaRegister.Address.DMA) -> DmaRegister(dma),
+      (StorageMap.Address.SERIAL_START, StorageMap.Address.SERIAL_END) -> serial,
+      (unusedIo03.start, unusedIo03.end) -> unusedIo03,
       (Timer.Address.TIMER_START, Timer.Address.TIMER_END) -> timer,
+      (unusedIo08.start, unusedIo08.end) -> unusedIo08,
       (Interrupts.Address.INTERRUPT_FLAG, Interrupts.Address.INTERRUPT_FLAG) -> interrupts,
+      (audio.start, audio.end) -> audio,
+      (Ppu.Address.LCDC, Ppu.Address.LYC) -> ppu,
+      (DmaRegister.Address.DMA, DmaRegister.Address.DMA) -> DmaRegister(dma),
+      (Ppu.Address.BGP, Ppu.Address.WX) -> ppu,
+      (unusedIo4C.start, unusedIo4C.end) -> unusedIo4C,
+      (StorageMap.Address.HRAM_START, StorageMap.Address.HRAM_END) -> hram,
       (Interrupts.Address.INTERRUPT_ENABLE, Interrupts.Address.INTERRUPT_ENABLE) -> interrupts,
-      (Hram.Address.HRAM_START, Hram.Address.HRAM_END) -> hram,
-      (Unmapped.START, Unmapped.END) -> io,
     )
 
-    Emulator(cpu = Cpu(Cpu.State(Registers(), new DmaGate(dma, bus), config)), ppu, timer, interrupts, joypad, hram, dma, bus)
-  }
-
-  object Unmapped {
-    val START: UShort = UShort(0xA000)
-    val END: UShort = UShort(0xFFFF)
+    Emulator(cpu = Cpu(Cpu.State(Registers(), new DmaGate(dma, bus), config)), ppu, timer, interrupts, joypad, dma, bus)
   }
 }
