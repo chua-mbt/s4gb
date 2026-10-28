@@ -100,7 +100,12 @@ object Cpu {
       val immOffset = if(haltBugIsActive) -1 else 0
       val second = memory.fetchIfPresent(registers.pc + (1 + immOffset).toUShort)
       val third = memory.fetchIfPresent(registers.pc + (2 + immOffset).toUShort)
-      val nextInPC: Array[UByte] = Array(first) ++ second.toArray ++ third.toArray
+      // Avoid array concatenation allocations in the hot fetch path.
+      val nextInPC: Array[UByte] = (second, third) match {
+        case (Some(s), Some(t)) => Array(first, s, t)
+        case (Some(s), None) => Array(first, s)
+        case _ => Array(first)
+      }
       Instruction.decode(nextInPC)
     }
   }
