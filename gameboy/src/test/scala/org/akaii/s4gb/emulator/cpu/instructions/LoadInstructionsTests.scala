@@ -12,18 +12,15 @@ class LoadInstructionsTests extends InstructionsTest {
   test("LD_SP_IMM16") {
     val imm16 = 0x1234.toUShort
     val opcode: UByte = OpCode.Base.LD_SP_IMM16.pattern
-    val immLo: UByte = imm16.loByte
-    val immHi: UByte = imm16.hiByte
-    val input: Array[UByte] = Array(opcode, immLo, immHi)
-    val instruction = Instruction.decode(input)
 
-    assertEquals(instruction.toString, f"LD_SP_IMM16(0x${opcode.toInt}%02X${immLo.toInt}%02X${immHi.toInt}%02X)")
-    verifyInstruction[Instruction.LD_SP_IMM16](opcode, instruction) { ld =>
-      assertEquals(ld.imm16, imm16)
-    }
+    val instruction = Instruction.decode(opcode, None)
+
+    assertEquals(instruction.toString, f"LD_SP_IMM16(0x${opcode.toInt}%02X)")
+    verifyInstruction[Instruction.LD_SP_IMM16.type](opcode, instruction)
 
     testInstruction(
       instruction = instruction,
+      setupInstructionState = state => state.imm16 = imm16,
       expectedRegister = registers => registers.sp = imm16
     )
   }
@@ -35,17 +32,17 @@ class LoadInstructionsTests extends InstructionsTest {
       val immLo: UByte = imm16.loByte
       val immHi: UByte = imm16.hiByte
 
-      val input: Array[UByte] = Array(opcode, immLo, immHi)
-      val instruction = Instruction.decode(input)
+      val input: Array[UByte] = Array(opcode)
+      val instruction = Instruction.decode(input.head, None)
 
-      assertEquals(instruction.toString, f"LD_R16_IMM16(0x${opcode.toInt}%02X${immLo.toInt}%02X${immHi.toInt}%02X)")
+      assertEquals(instruction.toString, f"LD_R16_IMM16(0x${opcode.toInt}%02X)")
       verifyInstruction[Instruction.LD_R16_IMM16](opcode, instruction) { ld =>
-        assertEquals(ld.imm16, imm16)
         assertEquals(ld.dest, destParam)
       }
 
       testInstruction(
         instruction = instruction,
+        setupInstructionState = state => state.imm16 = imm16,
         expectedRegister = registers => registers(destParam.toRegister) = imm16
       )
     }
@@ -55,7 +52,7 @@ class LoadInstructionsTests extends InstructionsTest {
     forR16MemOpCodeParams { destRefParam =>
       val opcode: UByte = OpCode.Base.LD_R16MEM_A.setParam(destRefParam -> 4)
       val input: Array[UByte] = Array(opcode)
-      val instruction = Instruction.decode(input)
+      val instruction = Instruction.decode(input.head, None)
 
       assertEquals(instruction.toString, f"LD_R16MEM_A(0x${opcode.toInt}%02X)")
       verifyInstruction[Instruction.LD_R16MEM_A](opcode, instruction) { ld =>
@@ -83,7 +80,7 @@ class LoadInstructionsTests extends InstructionsTest {
     forR16MemOpCodeParams { srcParam =>
       val opcode: UByte = OpCode.Base.LD_A_R16MEM.setParam(srcParam -> 4)
       val input: Array[UByte] = Array(opcode)
-      val instruction = Instruction.decode(input)
+      val instruction = Instruction.decode(input.head, None)
 
       assertEquals(instruction.toString, f"LD_A_R16MEM(0x${opcode.toInt}%02X)")
       verifyInstruction[Instruction.LD_A_R16MEM](opcode, instruction) { ld =>
@@ -107,16 +104,15 @@ class LoadInstructionsTests extends InstructionsTest {
   test("LD_MEM_HL_IMM8") {
     val imm8: UByte = 0x42.toUByte
     val opcode: UByte = OpCode.Base.LD_MEM_HL_IMM8.pattern
-    val input: Array[UByte] = Array(opcode, imm8)
-    val instruction = Instruction.decode(input)
+    val input: Array[UByte] = Array(opcode)
+    val instruction = Instruction.decode(input.head, None)
 
-    assertEquals(instruction.toString, f"LD_MEM_HL_IMM8(0x${opcode.toInt}%02X${imm8.toInt}%02X)")
-    verifyInstruction[Instruction.LD_MEM_HL_IMM8](opcode, instruction) { ld =>
-      assertEquals(ld.imm8, imm8)
-    }
+    assertEquals(instruction.toString, f"LD_MEM_HL_IMM8(0x${opcode.toInt}%02X)")
+    verifyInstruction[Instruction.LD_MEM_HL_IMM8.type](opcode, instruction)
 
     testInstruction(
       instruction = instruction,
+      setupInstructionState = state => state.imm8 = imm8,
       setupRegister = registers => registers.hl = 0xC000.toUShort,
       expectedMemory = memory => memory.write(0xC000.toUShort, imm8)
     )
@@ -126,17 +122,17 @@ class LoadInstructionsTests extends InstructionsTest {
     val imm8: UByte = 0x42.toUByte
     forNonMemHLR8OpCodeParams { destParam =>
       val opcode: UByte = OpCode.Base.LD_R8_IMM8.setParam(destParam -> 3)
-      val input: Array[UByte] = Array(opcode, imm8)
-      val instruction = Instruction.decode(input)
+      val input: Array[UByte] = Array(opcode)
+      val instruction = Instruction.decode(input.head, None)
 
-      assertEquals(instruction.toString, f"LD_R8_IMM8(0x${opcode.toInt}%02X${imm8.toInt}%02X)")
+      assertEquals(instruction.toString, f"LD_R8_IMM8(0x${opcode.toInt}%02X)")
       verifyInstruction[Instruction.LD_R8_IMM8](opcode, instruction) { ld =>
         assertEquals(ld.dest, destParam)
-        assertEquals(ld.imm8, imm8)
       }
 
       testInstruction(
         instruction = instruction,
+        setupInstructionState = state => state.imm8 = imm8,
         expectedRegister = registers => registers(destParam.toRegister) = imm8
       )
     }
@@ -146,7 +142,7 @@ class LoadInstructionsTests extends InstructionsTest {
     forNonMemHLR8OpCodeParams { srcParam =>
       val opcode: UByte = OpCode.Base.LD_MEM_HL_R8.setParam(srcParam -> 0)
       val input: Array[UByte] = Array(opcode)
-      val instruction = Instruction.decode(input)
+      val instruction = Instruction.decode(input.head, None)
 
       assertEquals(instruction.toString, f"LD_MEM_HL_R8(0x${opcode.toInt}%02X)")
       verifyInstruction[Instruction.LD_MEM_HL_R8](opcode, instruction) { ld =>
@@ -175,7 +171,7 @@ class LoadInstructionsTests extends InstructionsTest {
     forNonMemHLR8OpCodeParams { destParam =>
       val opcode: UByte = OpCode.Base.LD_R8_MEM_HL.setParam(destParam -> 3)
       val input: Array[UByte] = Array(opcode)
-      val instruction = Instruction.decode(input)
+      val instruction = Instruction.decode(input.head, None)
 
       assertEquals(instruction.toString, f"LD_R8_MEM_HL(0x${opcode.toInt}%02X)")
       verifyInstruction[Instruction.LD_R8_MEM_HL](opcode, instruction) { ld =>
@@ -196,7 +192,7 @@ class LoadInstructionsTests extends InstructionsTest {
     forNonMemHLR8OpCodeParamPairs { (srcParam, destParam) =>
       val opcode: UByte = OpCode.Base.LD_R8_R8.setParam(destParam -> 3, srcParam -> 0)
       val input: Array[UByte] = Array(opcode)
-      val instruction = Instruction.decode(input)
+      val instruction = Instruction.decode(input.head, None)
 
       assertEquals(instruction.toString, f"LD_R8_R8(0x${opcode.toInt}%02X)")
       verifyInstruction[Instruction.LD_R8_R8](opcode, instruction) { ld =>
@@ -215,7 +211,7 @@ class LoadInstructionsTests extends InstructionsTest {
   test("LDH_MEM_C_A") {
     val opcode: UByte = OpCode.Base.LDH_MEM_C_A.pattern
     val input: Array[UByte] = Array(opcode)
-    val instruction = Instruction.decode(input)
+    val instruction = Instruction.decode(input.head, None)
 
     assertEquals(instruction.toString, f"LDH_MEM_C_A(0x${opcode.toInt}%02X)")
     verifyInstruction[Instruction.LDH_MEM_C_A.type](opcode, instruction)
@@ -235,16 +231,15 @@ class LoadInstructionsTests extends InstructionsTest {
   test("LDH_MEM_IMM8_A") {
     val imm8: UByte = 0x20.toUByte
     val opcode: UByte = OpCode.Base.LDH_MEM_IMM8_A.pattern
-    val input: Array[UByte] = Array(opcode, imm8)
-    val instruction = Instruction.decode(input)
+    val input: Array[UByte] = Array(opcode)
+    val instruction = Instruction.decode(input.head, None)
 
-    assertEquals(instruction.toString, f"LDH_MEM_IMM8_A(0x${opcode.toInt}%02X${imm8.toInt}%02X)")
-    verifyInstruction[Instruction.LDH_MEM_IMM8_A](opcode, instruction) { ld =>
-      assertEquals(ld.imm8, imm8)
-    }
+    assertEquals(instruction.toString, f"LDH_MEM_IMM8_A(0x${opcode.toInt}%02X)")
+    verifyInstruction[Instruction.LDH_MEM_IMM8_A.type](opcode, instruction)
 
     testInstruction(
       instruction = instruction,
+      setupInstructionState = state => state.imm8 = imm8,
       setupRegister = registers => registers.a = 0x42.toUByte,
       expectedMemory = memory => memory.write(MemoryMap.IO_REGISTERS_START + imm8.toUShort, 0x42.toUByte)
     )
@@ -255,16 +250,15 @@ class LoadInstructionsTests extends InstructionsTest {
     val opcode: UByte = OpCode.Base.LD_MEM_IMM16_A.pattern
     val immLo: UByte = imm16.loByte
     val immHi: UByte = imm16.hiByte
-    val input: Array[UByte] = Array(opcode, immLo, immHi)
-    val instruction = Instruction.decode(input)
+    val input: Array[UByte] = Array(opcode)
+    val instruction = Instruction.decode(input.head, None)
 
-    assertEquals(instruction.toString, f"LD_MEM_IMM16_A(0x${opcode.toInt}%02X${immLo.toInt}%02X${immHi.toInt}%02X)")
-    verifyInstruction[Instruction.LD_MEM_IMM16_A](opcode, instruction) { ld =>
-      assertEquals(ld.imm16, imm16)
-    }
+    assertEquals(instruction.toString, f"LD_MEM_IMM16_A(0x${opcode.toInt}%02X)")
+    verifyInstruction[Instruction.LD_MEM_IMM16_A.type](opcode, instruction)
 
     testInstruction(
       instruction = instruction,
+      setupInstructionState = state => state.imm16 = imm16,
       setupRegister = registers => registers.a = 0x42.toUByte,
       expectedMemory = memory => memory.write(imm16, 0x42.toUByte)
     )
@@ -273,7 +267,7 @@ class LoadInstructionsTests extends InstructionsTest {
   test("LDH_A_MEM_C") {
     val opcode: UByte = OpCode.Base.LDH_A_MEM_C.pattern
     val input: Array[UByte] = Array(opcode)
-    val instruction = Instruction.decode(input)
+    val instruction = Instruction.decode(input.head, None)
 
     assertEquals(instruction.toString, f"LDH_A_MEM_C(0x${opcode.toInt}%02X)")
     verifyInstruction[Instruction.LDH_A_MEM_C.type](opcode, instruction)
@@ -289,16 +283,15 @@ class LoadInstructionsTests extends InstructionsTest {
   test("LDH_A_MEM_IMM8") {
     val imm8: UByte = 0x20.toUByte
     val opcode: UByte = OpCode.Base.LDH_A_MEM_IMM8.pattern
-    val input: Array[UByte] = Array(opcode, imm8)
-    val instruction = Instruction.decode(input)
+    val input: Array[UByte] = Array(opcode)
+    val instruction = Instruction.decode(input.head, None)
 
-    assertEquals(instruction.toString, f"LDH_A_MEM_IMM8(0x${opcode.toInt}%02X${imm8.toInt}%02X)")
-    verifyInstruction[Instruction.LDH_A_MEM_IMM8](opcode, instruction) { ld =>
-      assertEquals(ld.imm8, imm8)
-    }
+    assertEquals(instruction.toString, f"LDH_A_MEM_IMM8(0x${opcode.toInt}%02X)")
+    verifyInstruction[Instruction.LDH_A_MEM_IMM8.type](opcode, instruction)
 
     testInstruction(
       instruction = instruction,
+      setupInstructionState = state => state.imm8 = imm8,
       setupMemory = (registers, memory) => memory.write(MemoryMap.IO_REGISTERS_START + imm8.toUShort, 0x42.toUByte),
       expectedRegister = registers => registers.a = 0x42.toUByte
     )
@@ -309,16 +302,15 @@ class LoadInstructionsTests extends InstructionsTest {
     val opcode: UByte = OpCode.Base.LD_A_MEM_IMM16.pattern
     val immLo: UByte = imm16.loByte
     val immHi: UByte = imm16.hiByte
-    val input: Array[UByte] = Array(opcode, immLo, immHi)
-    val instruction = Instruction.decode(input)
+    val input: Array[UByte] = Array(opcode)
+    val instruction = Instruction.decode(input.head, None)
 
-    assertEquals(instruction.toString, f"LD_A_MEM_IMM16(0x${opcode.toInt}%02X${immLo.toInt}%02X${immHi.toInt}%02X)")
-    verifyInstruction[Instruction.LD_A_MEM_IMM16](opcode, instruction) { ld =>
-      assertEquals(ld.imm16, imm16)
-    }
+    assertEquals(instruction.toString, f"LD_A_MEM_IMM16(0x${opcode.toInt}%02X)")
+    verifyInstruction[Instruction.LD_A_MEM_IMM16.type](opcode, instruction)
 
     testInstruction(
       instruction = instruction,
+      setupInstructionState = state => state.imm16 = imm16,
       setupMemory = (registers, memory) => memory.write(imm16, 0x42.toUByte),
       expectedRegister = registers => registers.a = 0x42.toUByte
     )

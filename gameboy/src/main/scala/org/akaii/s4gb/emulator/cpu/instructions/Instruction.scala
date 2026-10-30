@@ -17,8 +17,7 @@ import spire.math.{UByte, UShort}
  * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7]]
  * @see [[https://izik1.github.io/gbops/]]
  */
-sealed abstract class Instruction(protected val value: Array[UByte]) extends Product with Serializable {
-  lazy val opCode: UByte = value.head
+sealed abstract class Instruction(val opCode: UByte) extends Product with Serializable {
   val cycles: Instruction.MCycle
   val bytes: Int
 
@@ -41,22 +40,35 @@ sealed abstract class Instruction(protected val value: Array[UByte]) extends Pro
 }
 
 object Instruction {
-  def decode(input: Array[UByte]): Instruction =
-    input.head match {
-      case opCode if OpCode.HOLES.contains(opCode) => HOLE(input)
-      case OpCode.PREFIXED => decodePrefixed(input.tail)
-      case _ => decodeBase(input)
+  def decode(first: UByte, second: Option[UByte]): Instruction =
+    (first, second) match {
+      case (OpCode.PREFIXED, Some(extension)) => prefixedTable(extension.intValue)
+      case (OpCode.PREFIXED, None) => throw new IllegalArgumentException("0xCB prefix requires a second opcode byte")
+      case (opCode, _) => baseTable(first.intValue)
     }
 
-  private def decodeBase(input: Array[UByte]): Instruction =
-    OpCode.decode(OpCode.Base.values, input.head) match {
+  private val baseCount = 256
+  private val baseTable: Array[Instruction] =
+    Array.tabulate(baseCount) { i =>
+      val opCode = i.toUByte
+      if (opCode == OpCode.PREFIXED || OpCode.HOLES.contains(opCode)) HOLE(opCode)
+      else decodeBase(opCode)
+    }
+
+
+  private val prefixedCount = 256
+  private val prefixedTable: Array[Instruction] =
+    Array.tabulate(prefixedCount)(i => decodePrefixed(i.toUByte))
+
+  private def decodeBase(input: UByte): Instruction =
+    OpCode.decode(OpCode.Base.values, input) match {
       // Block 0 (0b00)  https://gbdev.io/pandocs/CPU_Instruction_Set.html#block-0
       case OpCode.Base.NOP => NOP
-      case OpCode.Base.LD_SP_IMM16 => LD_SP_IMM16(input)
+      case OpCode.Base.LD_SP_IMM16 => LD_SP_IMM16
       case OpCode.Base.LD_R16_IMM16 => LD_R16_IMM16(input)
       case OpCode.Base.LD_R16MEM_A => LD_R16MEM_A(input)
       case OpCode.Base.LD_A_R16MEM => LD_A_R16MEM(input)
-      case OpCode.Base.LD_MEM_IMM16_SP => LD_MEM_IMM16_SP(input)
+      case OpCode.Base.LD_MEM_IMM16_SP => LD_MEM_IMM16_SP
       case OpCode.Base.INC_SP => INC_SP
       case OpCode.Base.INC_R16 => INC_R16(input)
       case OpCode.Base.DEC_SP => DEC_SP
@@ -67,7 +79,7 @@ object Instruction {
       case OpCode.Base.INC_R8 => INC_R8(input)
       case OpCode.Base.DEC_MEM_HL => DEC_MEM_HL
       case OpCode.Base.DEC_R8 => DEC_R8(input)
-      case OpCode.Base.LD_MEM_HL_IMM8 => LD_MEM_HL_IMM8(input)
+      case OpCode.Base.LD_MEM_HL_IMM8 => LD_MEM_HL_IMM8
       case OpCode.Base.LD_R8_IMM8 => LD_R8_IMM8(input)
       case OpCode.Base.RLCA => RLCA
       case OpCode.Base.RRCA => RRCA
@@ -77,9 +89,9 @@ object Instruction {
       case OpCode.Base.CPL => CPL
       case OpCode.Base.SCF => SCF
       case OpCode.Base.CCF => CCF
-      case OpCode.Base.JR_IMM8 => JR_IMM8(input)
+      case OpCode.Base.JR_IMM8 => JR_IMM8
       case OpCode.Base.JR_COND_IMM8 => JR_COND_IMM8(input)
-      case OpCode.Base.STOP => STOP(input)
+      case OpCode.Base.STOP => STOP
       // Block 1 (0b01) https://gbdev.io/pandocs/CPU_Instruction_Set.html#block-1-8-bit-register-to-register-loads
       case OpCode.Base.HALT => HALT
       case OpCode.Base.LD_MEM_HL_R8 => LD_MEM_HL_R8(input)
@@ -103,55 +115,55 @@ object Instruction {
       case OpCode.Base.CP_A_MEM_HL => CP_A_MEM_HL
       case OpCode.Base.CP_A_R8 => CP_A_R8(input)
       // Block 3 (0b11) https://gbdev.io/pandocs/CPU_Instruction_Set.html#block-3
-      case OpCode.Base.ADD_A_IMM8 => ADD_A_IMM8(input)
-      case OpCode.Base.ADC_A_IMM8 => ADC_A_IMM8(input)
-      case OpCode.Base.SUB_A_IMM8 => SUB_A_IMM8(input)
-      case OpCode.Base.SBC_A_IMM8 => SBC_A_IMM8(input)
-      case OpCode.Base.AND_A_IMM8 => AND_A_IMM8(input)
-      case OpCode.Base.XOR_A_IMM8 => XOR_A_IMM8(input)
-      case OpCode.Base.OR_A_IMM8 => OR_A_IMM8(input)
-      case OpCode.Base.CP_A_IMM8 => CP_A_IMM8(input)
+      case OpCode.Base.ADD_A_IMM8 => ADD_A_IMM8
+      case OpCode.Base.ADC_A_IMM8 => ADC_A_IMM8
+      case OpCode.Base.SUB_A_IMM8 => SUB_A_IMM8
+      case OpCode.Base.SBC_A_IMM8 => SBC_A_IMM8
+      case OpCode.Base.AND_A_IMM8 => AND_A_IMM8
+      case OpCode.Base.XOR_A_IMM8 => XOR_A_IMM8
+      case OpCode.Base.OR_A_IMM8 => OR_A_IMM8
+      case OpCode.Base.CP_A_IMM8 => CP_A_IMM8
       case OpCode.Base.RET_COND => RET_COND(input)
       case OpCode.Base.RET => RET
       case OpCode.Base.RETI => RETI
       case OpCode.Base.JP_COND_IMM16 => JP_COND_IMM16(input)
-      case OpCode.Base.JP_IMM16 => JP_IMM16(input)
+      case OpCode.Base.JP_IMM16 => JP_IMM16
       case OpCode.Base.JP_HL => JP_HL
       case OpCode.Base.CALL_COND_IMM16 => CALL_COND_IMM16(input)
-      case OpCode.Base.CALL_IMM16 => CALL_IMM16(input)
+      case OpCode.Base.CALL_IMM16 => CALL_IMM16
       case OpCode.Base.RST_TGT3 => RST_TGT3(input)
       case OpCode.Base.POP_R16STK => POP_R16STK(input)
       case OpCode.Base.PUSH_R16STK => PUSH_R16STK(input)
       case OpCode.Base.LDH_MEM_C_A => LDH_MEM_C_A
-      case OpCode.Base.LDH_MEM_IMM8_A => LDH_MEM_IMM8_A(input)
-      case OpCode.Base.LD_MEM_IMM16_A => LD_MEM_IMM16_A(input)
+      case OpCode.Base.LDH_MEM_IMM8_A => LDH_MEM_IMM8_A
+      case OpCode.Base.LD_MEM_IMM16_A => LD_MEM_IMM16_A
       case OpCode.Base.LDH_A_MEM_C => LDH_A_MEM_C
-      case OpCode.Base.LDH_A_MEM_IMM8 => LDH_A_MEM_IMM8(input)
-      case OpCode.Base.LD_A_MEM_IMM16 => LD_A_MEM_IMM16(input)
-      case OpCode.Base.ADD_SP_IMM8 => ADD_SP_IMM8(input)
-      case OpCode.Base.LD_HL_ADD_SP_IMM8 => LD_HL_ADD_SP_IMM8(input)
+      case OpCode.Base.LDH_A_MEM_IMM8 => LDH_A_MEM_IMM8
+      case OpCode.Base.LD_A_MEM_IMM16 => LD_A_MEM_IMM16
+      case OpCode.Base.ADD_SP_IMM8 => ADD_SP_IMM8
+      case OpCode.Base.LD_HL_ADD_SP_IMM8 => LD_HL_ADD_SP_IMM8
       case OpCode.Base.LD_SP_HL => LD_SP_HL
       case OpCode.Base.DI => DI
       case OpCode.Base.EI => EI
     }
 
-  private def decodePrefixed(input: Array[UByte]): Instruction =
-    OpCode.decode(OpCode.CB.values, input.head) match {
-      case OpCode.CB.RLC_MEM_HL => RLC_MEM_HL(input)
+  private def decodePrefixed(input: UByte): Instruction =
+    OpCode.decode(OpCode.CB.values, input) match {
+      case OpCode.CB.RLC_MEM_HL => RLC_MEM_HL
       case OpCode.CB.RLC_R8 => RLC_R8(input)
-      case OpCode.CB.RRC_MEM_HL => RRC_MEM_HL(input)
+      case OpCode.CB.RRC_MEM_HL => RRC_MEM_HL
       case OpCode.CB.RRC_R8 => RRC_R8(input)
-      case OpCode.CB.RL_MEM_HL => RL_MEM_HL(input)
+      case OpCode.CB.RL_MEM_HL => RL_MEM_HL
       case OpCode.CB.RL_R8 => RL_R8(input)
-      case OpCode.CB.RR_MEM_HL => RR_MEM_HL(input)
+      case OpCode.CB.RR_MEM_HL => RR_MEM_HL
       case OpCode.CB.RR_R8 => RR_R8(input)
-      case OpCode.CB.SLA_MEM_HL => SLA_MEM_HL(input)
+      case OpCode.CB.SLA_MEM_HL => SLA_MEM_HL
       case OpCode.CB.SLA_R8 => SLA_R8(input)
-      case OpCode.CB.SRA_MEM_HL => SRA_MEM_HL(input)
+      case OpCode.CB.SRA_MEM_HL => SRA_MEM_HL
       case OpCode.CB.SRA_R8 => SRA_R8(input)
-      case OpCode.CB.SWAP_MEM_HL => SWAP_MEM_HL(input)
+      case OpCode.CB.SWAP_MEM_HL => SWAP_MEM_HL
       case OpCode.CB.SWAP_R8 => SWAP_R8(input)
-      case OpCode.CB.SRL_MEM_HL => SRL_MEM_HL(input)
+      case OpCode.CB.SRL_MEM_HL => SRL_MEM_HL
       case OpCode.CB.SRL_R8 => SRL_R8(input)
       case OpCode.CB.BIT_B3_MEM_HL => BIT_B3_MEM_HL(input)
       case OpCode.CB.BIT_B3_R8 => BIT_B3_R8(input)
@@ -215,7 +227,7 @@ object Instruction {
     private def microOp(execute: MicroStep): Micro = Micro { state => execute(state); ExecutionResult.Progressing }
 
     def fetchOpCode(execute: MicroStep = _ => ()): Micro = microOp { state =>
-      if(!state.haltBugIsActive) advancePC(1, state)
+      if (!state.haltBugIsActive) advancePC(1, state)
       execute(state)
     }
 
@@ -239,39 +251,35 @@ object Instruction {
     def modifyPC(execute: MicroStep = _ => ()): Micro = microOp(execute)
   }
 
+  case class State(
+    var microStep: Int = 0,
+    var current: Instruction = Instruction.INITIAL,
+    var imm8: UByte = UByte(0),
+    var imm16: UShort = UShort(0),
+    // holds state between microsteps
+    var scratchUByte: UByte = UByte(0),
+    var scratchUShort: UShort = UShort(0)
+  ) {
+    def reset(): Unit = {
+      microStep = 0
+      imm8 = UByte(0)
+      imm16 = UShort(0)
+      scratchUByte = UByte(0)
+      scratchUShort = UShort(0)
+    }
+  }
+
   /**
    * 16-bit extended instructions prefixed by 0xCB. Require 2 fetches rather than 1.
    *
    * @see [[https://gist.github.com/SonoSooS/c0055300670d678b5ae8433e20bea595#cb-prefix]]
    * @see [[https://gbdev.io/pandocs/CPU_Instruction_Set.html#cb-prefix-instructions]]
    */
-  abstract class CBExtension(private val extension: Array[UByte]) extends Instruction(extension) {
+  abstract class CBExtension(extension: UByte) extends Instruction(extension) {
     override def toString: String = f"$productPrefix(0xCB${opCode.toInt}%02X)"
 
     override protected[instructions] def micro: Seq[Instruction.Micro] =
       super.micro ++ Seq(Instruction.Micro.fetchOpCode())
-  }
-
-  trait HasImm8 {
-    self: Instruction =>
-    lazy val imm8: UByte = value(1)
-
-    override def toString: String = {
-      val hexStr = f"${self.opCode.toInt}%02X" + f"${imm8.toInt}%02X"
-      s"$productPrefix(0x$hexStr)"
-    }
-  }
-
-  trait HasImm16 {
-    self: Instruction =>
-    lazy val imm16: UShort = (value(2).toUShort << 8) | value(1).toUShort
-
-    override def toString: String = {
-      val hexStr = f"${self.opCode.toInt}%02X" +
-        f"${self.value(1).toInt}%02X" +
-        f"${self.value(2).toInt}%02X"
-      s"$productPrefix(0x$hexStr)"
-    }
   }
 
   trait HasR8Operand {
@@ -511,13 +519,13 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD_SP,n16]]
    */
-  case class LD_SP_IMM16(private val input: Array[UByte]) extends Instruction(input) with HasR16Operand with HasImm16 {
+  case object LD_SP_IMM16 extends Instruction(OpCode.Base.LD_SP_IMM16.pattern) with HasR16Operand {
     override val cycles: MCycle = MCycle.Fixed(3)
     override val bytes: Int = 3
 
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
-      Micro.fetchImm8 { state => writeToOperandHiLocation(OpCode.Parameters.R16.SP, state, imm16) },
-      Micro.fetchImm8 { state => writeToOperandLoLocation(OpCode.Parameters.R16.SP, state, imm16) }
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
+      Micro.fetchImm8 { state => writeToOperandHiLocation(OpCode.Parameters.R16.SP, state, state.getImm16) },
+      Micro.fetchImm8 { state => writeToOperandLoLocation(OpCode.Parameters.R16.SP, state, state.getImm16) }
     )
   }
 
@@ -526,16 +534,16 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD_r16,n16]]
    */
-  case class LD_R16_IMM16(private val input: Array[UByte]) extends Instruction(input) with HasR16Operand with HasImm16 {
+  case class LD_R16_IMM16(private val input: UByte) extends Instruction(input) with HasR16Operand {
     override val cycles: MCycle = MCycle.Fixed(3)
     override val bytes: Int = 3
 
     private val destStart = 5
     lazy val dest: OpCode.Parameters.R16 = operand(destStart)
 
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
-      Micro.fetchImm8 { state => writeToOperandLoLocation(destStart, state, imm16) },
-      Micro.fetchImm8 { state => writeToOperandHiLocation(destStart, state, imm16) },
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
+      Micro.fetchImm8 { state => writeToOperandLoLocation(destStart, state, state.getImm16) },
+      Micro.fetchImm8 { state => writeToOperandHiLocation(destStart, state, state.getImm16) },
     )
   }
 
@@ -546,14 +554,14 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD__HLI_,A]]
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD__HLD_,A]]
    */
-  case class LD_R16MEM_A(private val input: Array[UByte]) extends Instruction(input) with HasR16MemOperand {
+  case class LD_R16MEM_A(private val input: UByte) extends Instruction(input) with HasR16MemOperand {
     override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 1
 
     private val destRefStart = 5
     lazy val destRef: OpCode.Parameters.R16Mem = operand(destRefStart)
 
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
       Micro.writeMemory { state =>
         state.memory.write(operandContents(destRefStart, state), state.registers.a)
         updateIfHL(destRefStart, state)
@@ -568,14 +576,14 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD_A,_HLI_]]
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD_A,_HLD_]]
    */
-  case class LD_A_R16MEM(private val input: Array[UByte]) extends Instruction(input) with HasR16MemOperand {
+  case class LD_A_R16MEM(private val input: UByte) extends Instruction(input) with HasR16MemOperand {
     override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 1
 
     private val srcRefStart = 5
     lazy val srcRef: OpCode.Parameters.R16Mem = operand(srcRefStart)
 
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
       Micro.readMemory { state =>
         state.registers.a = state.memory(operandContents(srcRefStart, state))
         updateIfHL(srcRefStart, state)
@@ -588,13 +596,13 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD__HL_,r8]]
    */
-  case class LD_MEM_HL_IMM8(private val input: Array[UByte]) extends Instruction(input) with HasImm8 with HasR8Operand {
+  case object LD_MEM_HL_IMM8 extends Instruction(OpCode.Base.LD_MEM_HL_IMM8.pattern) with HasR8Operand {
     override val cycles: MCycle = MCycle.Fixed(3)
     override val bytes: Int = 2
 
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
       Micro.fetchImm8(),
-      Micro.writeMemory { state => writeToOperandLocation(OpCode.Parameters.R8.MEM_HL, state, imm8) }
+      Micro.writeMemory { state => writeToOperandLocation(OpCode.Parameters.R8.MEM_HL, state, state.getImm8) }
     )
   }
 
@@ -603,15 +611,15 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD_r8,n8]]
    */
-  case class LD_R8_IMM8(private val input: Array[UByte]) extends Instruction(input) with HasR8Operand with HasImm8 {
+  case class LD_R8_IMM8(private val input: UByte) extends Instruction(input) with HasR8Operand {
     override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 2
 
     private val destStart = 5
     lazy val dest: OpCode.Parameters.R8 = operand(destStart)
 
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
-      Micro.fetchImm8 { state => writeToOperandLocation(destStart, state, imm8) }
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
+      Micro.fetchImm8 { state => writeToOperandLocation(destStart, state, state.getImm8) }
     )
   }
 
@@ -620,14 +628,14 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD__HL_,r8]]
    */
-  case class LD_MEM_HL_R8(private val input: Array[UByte]) extends Instruction(input) with HasR8Operand {
+  case class LD_MEM_HL_R8(private val input: UByte) extends Instruction(input) with HasR8Operand {
     override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 1
 
     private val srcStart = 2
     lazy val src: OpCode.Parameters.R8 = operand(srcStart)
 
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
       Micro.writeMemory { state => state.memory.write(state.registers.hl, operandContents(srcStart, state)) }
     )
   }
@@ -637,14 +645,14 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD__HL_,r8]]
    */
-  case class LD_R8_MEM_HL(private val input: Array[UByte]) extends Instruction(input) with HasR8Operand {
+  case class LD_R8_MEM_HL(private val input: UByte) extends Instruction(input) with HasR8Operand {
     override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 1
 
     private val destStart = 5
     lazy val dest: OpCode.Parameters.R8 = operand(destStart)
 
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
       Micro.readMemory { state => writeToOperandLocation(destStart, state, state.memory(state.registers.hl)) }
     )
   }
@@ -657,7 +665,7 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD_r8,r8]]
    */
-  case class LD_R8_R8(private val input: Array[UByte]) extends Instruction(input) with HasR8Operand {
+  case class LD_R8_R8(private val input: UByte) extends Instruction(input) with HasR8Operand {
     override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
 
@@ -667,7 +675,7 @@ object Instruction {
     private val destStart = 5
     lazy val dest: OpCode.Parameters.R8 = operand(destStart)
 
-    override protected[instructions] def micro: Seq[Micro] = Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = Seq(
       Micro.fetchOpCode { state => writeToOperandLocation(destStart, state, operandContents(srcStart, state)) }
     )
   }
@@ -677,11 +685,11 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LDH__C_,A]]
    */
-  case object LDH_MEM_C_A extends Instruction(Array(OpCode.Base.LDH_MEM_C_A.pattern)) {
+  case object LDH_MEM_C_A extends Instruction(OpCode.Base.LDH_MEM_C_A.pattern) {
     override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 1
 
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
       Micro.writeMemory { state =>
         val address = MemoryMap.IO_REGISTERS_START + state.registers.c.toUShort
         state.memory.write(address, state.registers.a)
@@ -697,14 +705,14 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LDH__n16_,A]]
    */
-  case class LDH_MEM_IMM8_A(private val input: Array[UByte]) extends Instruction(input) with HasImm8 {
+  case object LDH_MEM_IMM8_A extends Instruction(OpCode.Base.LDH_MEM_IMM8_A.pattern) {
     override val cycles: MCycle = MCycle.Fixed(3)
     override val bytes: Int = 2
 
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
       Micro.fetchImm8(),
       Micro.writeMemory { state =>
-        val address = MemoryMap.IO_REGISTERS_START + imm8.toUShort
+        val address = MemoryMap.IO_REGISTERS_START + state.getImm8.toUShort
         state.memory.write(address, state.registers.a)
       }
     )
@@ -715,14 +723,14 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD__n16_,A]]
    */
-  case class LD_MEM_IMM16_A(private val input: Array[UByte]) extends Instruction(input) with HasImm16 {
+  case object LD_MEM_IMM16_A extends Instruction(OpCode.Base.LD_MEM_IMM16_A.pattern) {
     override val cycles: MCycle = MCycle.Fixed(4)
     override val bytes: Int = 3
 
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
       Micro.fetchImm8(),
       Micro.fetchImm8(),
-      Micro.writeMemory { state => state.memory.write(imm16, state.registers.a) }
+      Micro.writeMemory { state => state.memory.write(state.getImm16, state.registers.a) }
     )
   }
 
@@ -731,11 +739,11 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LDH_A,_C_]]
    */
-  case object LDH_A_MEM_C extends Instruction(Array(OpCode.Base.LDH_A_MEM_C.pattern)) {
+  case object LDH_A_MEM_C extends Instruction(OpCode.Base.LDH_A_MEM_C.pattern) {
     override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 1
 
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
       Micro.readMemory { state =>
         val address = MemoryMap.IO_REGISTERS_START + state.registers.c.toUShort
         state.registers.a = state.memory(address)
@@ -751,14 +759,14 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LDH_A,_n16_]]
    */
-  case class LDH_A_MEM_IMM8(private val input: Array[UByte]) extends Instruction(input) with HasImm8 {
+  case object LDH_A_MEM_IMM8 extends Instruction(OpCode.Base.LDH_A_MEM_IMM8.pattern) {
     override val cycles: MCycle = MCycle.Fixed(3)
     override val bytes: Int = 2
 
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
       Micro.fetchImm8(),
       Micro.readMemory { state =>
-        val address = MemoryMap.IO_REGISTERS_START + imm8.toUShort
+        val address = MemoryMap.IO_REGISTERS_START + state.getImm8.toUShort
         state.registers.a = state.memory(address)
       }
     )
@@ -769,14 +777,14 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD_A,_n16_]]
    */
-  case class LD_A_MEM_IMM16(private val input: Array[UByte]) extends Instruction(input) with HasImm16 {
+  case object LD_A_MEM_IMM16 extends Instruction(OpCode.Base.LD_A_MEM_IMM16.pattern) {
     override val cycles: MCycle = MCycle.Fixed(4)
     override val bytes: Int = 3
 
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
       Micro.fetchImm8(),
       Micro.fetchImm8(),
-      Micro.readMemory { state => state.registers.a = state.memory(imm16) }
+      Micro.readMemory { state => state.registers.a = state.memory(state.getImm16) }
     )
   }
 
@@ -790,22 +798,20 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#INC__HL_]]
    */
-  case object INC_MEM_HL extends Instruction(Array(OpCode.Base.INC_MEM_HL.pattern)) with HasR8Operand {
+  case object INC_MEM_HL extends Instruction(OpCode.Base.INC_MEM_HL.pattern) with HasR8Operand {
     override val cycles: MCycle = MCycle.Fixed(3)
     override val bytes: Int = 1
 
-    private var originalValue: UByte = 0.toUByte
-
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
       Micro.readMemory { state =>
-        originalValue = state.memory(state.registers.hl)
+        state.setScratch8(state.memory(state.registers.hl)) // original HL
       },
       Micro.writeMemory { state =>
-        val result = originalValue + 1.toUByte
+        val result = state.getScratch8 + 1.toUByte
         state.memory.write(state.registers.hl, result)
         state.registers.flags.z = result == 0.toUByte
         state.registers.flags.n = false
-        state.registers.flags.h = originalValue.overflowFromBit3(1.toUByte)
+        state.registers.flags.h = state.getScratch8.overflowFromBit3(1.toUByte)
       }
     )
   }
@@ -815,14 +821,14 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#INC_r8]]
    */
-  case class INC_R8(private val input: Array[UByte]) extends Instruction(input) with HasR8Operand {
+  case class INC_R8(private val input: UByte) extends Instruction(input) with HasR8Operand {
     override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
 
     private val operandStart = 5
     lazy val operand: OpCode.Parameters.R8 = operand(operandStart)
 
-    override protected[instructions] def micro: Seq[Micro] = Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = Seq(
       Micro.fetchOpCode { state =>
         val originalValue = operandContents(operandStart, state)
         val result = originalValue + 1.toUByte
@@ -839,22 +845,20 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#DEC__HL_]]
    */
-  case object DEC_MEM_HL extends Instruction(Array(OpCode.Base.DEC_MEM_HL.pattern)) with HasR8Operand {
+  case object DEC_MEM_HL extends Instruction(OpCode.Base.DEC_MEM_HL.pattern) with HasR8Operand {
     override val cycles: MCycle = MCycle.Fixed(3)
     override val bytes: Int = 1
 
-    private var originalValue: UByte = 0.toUByte
-
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
       Micro.readMemory { state =>
-        originalValue = state.memory(state.registers.hl)
+        state.setScratch8(state.memory(state.registers.hl)) // original HL
       },
       Micro.writeMemory { state =>
-        val result = originalValue - 1.toUByte
+        val result = state.getScratch8 - 1.toUByte
         state.memory.write(state.registers.hl, result)
         state.registers.flags.z = result == 0.toUByte
         state.registers.flags.n = true
-        state.registers.flags.h = originalValue.borrowFromBit4(1.toUByte)
+        state.registers.flags.h = state.getScratch8.borrowFromBit4(1.toUByte)
       }
     )
   }
@@ -864,14 +868,14 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#DEC_r8]]
    */
-  case class DEC_R8(private val input: Array[UByte]) extends Instruction(input) with HasR8Operand {
+  case class DEC_R8(private val input: UByte) extends Instruction(input) with HasR8Operand {
     override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
 
     private val operandStart = 5
     lazy val operand: OpCode.Parameters.R8 = operand(operandStart)
 
-    override protected[instructions] def micro: Seq[Micro] = Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = Seq(
       Micro.fetchOpCode { state =>
         val originalValue = operandContents(operandStart, state)
         val result = originalValue - 1.toUByte
@@ -888,11 +892,11 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#ADD_A,_HL_]]
    */
-  case object ADD_A_MEM_HL extends Instruction(Array(OpCode.Base.ADD_A_MEM_HL.pattern)) with HasR8Operand with AddOperation {
+  case object ADD_A_MEM_HL extends Instruction(OpCode.Base.ADD_A_MEM_HL.pattern) with HasR8Operand with AddOperation {
     override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 1
 
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
       Micro.readMemory { state =>
         val a = state.registers.a
         val valueToAdd = state.memory(state.registers.hl)
@@ -906,14 +910,14 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#ADD_A,r8]]
    */
-  case class ADD_A_R8(private val input: Array[UByte]) extends Instruction(input) with HasR8Operand with AddOperation {
+  case class ADD_A_R8(private val input: UByte) extends Instruction(input) with HasR8Operand with AddOperation {
     override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
 
     private val operandStart = 2
     lazy val operand: OpCode.Parameters.R8 = operand(operandStart)
 
-    override protected[instructions] def micro: Seq[Micro] = Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = Seq(
       Micro.fetchOpCode { state =>
         val a = state.registers.a
         val valueToAdd = operandContents(operandStart, state)
@@ -927,11 +931,11 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#ADC_A,_HL_]]
    */
-  case object ADC_A_MEM_HL extends Instruction(Array(OpCode.Base.ADC_A_MEM_HL.pattern)) with HasR8Operand with AddOperation {
+  case object ADC_A_MEM_HL extends Instruction(OpCode.Base.ADC_A_MEM_HL.pattern) with HasR8Operand with AddOperation {
     override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 1
 
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
       Micro.readMemory { state =>
         val a = state.registers.a
         val valueToAdd = state.memory(state.registers.hl)
@@ -946,14 +950,14 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#ADC_A,r8]]
    */
-  case class ADC_A_R8(private val input: Array[UByte]) extends Instruction(input) with HasR8Operand with AddOperation {
+  case class ADC_A_R8(private val input: UByte) extends Instruction(input) with HasR8Operand with AddOperation {
     override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
 
     private val operandStart = 2
     lazy val operand: OpCode.Parameters.R8 = operand(operandStart)
 
-    override protected[instructions] def micro: Seq[Micro] = Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = Seq(
       Micro.fetchOpCode { state =>
         val a = state.registers.a
         val valueToAdd = operandContents(operandStart, state)
@@ -968,11 +972,11 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#SUB_A,_HL_]]
    */
-  case object SUB_A_MEM_HL extends Instruction(Array(OpCode.Base.SUB_A_MEM_HL.pattern)) with HasR8Operand with SubOperation {
+  case object SUB_A_MEM_HL extends Instruction(OpCode.Base.SUB_A_MEM_HL.pattern) with HasR8Operand with SubOperation {
     override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 1
 
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
       Micro.readMemory { state =>
         val a = state.registers.a
         val valueToSub = state.memory(state.registers.hl)
@@ -986,14 +990,14 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#SUB_A,r8]]
    */
-  case class SUB_A_R8(private val input: Array[UByte]) extends Instruction(input) with HasR8Operand with SubOperation {
+  case class SUB_A_R8(private val input: UByte) extends Instruction(input) with HasR8Operand with SubOperation {
     override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
 
     private val operandStart = 2
     lazy val operand: OpCode.Parameters.R8 = operand(operandStart)
 
-    override protected[instructions] def micro: Seq[Micro] = Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = Seq(
       Micro.fetchOpCode { state =>
         val a = state.registers.a
         val valueToSub = operandContents(operandStart, state)
@@ -1007,11 +1011,11 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#SBC_A,_HL_]]
    */
-  case object SBC_A_MEM_HL extends Instruction(Array(OpCode.Base.SBC_A_MEM_HL.pattern)) with HasR8Operand with SubOperation {
+  case object SBC_A_MEM_HL extends Instruction(OpCode.Base.SBC_A_MEM_HL.pattern) with HasR8Operand with SubOperation {
     override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 1
 
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
       Micro.readMemory { state =>
         val a = state.registers.a
         val valueToSub = state.memory(state.registers.hl)
@@ -1026,14 +1030,14 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#SBC_A,r8]]
    */
-  case class SBC_A_R8(private val input: Array[UByte]) extends Instruction(input) with HasR8Operand with SubOperation {
+  case class SBC_A_R8(private val input: UByte) extends Instruction(input) with HasR8Operand with SubOperation {
     override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
 
     private val operandStart = 2
     lazy val operand: OpCode.Parameters.R8 = operand(operandStart)
 
-    override protected[instructions] def micro: Seq[Micro] = Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = Seq(
       Micro.fetchOpCode { state =>
         val a = state.registers.a
         val valueToSub = operandContents(operandStart, state)
@@ -1050,11 +1054,11 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#CP_A,_HL_]]
    */
-  case object CP_A_MEM_HL extends Instruction(Array(OpCode.Base.CP_A_MEM_HL.pattern)) with HasR8Operand with SubOperation {
+  case object CP_A_MEM_HL extends Instruction(OpCode.Base.CP_A_MEM_HL.pattern) with HasR8Operand with SubOperation {
     override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 1
 
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
       Micro.readMemory { state =>
         val a = state.registers.a
         val valueToSub = state.memory(state.registers.hl)
@@ -1070,14 +1074,14 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#CP_A,r8]]
    */
-  case class CP_A_R8(private val input: Array[UByte]) extends Instruction(input) with HasR8Operand with SubOperation {
+  case class CP_A_R8(private val input: UByte) extends Instruction(input) with HasR8Operand with SubOperation {
     override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
 
     private val operandStart = 2
     lazy val operand: OpCode.Parameters.R8 = operand(operandStart)
 
-    override protected[instructions] def micro: Seq[Micro] = Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = Seq(
       Micro.fetchOpCode { state =>
         val a = state.registers.a
         val valueToSub = operandContents(operandStart, state)
@@ -1091,14 +1095,14 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#ADD_A,n8]]
    */
-  case class ADD_A_IMM8(private val input: Array[UByte]) extends Instruction(input) with HasImm8 with AddOperation {
+  case object ADD_A_IMM8 extends Instruction(OpCode.Base.ADD_A_IMM8.pattern) with AddOperation {
     override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 2
 
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
       Micro.fetchImm8 { state =>
         val a = state.registers.a
-        val valueToAdd = imm8
+        val valueToAdd = state.getImm8
         resolveAndStoreInA(state, a, valueToAdd)
       }
     )
@@ -1109,14 +1113,14 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#ADC_A,n8]]
    */
-  case class ADC_A_IMM8(private val input: Array[UByte]) extends Instruction(input) with HasImm8 with AddOperation {
+  case object ADC_A_IMM8 extends Instruction(OpCode.Base.ADC_A_IMM8.pattern) with AddOperation {
     override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 2
 
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
       Micro.fetchImm8 { state =>
         val a = state.registers.a
-        val valueToAdd = imm8
+        val valueToAdd = state.getImm8
         val carryIn = if (state.registers.flags.c) 1.toUByte else 0.toUByte
         resolveAndStoreInA(state, a, valueToAdd, carryIn)
       }
@@ -1128,14 +1132,14 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#SUB_A,n8]]
    */
-  case class SUB_A_IMM8(private val input: Array[UByte]) extends Instruction(input) with HasImm8 with SubOperation {
+  case object SUB_A_IMM8 extends Instruction(OpCode.Base.SUB_A_IMM8.pattern) with SubOperation {
     override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 2
 
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
       Micro.fetchImm8 { state =>
         val a = state.registers.a
-        val valueToSub = imm8
+        val valueToSub = state.getImm8
         resolve(state, a, valueToSub, storeInA = true)
       }
     )
@@ -1146,14 +1150,14 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#SBC_A,n8]]
    */
-  case class SBC_A_IMM8(private val input: Array[UByte]) extends Instruction(input) with HasImm8 with SubOperation {
+  case object SBC_A_IMM8 extends Instruction(OpCode.Base.SBC_A_IMM8.pattern) with SubOperation {
     override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 2
 
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
       Micro.fetchImm8 { state =>
         val a = state.registers.a
-        val valueToSub = imm8
+        val valueToSub = state.getImm8
         val carryIn = if (state.registers.flags.c) 1.toUByte else 0.toUByte
         resolve(state, a, valueToSub, carryIn, storeInA = true)
       }
@@ -1167,14 +1171,14 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#CP_A,n8]]
    */
-  case class CP_A_IMM8(private val input: Array[UByte]) extends Instruction(input) with HasImm8 with SubOperation {
+  case object CP_A_IMM8 extends Instruction(OpCode.Base.CP_A_IMM8.pattern) with SubOperation {
     override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 2
 
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
       Micro.fetchImm8 { state =>
         val a = state.registers.a
-        val valueToSub = imm8
+        val valueToSub = state.getImm8
         resolve(state, a, valueToSub)
       }
     )
@@ -1190,19 +1194,17 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#ADD_HL,SP]]
    */
-  case object ADD_HL_SP extends Instruction(Array(OpCode.Base.ADD_HL_SP.pattern)) with HasR16Operand with AddToHLOperation {
+  case object ADD_HL_SP extends Instruction(OpCode.Base.ADD_HL_SP.pattern) with HasR16Operand with AddToHLOperation {
     override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 1
 
-    private var carryFromLow: UByte = 0.toUByte
-
-    override protected[instructions] def micro: Seq[Micro] =
+    override protected[instructions] lazy val micro: Seq[Micro] =
       Seq(
         Micro.fetchOpCode { state =>
-          carryFromLow = addLoBytes(state.registers.hl, state.registers.sp, state)
+          state.setScratch8(addLoBytes(state.registers.hl, state.registers.sp, state)) // carry from low byte
         },
         Micro.aluOperation { state =>
-          addHiBytes(state.registers.hl, state.registers.sp, carryFromLow, state)
+          addHiBytes(state.registers.hl, state.registers.sp, state.getScratch8, state)
         }
       )
   }
@@ -1216,23 +1218,21 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#ADD_HL,r16]]
    * @see [[https://gist.github.com/SonoSooS/c0055300670d678b5ae8433e20bea595?utm_source=chatgpt.com#add-hl-r16]]
    */
-  case class ADD_HL_R16(private val input: Array[UByte]) extends Instruction(input) with HasR16Operand with AddToHLOperation {
+  case class ADD_HL_R16(private val input: UByte) extends Instruction(input) with HasR16Operand with AddToHLOperation {
     override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 1
 
     private val operandStart = 5
     lazy val operand: OpCode.Parameters.R16 = operand(operandStart)
 
-    private var carryFromLow: UByte = 0.toUByte
-
-    override protected[instructions] def micro: Seq[Micro] = Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = Seq(
       Micro.fetchOpCode { state =>
         val hl = state.registers.hl
         val op = operandContents(operandStart, state)
-        carryFromLow = addLoBytes(hl, op, state)
+        state.setScratch8(addLoBytes(hl, op, state)) // carry from low byte
       },
       Micro.aluOperation { state =>
-        addHiBytes(state.registers.hl, operandContents(operandStart, state), carryFromLow, state)
+        addHiBytes(state.registers.hl, operandContents(operandStart, state), state.getScratch8, state)
       }
     )
   }
@@ -1244,11 +1244,11 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#INC_SP]]
    */
-  case object INC_SP extends Instruction(Array(OpCode.Base.INC_SP.pattern)) with HasR16Operand {
+  case object INC_SP extends Instruction(OpCode.Base.INC_SP.pattern) with HasR16Operand {
     override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 1
 
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
       Micro.iduOperation { state =>
         val original = state.registers.sp
         val result = original + 1.toUShort
@@ -1268,14 +1268,14 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#INC_r16]]
    * @see [[https://gist.github.com/SonoSooS/c0055300670d678b5ae8433e20bea595?utm_source=chatgpt.com#incdec-r16]]
    */
-  case class INC_R16(private val input: Array[UByte]) extends Instruction(input) with HasR16Operand {
+  case class INC_R16(private val input: UByte) extends Instruction(input) with HasR16Operand {
     override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 1
 
     private val operandStart = 5
     lazy val operand: OpCode.Parameters.R16 = operand(operandStart)
 
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
       Micro.iduOperation { state =>
         val original = operandContents(operandStart, state)
         val result = original + 1.toUShort
@@ -1289,11 +1289,11 @@ object Instruction {
    *
    * See INC_R16 for why this takes 2 cycles.
    */
-  case object DEC_SP extends Instruction(Array(OpCode.Base.DEC_SP.pattern)) with HasR16Operand {
+  case object DEC_SP extends Instruction(OpCode.Base.DEC_SP.pattern) with HasR16Operand {
     override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 1
 
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
       Micro.iduOperation { state =>
         val original = state.registers.sp
         val result = original - 1.toUShort
@@ -1309,14 +1309,14 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#DEC_r16]]
    */
-  case class DEC_R16(private val input: Array[UByte]) extends Instruction(input) with HasR16Operand {
+  case class DEC_R16(private val input: UByte) extends Instruction(input) with HasR16Operand {
     override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 1
 
     private val operandStart = 5
     lazy val operand: OpCode.Parameters.R16 = operand(operandStart)
 
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
       Micro.iduOperation { state =>
         val original = operandContents(operandStart, state)
         val result = original - 1.toUShort
@@ -1335,11 +1335,11 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#CPL]]
    */
-  case object CPL extends Instruction(Array(OpCode.Base.CPL.pattern)) {
+  case object CPL extends Instruction(OpCode.Base.CPL.pattern) {
     override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
 
-    override protected[instructions] def micro: Seq[Micro] = Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = Seq(
       Micro.fetchOpCode { state =>
         state.registers.a = ~state.registers.a
         state.registers.flags.n = true
@@ -1353,11 +1353,11 @@ object Instruction {
    *
    * @see[[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#AND_A,_HL_]]
    */
-  case object AND_A_MEM_HL extends Instruction(Array(OpCode.Base.AND_A_MEM_HL.pattern)) with HasR8Operand with AndOperation {
+  case object AND_A_MEM_HL extends Instruction(OpCode.Base.AND_A_MEM_HL.pattern) with HasR8Operand with AndOperation {
     override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 1
 
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
       Micro.readMemory { state =>
         val a = state.registers.a
         val valueToAnd = state.memory(state.registers.hl)
@@ -1373,14 +1373,14 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#AND_A,r8]]
    */
-  case class AND_A_R8(private val input: Array[UByte]) extends Instruction(input) with HasR8Operand with AndOperation {
+  case class AND_A_R8(private val input: UByte) extends Instruction(input) with HasR8Operand with AndOperation {
     override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
 
     private val operandStart = 2
     lazy val operand: OpCode.Parameters.R8 = operand(operandStart)
 
-    override protected[instructions] def micro: Seq[Micro] = Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = Seq(
       Micro.fetchOpCode { state =>
         val a = state.registers.a
         val valueToAnd = operandContents(operandStart, state)
@@ -1396,11 +1396,11 @@ object Instruction {
    *
    * @see[[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#XOR_A,_HL_]]
    */
-  case object XOR_A_MEM_HL extends Instruction(Array(OpCode.Base.XOR_A_MEM_HL.pattern)) with HasR8Operand with OrOperation {
+  case object XOR_A_MEM_HL extends Instruction(OpCode.Base.XOR_A_MEM_HL.pattern) with HasR8Operand with OrOperation {
     override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 1
 
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
       Micro.readMemory { state =>
         val a = state.registers.a
         val valueToXor = state.memory(state.registers.hl)
@@ -1416,14 +1416,14 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#XOR_A,r8]]
    */
-  case class XOR_A_R8(private val input: Array[UByte]) extends Instruction(input) with HasR8Operand with OrOperation {
+  case class XOR_A_R8(private val input: UByte) extends Instruction(input) with HasR8Operand with OrOperation {
     override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
 
     private val operandStart = 2
     lazy val operand: OpCode.Parameters.R8 = operand(operandStart)
 
-    override protected[instructions] def micro: Seq[Micro] = Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = Seq(
       Micro.fetchOpCode { state =>
         val a = state.registers.a
         val valueToXor = operandContents(operandStart, state)
@@ -1439,11 +1439,11 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#OR_A,_HL_]]
    */
-  case object OR_A_MEM_HL extends Instruction(Array(OpCode.Base.OR_A_MEM_HL.pattern)) with HasR8Operand with OrOperation {
+  case object OR_A_MEM_HL extends Instruction(OpCode.Base.OR_A_MEM_HL.pattern) with HasR8Operand with OrOperation {
     override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 1
 
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
       Micro.readMemory { state =>
         val a = state.registers.a
         val valueToOr = state.memory(state.registers.hl)
@@ -1459,14 +1459,14 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#OR_A,r8]]
    */
-  case class OR_A_R8(private val input: Array[UByte]) extends Instruction(input) with HasR8Operand with OrOperation {
+  case class OR_A_R8(private val input: UByte) extends Instruction(input) with HasR8Operand with OrOperation {
     override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
 
     private val operandStart = 2
     lazy val operand: OpCode.Parameters.R8 = operand(operandStart)
 
-    override protected[instructions] def micro: Seq[Micro] = Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = Seq(
       Micro.fetchOpCode { state =>
         val a = state.registers.a
         val valueToOr = operandContents(operandStart, state)
@@ -1482,14 +1482,14 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#AND_A,n8]]
    */
-  case class AND_A_IMM8(private val input: Array[UByte]) extends Instruction(input) with HasImm8 with AndOperation {
+  case object AND_A_IMM8 extends Instruction(OpCode.Base.AND_A_IMM8.pattern) with AndOperation {
     override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 2
 
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
       Micro.fetchImm8 { state =>
         val a = state.registers.a
-        val valueToAnd = imm8
+        val valueToAnd = state.getImm8
         val result = a & valueToAnd
 
         resolve(state, result)
@@ -1502,14 +1502,14 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#XOR_A,n8]]
    */
-  case class XOR_A_IMM8(private val input: Array[UByte]) extends Instruction(input) with HasImm8 with OrOperation {
+  case object XOR_A_IMM8 extends Instruction(OpCode.Base.XOR_A_IMM8.pattern) with OrOperation {
     override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 2
 
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
       Micro.fetchImm8 { state =>
         val a = state.registers.a
-        val valueToXor = imm8
+        val valueToXor = state.getImm8
         val result = a ^ valueToXor
 
         resolve(state, result)
@@ -1522,14 +1522,14 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#OR_A,n8]]
    */
-  case class OR_A_IMM8(private val input: Array[UByte]) extends Instruction(input) with HasImm8 with OrOperation {
+  case object OR_A_IMM8 extends Instruction(OpCode.Base.OR_A_IMM8.pattern) with OrOperation {
     override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 2
 
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
       Micro.fetchImm8 { state =>
         val a = state.registers.a
-        val valueToOr = imm8
+        val valueToOr = state.getImm8
         val result = a | valueToOr
 
         resolve(state, result)
@@ -1547,13 +1547,13 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#BIT_u3,_HL_]]
    */
-  case class BIT_B3_MEM_HL(private val input: Array[UByte]) extends CBExtension(input)
+  case class BIT_B3_MEM_HL(private val input: UByte) extends CBExtension(input)
     with HasBitIndexOperand with BitFlagOperation {
 
     override val cycles: MCycle = MCycle.Fixed(3)
     override val bytes: Int = 2
 
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
       Micro.readMemory { state => setFlags(state, isBitZero(state.memory(state.registers.hl), bitIndex)) }
     )
   }
@@ -1563,7 +1563,7 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#BIT_u3,r8]]
    */
-  case class BIT_B3_R8(private val input: Array[UByte]) extends CBExtension(input)
+  case class BIT_B3_R8(private val input: UByte) extends CBExtension(input)
     with HasR8Operand with HasBitIndexOperand with BitFlagOperation {
 
     override val cycles: MCycle = MCycle.Fixed(2)
@@ -1572,7 +1572,7 @@ object Instruction {
     private val operandStart = 2
     lazy val operand: OpCode.Parameters.R8 = operand(operandStart)
 
-    override protected[instructions] def micro: Seq[Micro] = Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = Seq(
       Micro.fetchOpCode(),
       Micro.fetchOpCode { state => setFlags(state, isBitZero(operandContents(operandStart, state), bitIndex)) }
     )
@@ -1583,20 +1583,18 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#RES_u3,_HL_]]
    */
-  case class RES_B3_MEM_HL(private val input: Array[UByte]) extends CBExtension(input)
+  case class RES_B3_MEM_HL(private val input: UByte) extends CBExtension(input)
     with HasBitIndexOperand with BitFlagOperation {
 
     override val cycles: MCycle = MCycle.Fixed(4)
     override val bytes: Int = 2
 
-    private var memValue: UByte = 0.toUByte
-
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
       Micro.readMemory { state =>
-        memValue = state.memory(state.registers.hl)
+        state.setScratch8(state.memory(state.registers.hl)) // original HL
       },
       Micro.writeMemory { state =>
-        val result = setBit(memValue, bitIndex, bitValue = false)
+        val result = setBit(state.getScratch8, bitIndex, bitValue = false)
         state.memory.write(state.registers.hl, result)
       }
     )
@@ -1607,7 +1605,7 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#RES_u3,r8]]
    */
-  case class RES_B3_R8(private val input: Array[UByte]) extends CBExtension(input)
+  case class RES_B3_R8(private val input: UByte) extends CBExtension(input)
     with HasR8Operand with HasBitIndexOperand with BitFlagOperation {
 
     override val cycles: MCycle = MCycle.Fixed(2)
@@ -1616,7 +1614,7 @@ object Instruction {
     private val operandStart = 2
     lazy val operand: OpCode.Parameters.R8 = operand(operandStart)
 
-    override protected[instructions] def micro: Seq[Micro] = Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = Seq(
       Micro.fetchOpCode(),
       Micro.fetchOpCode { state =>
         val originalValue = operandContents(operandStart, state)
@@ -1631,20 +1629,18 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#SET_u3,_HL_]]
    */
-  case class SET_B3_MEM_HL(private val input: Array[UByte]) extends CBExtension(input)
+  case class SET_B3_MEM_HL(private val input: UByte) extends CBExtension(input)
     with HasBitIndexOperand with BitFlagOperation {
 
     override val cycles: MCycle = MCycle.Fixed(4)
     override val bytes: Int = 2
 
-    private var memValue: UByte = 0.toUByte
-
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
       Micro.readMemory { state =>
-        memValue = state.memory(state.registers.hl)
+        state.setScratch8(state.memory(state.registers.hl)) // original HL
       },
       Micro.writeMemory { state =>
-        val result = setBit(memValue, bitIndex, bitValue = true)
+        val result = setBit(state.getScratch8, bitIndex, bitValue = true)
         state.memory.write(state.registers.hl, result)
       }
     )
@@ -1655,7 +1651,7 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#SET_u3,r8]]
    */
-  case class SET_B3_R8(private val input: Array[UByte]) extends CBExtension(input)
+  case class SET_B3_R8(private val input: UByte) extends CBExtension(input)
     with HasR8Operand with HasBitIndexOperand with BitFlagOperation {
 
     override val cycles: MCycle = MCycle.Fixed(2)
@@ -1664,7 +1660,7 @@ object Instruction {
     private val operandStart = 2
     lazy val operand: OpCode.Parameters.R8 = operand(operandStart)
 
-    override protected[instructions] def micro: Seq[Micro] = Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = Seq(
       Micro.fetchOpCode(),
       Micro.fetchOpCode { state =>
         val originalValue = operandContents(operandStart, state)
@@ -1684,11 +1680,11 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#RLCA]]
    */
-  case object RLCA extends Instruction(Array(OpCode.Base.RLCA.pattern)) with RotateOperation {
+  case object RLCA extends Instruction(OpCode.Base.RLCA.pattern) with RotateOperation {
     override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
 
-    override protected[instructions] def micro: Seq[Micro] = Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = Seq(
       Micro.fetchOpCode { state =>
         val a = state.registers.a
         val carry = (a & 0x80.toUByte) >> 7
@@ -1704,11 +1700,11 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#RRCA]]
    */
-  case object RRCA extends Instruction(Array(OpCode.Base.RRCA.pattern)) with RotateOperation {
+  case object RRCA extends Instruction(OpCode.Base.RRCA.pattern) with RotateOperation {
     override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
 
-    override protected[instructions] def micro: Seq[Micro] = Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = Seq(
       Micro.fetchOpCode { state =>
         val a = state.registers.a
         val carry = a & 0x01.toUByte
@@ -1724,11 +1720,11 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#RLA]]
    */
-  case object RLA extends Instruction(Array(OpCode.Base.RLA.pattern)) with RotateOperation {
+  case object RLA extends Instruction(OpCode.Base.RLA.pattern) with RotateOperation {
     override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
 
-    override protected[instructions] def micro: Seq[Micro] = Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = Seq(
       Micro.fetchOpCode { state =>
         val a = state.registers.a
         val carryIn = if (state.registers.flags.c) 1.toUByte else 0.toUByte
@@ -1745,11 +1741,11 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#RRA]]
    */
-  case object RRA extends Instruction(Array(OpCode.Base.RRA.pattern)) with RotateOperation {
+  case object RRA extends Instruction(OpCode.Base.RRA.pattern) with RotateOperation {
     override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
 
-    override protected[instructions] def micro: Seq[Micro] = Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = Seq(
       Micro.fetchOpCode { state =>
         val a = state.registers.a
         val carryIn = if (state.registers.flags.c) 0x80.toUByte else 0.toUByte
@@ -1766,19 +1762,17 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#RLC__HL_]]
    */
-  case class RLC_MEM_HL(private val input: Array[UByte]) extends CBExtension(input) with HasR8Operand with RotateOperation {
+  case object RLC_MEM_HL extends CBExtension(OpCode.CB.RLC_MEM_HL.pattern) with HasR8Operand with RotateOperation {
     override val cycles: MCycle = MCycle.Fixed(4)
     override val bytes: Int = 2
 
-    private var memValue: UByte = 0.toUByte
-
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
       Micro.readMemory { state =>
-        memValue = state.memory(state.registers.hl)
+        state.setScratch8(state.memory(state.registers.hl)) // original HL
       },
       Micro.writeMemory { state =>
-        val carry = (memValue & 0x80.toUByte) >> 7
-        val result = (memValue << 1) | carry
+        val carry = (state.getScratch8 & 0x80.toUByte) >> 7
+        val result = (state.getScratch8 << 1) | carry
         state.memory.write(state.registers.hl, result)
         setFlags(state, carry, resultForZero = Some(result))
       },
@@ -1790,14 +1784,14 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#RLC_r8]]
    */
-  case class RLC_R8(private val input: Array[UByte]) extends CBExtension(input) with HasR8Operand with RotateOperation {
+  case class RLC_R8(private val input: UByte) extends CBExtension(input) with HasR8Operand with RotateOperation {
     override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 2
 
     private val operandStart = 2
     lazy val operand: OpCode.Parameters.R8 = operand(operandStart)
 
-    override protected[instructions] def micro: Seq[Micro] = Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = Seq(
       Micro.fetchOpCode(),
       Micro.fetchOpCode { state =>
         val value = operandContents(operandStart, state)
@@ -1814,19 +1808,17 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#RRC__HL_]]
    */
-  case class RRC_MEM_HL(private val input: Array[UByte]) extends CBExtension(input) with HasR8Operand with RotateOperation {
+  case object RRC_MEM_HL extends CBExtension(OpCode.CB.RRC_MEM_HL.pattern) with HasR8Operand with RotateOperation {
     override val cycles: MCycle = MCycle.Fixed(4)
     override val bytes: Int = 2
 
-    private var memValue: UByte = 0.toUByte
-
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
       Micro.readMemory { state =>
-        memValue = state.memory(state.registers.hl)
+        state.setScratch8(state.memory(state.registers.hl)) // original HL
       },
       Micro.writeMemory { state =>
-        val carry = memValue & 0x01.toUByte
-        val result = (memValue >> 1) | (carry << 7)
+        val carry = state.getScratch8 & 0x01.toUByte
+        val result = (state.getScratch8 >> 1) | (carry << 7)
         state.memory.write(state.registers.hl, result)
         setFlags(state, carry, resultForZero = Some(result))
       }
@@ -1838,14 +1830,14 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#RRC_r8]]
    */
-  case class RRC_R8(private val input: Array[UByte]) extends CBExtension(input) with HasR8Operand with RotateOperation {
+  case class RRC_R8(private val input: UByte) extends CBExtension(input) with HasR8Operand with RotateOperation {
     override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 2
 
     private val operandStart = 2
     lazy val operand: OpCode.Parameters.R8 = operand(operandStart)
 
-    override protected[instructions] def micro: Seq[Micro] = Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = Seq(
       Micro.fetchOpCode(),
       Micro.fetchOpCode { state =>
         val value = operandContents(operandStart, state)
@@ -1862,20 +1854,18 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#RL__HL_]]
    */
-  case class RL_MEM_HL(private val input: Array[UByte]) extends CBExtension(input) with HasR8Operand with RotateOperation {
+  case object RL_MEM_HL extends CBExtension(OpCode.CB.RL_MEM_HL.pattern) with HasR8Operand with RotateOperation {
     override val cycles: MCycle = MCycle.Fixed(4)
     override val bytes: Int = 2
 
-    private var memValue: UByte = 0.toUByte
-
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
       Micro.readMemory { state =>
-        memValue = state.memory(state.registers.hl)
+        state.setScratch8(state.memory(state.registers.hl)) // original HL
       },
       Micro.writeMemory { state =>
         val carryIn = if (state.registers.flags.c) 1.toUByte else 0.toUByte
-        val carryOut = (memValue & 0x80.toUByte) >> 7
-        val result = (memValue << 1) | carryIn
+        val carryOut = (state.getScratch8 & 0x80.toUByte) >> 7
+        val result = (state.getScratch8 << 1) | carryIn
         state.memory.write(state.registers.hl, result)
         setFlags(state, carryOut, resultForZero = Some(result))
       }
@@ -1887,14 +1877,14 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#RL_r8]]
    */
-  case class RL_R8(private val input: Array[UByte]) extends CBExtension(input) with HasR8Operand with RotateOperation {
+  case class RL_R8(private val input: UByte) extends CBExtension(input) with HasR8Operand with RotateOperation {
     override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 2
 
     private val operandStart = 2
     lazy val operand: OpCode.Parameters.R8 = operand(operandStart)
 
-    override protected[instructions] def micro: Seq[Micro] = Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = Seq(
       Micro.fetchOpCode(),
       Micro.fetchOpCode { state =>
         val value = operandContents(operandStart, state)
@@ -1912,20 +1902,18 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#RR__HL_]]
    */
-  case class RR_MEM_HL(private val input: Array[UByte]) extends CBExtension(input) with HasR8Operand with RotateOperation {
+  case object RR_MEM_HL extends CBExtension(OpCode.CB.RR_MEM_HL.pattern) with HasR8Operand with RotateOperation {
     override val cycles: MCycle = MCycle.Fixed(4)
     override val bytes: Int = 2
 
-    private var memValue: UByte = 0.toUByte
-
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
       Micro.readMemory { state =>
-        memValue = state.memory(state.registers.hl)
+        state.setScratch8(state.memory(state.registers.hl)) // original HL
       },
       Micro.writeMemory { state =>
         val carryIn = if (state.registers.flags.c) 0x80.toUByte else 0.toUByte
-        val carryOut = memValue & 0x01.toUByte
-        val result = (memValue >> 1) | carryIn
+        val carryOut = state.getScratch8 & 0x01.toUByte
+        val result = (state.getScratch8 >> 1) | carryIn
         state.memory.write(state.registers.hl, result)
         setFlags(state, carryOut, resultForZero = Some(result))
       }
@@ -1937,14 +1925,14 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#RR_r8]]
    */
-  case class RR_R8(private val input: Array[UByte]) extends CBExtension(input) with HasR8Operand with RotateOperation {
+  case class RR_R8(private val input: UByte) extends CBExtension(input) with HasR8Operand with RotateOperation {
     override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 2
 
     private val operandStart = 2
     lazy val operand: OpCode.Parameters.R8 = operand(operandStart)
 
-    override protected[instructions] def micro: Seq[Micro] = Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = Seq(
       Micro.fetchOpCode(),
       Micro.fetchOpCode { state =>
         val value = operandContents(operandStart, state)
@@ -1962,19 +1950,17 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#SLA__HL_]]
    */
-  case class SLA_MEM_HL(private val input: Array[UByte]) extends CBExtension(input) with HasR8Operand with RotateOperation {
+  case object SLA_MEM_HL extends CBExtension(OpCode.CB.SLA_MEM_HL.pattern) with HasR8Operand with RotateOperation {
     override val cycles: MCycle = MCycle.Fixed(4)
     override val bytes: Int = 2
 
-    private var memValue: UByte = 0.toUByte
-
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
       Micro.readMemory { state =>
-        memValue = state.memory(state.registers.hl)
+        state.setScratch8(state.memory(state.registers.hl)) // original HL
       },
       Micro.writeMemory { state =>
-        val carryOut = (memValue & 0x80.toUByte) >> 7
-        val result = memValue << 1
+        val carryOut = (state.getScratch8 & 0x80.toUByte) >> 7
+        val result = state.getScratch8 << 1
         state.memory.write(state.registers.hl, result)
         setFlags(state, carryOut, resultForZero = Some(result))
       }
@@ -1986,14 +1972,14 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#SLA_r8]]
    */
-  case class SLA_R8(private val input: Array[UByte]) extends CBExtension(input) with HasR8Operand with RotateOperation {
+  case class SLA_R8(private val input: UByte) extends CBExtension(input) with HasR8Operand with RotateOperation {
     override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 2
 
     private val operandStart = 2
     lazy val operand: OpCode.Parameters.R8 = operand(operandStart)
 
-    override protected[instructions] def micro: Seq[Micro] = Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = Seq(
       Micro.fetchOpCode(),
       Micro.fetchOpCode { state =>
         val value = operandContents(operandStart, state)
@@ -2010,20 +1996,18 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#SRA__HL_]]
    */
-  case class SRA_MEM_HL(private val input: Array[UByte]) extends CBExtension(input) with HasR8Operand with RotateOperation {
+  case object SRA_MEM_HL extends CBExtension(OpCode.CB.SRA_MEM_HL.pattern) with HasR8Operand with RotateOperation {
     override val cycles: MCycle = MCycle.Fixed(4)
     override val bytes: Int = 2
 
-    private var memValue: UByte = 0.toUByte
-
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
       Micro.readMemory { state =>
-        memValue = state.memory(state.registers.hl)
+        state.setScratch8(state.memory(state.registers.hl)) // original HL
       },
       Micro.writeMemory { state =>
-        val carryOut = memValue & 0x01.toUByte
-        val msb = memValue & 0x80.toUByte
-        val result = (memValue >> 1) | msb
+        val carryOut = state.getScratch8 & 0x01.toUByte
+        val msb = state.getScratch8 & 0x80.toUByte
+        val result = (state.getScratch8 >> 1) | msb
         state.memory.write(state.registers.hl, result)
         setFlags(state, carryOut, resultForZero = Some(result))
       }
@@ -2035,14 +2019,14 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#SRA_r8]]
    */
-  case class SRA_R8(private val input: Array[UByte]) extends CBExtension(input) with HasR8Operand with RotateOperation {
+  case class SRA_R8(private val input: UByte) extends CBExtension(input) with HasR8Operand with RotateOperation {
     override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 2
 
     private val operandStart = 2
     lazy val operand: OpCode.Parameters.R8 = operand(operandStart)
 
-    override protected[instructions] def micro: Seq[Micro] = Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = Seq(
       Micro.fetchOpCode(),
       Micro.fetchOpCode { state =>
         val value = operandContents(operandStart, state)
@@ -2060,18 +2044,16 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#SWAP__HL_]]
    */
-  case class SWAP_MEM_HL(private val input: Array[UByte]) extends CBExtension(input) with HasR8Operand with RotateOperation {
+  case object SWAP_MEM_HL extends CBExtension(OpCode.CB.SWAP_MEM_HL.pattern) with HasR8Operand with RotateOperation {
     override val cycles: MCycle = MCycle.Fixed(4)
     override val bytes: Int = 2
 
-    private var memValue: UByte = 0.toUByte
-
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
       Micro.readMemory { state =>
-        memValue = state.memory(state.registers.hl)
+        state.setScratch8(state.memory(state.registers.hl)) // original HL
       },
       Micro.writeMemory { state =>
-        val result = ((memValue & 0x0F.toUByte) << 4) | ((memValue & 0xF0.toUByte) >> 4)
+        val result = ((state.getScratch8 & 0x0F.toUByte) << 4) | ((state.getScratch8 & 0xF0.toUByte) >> 4)
         state.memory.write(state.registers.hl, result)
         setFlags(state, resultForZero = Some(result))
       }
@@ -2083,14 +2065,14 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#SWAP_r8]]
    */
-  case class SWAP_R8(private val input: Array[UByte]) extends CBExtension(input) with HasR8Operand with RotateOperation {
+  case class SWAP_R8(private val input: UByte) extends CBExtension(input) with HasR8Operand with RotateOperation {
     override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 2
 
     private val operandStart = 2
     lazy val operand: OpCode.Parameters.R8 = operand(operandStart)
 
-    override protected[instructions] def micro: Seq[Micro] = Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = Seq(
       Micro.fetchOpCode(),
       Micro.fetchOpCode { state =>
         val value = operandContents(operandStart, state)
@@ -2106,19 +2088,17 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#SRL__HL_]]
    */
-  case class SRL_MEM_HL(private val input: Array[UByte]) extends CBExtension(input) with HasR8Operand with RotateOperation {
+  case object SRL_MEM_HL extends CBExtension(OpCode.CB.SRL_MEM_HL.pattern) with HasR8Operand with RotateOperation {
     override val cycles: MCycle = MCycle.Fixed(4)
     override val bytes: Int = 2
 
-    private var memValue: UByte = 0.toUByte
-
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
       Micro.readMemory { state =>
-        memValue = state.memory(state.registers.hl)
+        state.setScratch8(state.memory(state.registers.hl)) // original HL
       },
       Micro.writeMemory { state =>
-        val carryOut = memValue & 0x01.toUByte
-        val result = memValue >> 1
+        val carryOut = state.getScratch8 & 0x01.toUByte
+        val result = state.getScratch8 >> 1
         state.memory.write(state.registers.hl, result)
         setFlags(state, carryOut, resultForZero = Some(result))
       }
@@ -2130,14 +2110,14 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#SRL_r8]]
    */
-  case class SRL_R8(private val input: Array[UByte]) extends CBExtension(input) with HasR8Operand with RotateOperation {
+  case class SRL_R8(private val input: UByte) extends CBExtension(input) with HasR8Operand with RotateOperation {
     override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 2
 
     private val operandStart = 2
     lazy val operand: OpCode.Parameters.R8 = operand(operandStart)
 
-    override protected[instructions] def micro: Seq[Micro] = Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = Seq(
       Micro.fetchOpCode(),
       Micro.fetchOpCode { state =>
         val value = operandContents(operandStart, state)
@@ -2166,15 +2146,15 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#JR_n16]]
    */
-  case class JR_IMM8(private val input: Array[UByte]) extends Instruction(input) with HasImm8 {
+  case object JR_IMM8 extends Instruction(OpCode.Base.JR_IMM8.pattern) {
     override val cycles: MCycle = MCycle.Fixed(3)
     override val bytes: Int = 2
 
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
       Micro.fetchImm8(),
       Micro.modifyPC { state =>
         val pcAfterInstruction = state.registers.pc
-        val offset = imm8.toByte // interpret as signed
+        val offset = state.getImm8.toByte // interpret as signed
         val targetAddress = (pcAfterInstruction.toInt + offset.toInt).toUShort
         state.registers.pc = targetAddress
       }
@@ -2189,18 +2169,18 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#JR_cc,n16]]
    */
-  case class JR_COND_IMM8(private val input: Array[UByte]) extends Instruction(input) with HasCondOperand with HasImm8 {
+  case class JR_COND_IMM8(private val input: UByte) extends Instruction(input) with HasCondOperand {
     override val cycles: MCycle = MCycle.Varying(2 to 3)
     override val bytes: Int = 2
 
     private val operandStart = 4
     lazy val condition: OpCode.Parameters.Condition = operand(operandStart)
 
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
       Micro.fetchImm8AndThen(continueIf(condition)),
       Micro.modifyPC { state =>
         val pcAfterInstruction = state.registers.pc
-        val offset = imm8.toByte // interpret as signed
+        val offset = state.getImm8.toByte // interpret as signed
         val targetAddress = (pcAfterInstruction.toInt + offset.toInt).toUShort
         state.registers.pc = targetAddress
       }
@@ -2212,14 +2192,14 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#RET_cc]]
    */
-  case class RET_COND(private val input: Array[UByte]) extends Instruction(input) with HasCondOperand {
+  case class RET_COND(private val input: UByte) extends Instruction(input) with HasCondOperand {
     override val cycles: MCycle = MCycle.Varying(2 to 5)
     override val bytes: Int = 1
 
     private val operandStart = 4
     lazy val condition: OpCode.Parameters.Condition = operand(operandStart)
 
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
       Micro.readMemoryAndThen(continueIf(condition)),
       Micro.readMemory(),
       Micro.modifyPC { state =>
@@ -2239,11 +2219,11 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#RET]]
    */
-  case object RET extends Instruction(Array(OpCode.Base.RET.pattern)) {
+  case object RET extends Instruction(OpCode.Base.RET.pattern) {
     override val cycles: MCycle = MCycle.Fixed(4)
     override val bytes: Int = 1
 
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
       Micro.readMemory(),
       Micro.modifyPC { state =>
         state.registers.updatePCLo(state.memory(state.registers.sp))
@@ -2262,11 +2242,11 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#RETI]]
    */
-  case object RETI extends Instruction(Array(OpCode.Base.RETI.pattern)) {
+  case object RETI extends Instruction(OpCode.Base.RETI.pattern) {
     override val cycles: MCycle = MCycle.Fixed(4)
     override val bytes: Int = 1
 
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
       Micro.readMemory(),
       Micro.modifyPC { state =>
         state.registers.updatePCLo(state.memory(state.registers.sp))
@@ -2285,17 +2265,17 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#JP_cc,n16]]
    */
-  case class JP_COND_IMM16(private val input: Array[UByte]) extends Instruction(input) with HasCondOperand with HasImm16 {
+  case class JP_COND_IMM16(private val input: UByte) extends Instruction(input) with HasCondOperand {
     override val cycles: MCycle = MCycle.Varying(3 to 4)
     override val bytes: Int = 3
 
     private val operandStart = 4
     lazy val condition: OpCode.Parameters.Condition = operand(operandStart)
 
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
       Micro.fetchImm8(),
       Micro.fetchImm8AndThen(continueIf(condition)),
-      Micro.modifyPC { state => state.registers.pc = imm16 }
+      Micro.modifyPC { state => state.registers.pc = state.getImm16 }
     )
   }
 
@@ -2304,14 +2284,14 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#JP_n16]]
    */
-  case class JP_IMM16(private val input: Array[UByte]) extends Instruction(input) with HasImm16 {
+  case object JP_IMM16 extends Instruction(OpCode.Base.JP_IMM16.pattern) {
     override val cycles: MCycle = MCycle.Fixed(4)
     override val bytes: Int = 3
 
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
       Micro.fetchImm8(),
       Micro.fetchImm8(),
-      Micro.modifyPC { state => state.registers.pc = imm16 }
+      Micro.modifyPC { state => state.registers.pc = state.getImm16 }
     )
   }
 
@@ -2320,11 +2300,11 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#JP_HL]]
    */
-  case object JP_HL extends Instruction(Array(OpCode.Base.JP_HL.pattern)) {
+  case object JP_HL extends Instruction(OpCode.Base.JP_HL.pattern) {
     override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
 
-    override protected[instructions] def micro: Seq[Micro] = Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = Seq(
       Micro.fetchOpCode { state => state.registers.pc = state.registers.hl },
     )
   }
@@ -2337,14 +2317,14 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#CALL_cc,n16]]
    */
-  case class CALL_COND_IMM16(private val input: Array[UByte]) extends Instruction(input) with HasCondOperand with HasImm16 {
+  case class CALL_COND_IMM16(private val input: UByte) extends Instruction(input) with HasCondOperand {
     override val cycles: MCycle = MCycle.Varying(3 to 6)
     override val bytes: Int = 3
 
     private val operandStart = 4
     lazy val condition: OpCode.Parameters.Condition = operand(operandStart)
 
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
       Micro.fetchImm8(),
       Micro.fetchImm8AndThen(continueIf(condition)),
       Micro.iduOperation { state => state.registers.sp -= 1.toUShort },
@@ -2354,7 +2334,7 @@ object Instruction {
       },
       Micro.writeMemory { state =>
         state.memory.write(state.registers.sp, state.registers.pc.loByte)
-        state.registers.pc = imm16
+        state.registers.pc = state.getImm16
       },
     )
   }
@@ -2364,11 +2344,11 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#CALL_n16]]
    */
-  case class CALL_IMM16(private val input: Array[UByte]) extends Instruction(input) with HasImm16 {
+  case object CALL_IMM16 extends Instruction(OpCode.Base.CALL_IMM16.pattern) {
     override val cycles: MCycle = MCycle.Fixed(6)
     override val bytes: Int = 3
 
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
       Micro.fetchImm8(),
       Micro.fetchImm8(),
       Micro.iduOperation { state => state.registers.sp -= 1.toUShort },
@@ -2378,7 +2358,7 @@ object Instruction {
       },
       Micro.writeMemory { state =>
         state.memory.write(state.registers.sp, state.registers.pc.loByte)
-        state.registers.pc = imm16
+        state.registers.pc = state.getImm16
       },
     )
   }
@@ -2388,14 +2368,14 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#RST_vec]]
    */
-  case class RST_TGT3(private val input: Array[UByte]) extends Instruction(input) {
+  case class RST_TGT3(private val input: UByte) extends Instruction(input) {
     override val cycles: MCycle = MCycle.Fixed(4)
     override val bytes: Int = 1
 
     private val operandMask = 0b00111000.toUByte
     lazy val targetAddress: UByte = opCode & operandMask
 
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
       Micro.iduOperation { state => state.registers.sp -= 1.toUShort },
       Micro.writeMemory { state =>
         state.memory.write(state.registers.sp, state.registers.pc.hiByte)
@@ -2418,11 +2398,11 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#SCF]]
    */
-  case object SCF extends Instruction(Array(OpCode.Base.SCF.pattern)) {
+  case object SCF extends Instruction(OpCode.Base.SCF.pattern) {
     override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
 
-    override protected[instructions] def micro: Seq[Micro] = Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = Seq(
       Micro.fetchOpCode { state =>
         state.registers.flags.n = false
         state.registers.flags.h = false
@@ -2431,11 +2411,11 @@ object Instruction {
     )
   }
 
-  case object CCF extends Instruction(Array(OpCode.Base.CCF.pattern)) {
+  case object CCF extends Instruction(OpCode.Base.CCF.pattern) {
     override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
 
-    override protected[instructions] def micro: Seq[Micro] = Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = Seq(
       Micro.fetchOpCode { state =>
         state.registers.flags.n = false
         state.registers.flags.h = false
@@ -2454,18 +2434,16 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD__n16_,SP]]
    */
-  case class LD_MEM_IMM16_SP(private val input: Array[UByte]) extends Instruction(input) with HasImm16 {
+  case object LD_MEM_IMM16_SP extends Instruction(OpCode.Base.LD_MEM_IMM16_SP.pattern) {
     override val cycles: MCycle = MCycle.Fixed(5)
     override val bytes: Int = 3
 
-    private var originalSP: UShort = UShort.MinValue
-
-    override protected[instructions] def micro: Seq[Micro] = Seq(
-      Micro.fetchOpCode { state => originalSP = state.registers.sp },
+    override protected[instructions] lazy val micro: Seq[Micro] = Seq(
+      Micro.fetchOpCode { state => state.setScratch16(state.registers.sp) }, // original SP
       Micro.fetchImm8(),
       Micro.fetchImm8(),
-      Micro.writeMemory { state => state.memory.write(imm16, originalSP.loByte) },
-      Micro.writeMemory { state => state.memory.write(imm16 + 1.toUShort, originalSP.hiByte) }
+      Micro.writeMemory { state => state.memory.write(state.getImm16, state.getScratch16.loByte) },
+      Micro.writeMemory { state => state.memory.write(state.getImm16 + 1.toUShort, state.getScratch16.hiByte) }
     )
   }
 
@@ -2480,14 +2458,14 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#POP_r16]]
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#POP_AF]]
    */
-  case class POP_R16STK(private val input: Array[UByte]) extends Instruction(input) with HasR16StkOperand {
+  case class POP_R16STK(private val input: UByte) extends Instruction(input) with HasR16StkOperand {
     override val cycles: MCycle = MCycle.Fixed(3)
     override val bytes: Int = 1
 
     private val operandStart = 5
     lazy val operand: OpCode.Parameters.R16Stack = operand(operandStart)
 
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
       Micro.readMemory { state =>
         writeToOperandLoLocation(operand, state, state.memory(state.registers.sp))
         state.registers.sp += 1.toUShort
@@ -2510,14 +2488,14 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#PUSH_r16]]
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#PUSH_AF]]
    */
-  case class PUSH_R16STK(private val input: Array[UByte]) extends Instruction(input) with HasR16StkOperand {
+  case class PUSH_R16STK(private val input: UByte) extends Instruction(input) with HasR16StkOperand {
     override val cycles: MCycle = MCycle.Fixed(4)
     override val bytes: Int = 1
 
     private val operandStart = 5
     lazy val operand: OpCode.Parameters.R16Stack = operand(operandStart)
 
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
       Micro.iduOperation { state =>
         state.registers.sp -= 1.toUShort
       },
@@ -2536,29 +2514,26 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#ADD_SP,e8]]
    */
-  case class ADD_SP_IMM8(private val input: Array[UByte]) extends Instruction(input) with HasImm8 {
+  case object ADD_SP_IMM8 extends Instruction(OpCode.Base.ADD_SP_IMM8.pattern) {
     override val cycles: MCycle = MCycle.Fixed(4)
     override val bytes: Int = 2
 
-    private var sum: UShort = 0.toUShort
-    private var sp: UShort = 0.toUShort
-
-    override protected[instructions] def micro: Seq[Micro] = Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = Seq(
       Micro.fetchOpCode { state =>
-        sp = state.registers.sp
-        sum = (sp.toInt + imm8.toByte.toInt).toUShort
+        state.setScratch16((state.registers.sp.toInt + state.getImm8.toByte.toInt).toUShort) // SP + e8
       },
       Micro.fetchImm8(),
       Micro.aluOperation { state =>
-        state.registers.updateSPLo(sum.loByte)
+        val sp = state.registers.sp
+        state.registers.updateSPLo(state.getScratch16.loByte)
         state.registers.flags.z = false
         state.registers.flags.n = false
         // The flags are set from unsigned addition, even though imm8 is signed
-        state.registers.flags.h = sp.loByte.overflowFromBit3(imm8)
-        state.registers.flags.c = sp.loByte.overflowFromBit7(imm8)
+        state.registers.flags.h = sp.loByte.overflowFromBit3(state.getImm8)
+        state.registers.flags.c = sp.loByte.overflowFromBit7(state.getImm8)
       },
       Micro.aluOperation { state =>
-        state.registers.updateSPHi(sum.hiByte)
+        state.registers.updateSPHi(state.getScratch16.hiByte)
       },
     )
   }
@@ -2568,20 +2543,20 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD_HL,SP+e8]]
    */
-  case class LD_HL_ADD_SP_IMM8(private val input: Array[UByte]) extends Instruction(input) with HasImm8 {
+  case object LD_HL_ADD_SP_IMM8 extends Instruction(OpCode.Base.LD_HL_ADD_SP_IMM8.pattern) {
     override val cycles: MCycle = MCycle.Fixed(3)
     override val bytes: Int = 2
 
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
       Micro.fetchImm8(),
       Micro.aluOperation { state =>
         val sp = state.registers.sp
-        state.registers.hl = (sp.toInt + imm8.toByte.toInt).toUShort
+        state.registers.hl = (sp.toInt + state.getImm8.toByte.toInt).toUShort
         state.registers.flags.z = false
         state.registers.flags.n = false
         // The flags are set from unsigned addition, even though imm8 is signed
-        state.registers.flags.h = sp.loByte.overflowFromBit3(imm8)
-        state.registers.flags.c = sp.loByte.overflowFromBit7(imm8)
+        state.registers.flags.h = sp.loByte.overflowFromBit3(state.getImm8)
+        state.registers.flags.c = sp.loByte.overflowFromBit7(state.getImm8)
       },
     )
   }
@@ -2591,11 +2566,11 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#LD_SP,HL]]
    */
-  case object LD_SP_HL extends Instruction(Array(OpCode.Base.LD_SP_HL.pattern)) {
+  case object LD_SP_HL extends Instruction(OpCode.Base.LD_SP_HL.pattern) {
     override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 1
 
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
       Micro.iduOperation { state => state.registers.sp = state.registers.hl },
     )
   }
@@ -2605,11 +2580,11 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#ADD_HL,SP]]
    */
-  case class ADD_HL_SP(private val input: Array[UByte]) extends Instruction(input) {
+  case class ADD_HL_SP(private val input: UByte) extends Instruction(input) {
     override val cycles: MCycle = MCycle.Fixed(2)
     override val bytes: Int = 1
 
-    override protected[instructions] def micro: Seq[Micro] = super.micro ++ Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = super.micro ++ Seq(
       Micro.iduOperation { state =>
         val hl = state.registers.hl
         val sp = state.registers.sp
@@ -2632,11 +2607,11 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#DI]]
    */
-  case object DI extends Instruction(Array(OpCode.Base.DI.pattern)) {
+  case object DI extends Instruction(OpCode.Base.DI.pattern) {
     override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
 
-    override protected[instructions] def micro: Seq[Micro] = Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = Seq(
       Micro.fetchOpCode { state => state.setIME(false) },
     )
   }
@@ -2648,11 +2623,11 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#EI]]
    */
-  case object EI extends Instruction(Array(OpCode.Base.EI.pattern)) {
+  case object EI extends Instruction(OpCode.Base.EI.pattern) {
     override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
 
-    override protected[instructions] def micro: Seq[Micro] = Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = Seq(
       Micro.fetchOpCode { state => state.setIME(true) },
     )
   }
@@ -2678,17 +2653,17 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#HALT]]
    * @see [[https://gist.github.com/SonoSooS/c0055300670d678b5ae8433e20bea595#halt]]
    */
-  case object HALT extends Instruction(Array(OpCode.Base.HALT.pattern)) {
+  case object HALT extends Instruction(OpCode.Base.HALT.pattern) {
     override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
 
-    override protected[instructions] def micro: Seq[Micro] = Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = Seq(
       Micro.fetchOpCode { state =>
         lazy val ifRegister = Interrupts.Address.INTERRUPT_FLAG
         lazy val ieRegister = Interrupts.Address.INTERRUPT_ENABLE
         lazy val interruptState = state.memory(ifRegister) & state.memory(ieRegister)
         lazy val haltBugTriggered = !state.imeEnabled && interruptState != 0.toUByte
-        if(state.config.haltBugEnabled && haltBugTriggered) {
+        if (state.config.haltBugEnabled && haltBugTriggered) {
           state.triggerHaltBug()
         } else {
           state.changeExecutionMode(Cpu.ExecutionMode.Halted)
@@ -2707,7 +2682,7 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#NOP]]
    */
-  case object NOP extends Instruction(Array(UByte(0x0))) {
+  case object NOP extends Instruction(UByte(0x0)) {
     override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
   }
@@ -2720,11 +2695,11 @@ object Instruction {
    *
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#DAA]]
    */
-  case object DAA extends Instruction(Array(OpCode.Base.DAA.pattern)) {
+  case object DAA extends Instruction(OpCode.Base.DAA.pattern) {
     override val cycles: MCycle = MCycle.Fixed(1)
     override val bytes: Int = 1
 
-    override protected[instructions] def micro: Seq[Micro] = Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = Seq(
       Micro.fetchOpCode { state =>
         var adjustment = 0
         if (state.registers.flags.n) {
@@ -2757,11 +2732,11 @@ object Instruction {
    * @see [[https://rgbds.gbdev.io/docs/v1.0.1/gbz80.7#STOP]]
    * @see [[https://gist.github.com/SonoSooS/c0055300670d678b5ae8433e20bea595#nop-and-stop]]
    */
-  case class STOP(private val input: Array[UByte]) extends Instruction(input) with HasImm8 {
+  case object STOP extends Instruction(OpCode.Base.STOP.pattern) {
     override val cycles: MCycle = MCycle.Undefined
     override val bytes: Int = 2
 
-    override protected[instructions] def micro: Seq[Micro] = Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = Seq(
       Micro.fetchOpCode { state => state.changeExecutionMode(Cpu.ExecutionMode.Stopped) },
       Micro.fetchImm8(),
     )
@@ -2785,11 +2760,11 @@ object Instruction {
    * @see [[https://gist.github.com/SonoSooS/c0055300670d678b5ae8433e20bea595#opcode-holes-not-implemented-opcodes]]
    */
 
-  case class HOLE(private val input: Array[UByte]) extends Instruction(input) {
+  case class HOLE(private val input: UByte) extends Instruction(input) {
     override val cycles: MCycle = MCycle.Undefined
     override val bytes: Int = 1
 
-    override protected[instructions] def micro: Seq[Micro] = Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = Seq(
       Micro.fetchOpCode { state => state.changeExecutionMode(Cpu.ExecutionMode.HardLock) }
     )
   }
@@ -2798,19 +2773,19 @@ object Instruction {
    * Interrupt Handling
    *
    * 1. The IF bit corresponding to this interrupt and the IME flag are reset by the CPU. The former “acknowledges”
-   * the interrupt, while the latter prevents any further interrupts from being handled until the program re-enables
-   * them, typically by using the reti instruction.
+   *    the interrupt, while the latter prevents any further interrupts from being handled until the program re-enables
+   *    them, typically by using the reti instruction.
    *
    * 2. The corresponding interrupt handler (see the IE and IF register descriptions above) is called by the CPU.
-   * This is a regular call, exactly like what would be performed by a call <address> instruction (the current PC
-   * is pushed onto the stack and then set to the address of the interrupt handler).
+   *    This is a regular call, exactly like what would be performed by a call <address> instruction (the current PC
+   *    is pushed onto the stack and then set to the address of the interrupt handler).
    *
    * The following interrupt service routine is executed when control is being transferred to an interrupt handler:
    *
    * 1. Two wait states are executed (2 M-cycles pass while nothing happens; presumably the CPU is executing nops during this time).
    * 2. The current value of the PC register is pushed onto the stack, consuming 2 more M-cycles.
    * 3. The PC register is set to the address of the handler (one of: $40, $48, $50, $58, $60).
-   * This consumes one last M-cycle.
+   *    This consumes one last M-cycle.
    *
    * The entire process lasts 5 M-cycles.
    *
@@ -2819,11 +2794,11 @@ object Instruction {
    *
    * @see [[https://gbdev.io/pandocs/Interrupts.html#interrupt-handling]]
    */
-  case object INTERRUPT_HANDLING extends Instruction(Array.empty) {
+  case object INTERRUPT_HANDLING extends Instruction(UByte(0x00)) {
     override val cycles: MCycle = MCycle.Fixed(5)
     override val bytes: Int = 0
 
-    override protected[instructions] def micro: Seq[Micro] = Seq(
+    override protected[instructions] lazy val micro: Seq[Micro] = Seq(
       Micro.interruptNoop { state => state.setIME(false) },
       Micro.interruptNoop { state => state.registers.sp -= 1.toUShort },
       Micro.writeMemory { state =>
@@ -2846,7 +2821,13 @@ object Instruction {
     )
   }
 
+  /**
+   * Placeholder for initial state. Represent absence of a loaded instruction.
+   */
+  case object INITIAL extends Instruction(0x00.toUByte) {
+    override val cycles: MCycle = MCycle.Undefined
+    override val bytes: Int = 0
+
+    override protected[instructions] lazy val micro: Seq[Micro] = Seq.empty
+  }
 }
-
-
-

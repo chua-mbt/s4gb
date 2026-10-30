@@ -17,6 +17,8 @@ object OpCodeTableGenerator {
     println(s"Generated opcode table: $outputPath")
   }
 
+  private val holeCell = """<td class="hole"></td>"""
+
   private def html: String = {
     val baseGrid = generateGrid(None)
     val cbGrid = generateGrid(Some(OpCode.PREFIXED))
@@ -85,18 +87,19 @@ object OpCodeTableGenerator {
       col <- 0 until 16
     } do {
       val opcode = UByte((row << 4) | col)
-      val input = prefix match
-        case Some(p) => Array(p, opcode)
-        case None => Array(opcode)
-      
-      val cell = (prefix, opcode) match
-        case (None, op) if op == OpCode.PREFIXED => 
-          """<td class="prefix"><div class="cell-content"><span class="instr-name">EXTENSIONS<br>PREFIX</span></div></td>"""
-        case _ =>
-          Try(Instruction.decode(input))
+      val cell = prefix match {
+        case Some(_) =>
+          Try(Instruction.decode(OpCode.PREFIXED, Some(opcode)))
             .map(instr => renderCell(opcode, instr))
-            .getOrElse(s"""<td class="hole"></td>""")
-      
+            .getOrElse(holeCell)
+        case None if opcode == OpCode.PREFIXED =>
+          """<td class="prefix"><div class="cell-content"><span class="instr-name">EXTENSIONS<br>PREFIX</span></div></td>"""
+        case None =>
+          Try(Instruction.decode(opcode, None))
+            .map(instr => renderCell(opcode, instr))
+            .getOrElse(holeCell)
+      }
+
       grid(row)(col) = cell
     }
 
@@ -114,7 +117,7 @@ object OpCodeTableGenerator {
         <div class="cell-content">
           <span class="instr-name">$name</span>
           <div class="meta">
-            <span>${bytes}</span>
+            <span>$bytes</span>
             <span>${cycles}m</span>
           </div>
         </div>

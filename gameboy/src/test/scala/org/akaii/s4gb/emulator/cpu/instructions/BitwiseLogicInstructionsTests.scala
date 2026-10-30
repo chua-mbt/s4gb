@@ -11,7 +11,7 @@ import spire.math.{UByte, UShort}
 
 class BitwiseLogicInstructionsTests extends InstructionsTest {
   test("CPL") {
-    val instruction = Instruction.decode(Array(OpCode.Base.CPL.pattern))
+    val instruction = Instruction.decode(OpCode.Base.CPL.pattern, None)
     assertEquals(instruction.toString, "CPL(0x2F)")
     verifyInstruction[Instruction.CPL.type](OpCode.Base.CPL.pattern, instruction)
 
@@ -41,7 +41,7 @@ class BitwiseLogicInstructionsTests extends InstructionsTest {
   }
 
   test("AND_A_MEM_HL") {
-    val instruction = Instruction.decode(Array(OpCode.Base.AND_A_MEM_HL.pattern))
+    val instruction = Instruction.decode(OpCode.Base.AND_A_MEM_HL.pattern, None)
     assertEquals(instruction.toString, "AND_A_MEM_HL(0xA6)")
     verifyInstruction[Instruction.AND_A_MEM_HL.type](OpCode.Base.AND_A_MEM_HL.pattern, instruction)
 
@@ -81,7 +81,7 @@ class BitwiseLogicInstructionsTests extends InstructionsTest {
   test("AND_A_R8") {
     forNonMemHLR8OpCodeParams { operandParam =>
       val opcode: UByte = OpCode.Base.AND_A_R8.setParam(operandParam -> 0)
-      val instruction = Instruction.decode(Array(opcode))
+      val instruction = Instruction.decode(opcode, None)
 
       assertEquals(instruction.toString, f"AND_A_R8(0x${opcode.toInt}%02X)")
       verifyInstruction[Instruction.AND_A_R8](opcode, instruction) { and =>
@@ -131,7 +131,7 @@ class BitwiseLogicInstructionsTests extends InstructionsTest {
   }
 
   test("XOR_A_MEM_HL") {
-    val instruction = Instruction.decode(Array(OpCode.Base.XOR_A_MEM_HL.pattern))
+    val instruction = Instruction.decode(OpCode.Base.XOR_A_MEM_HL.pattern, None)
     assertEquals(instruction.toString, "XOR_A_MEM_HL(0xAE)")
     verifyInstruction[Instruction.XOR_A_MEM_HL.type](OpCode.Base.XOR_A_MEM_HL.pattern, instruction)
 
@@ -171,7 +171,7 @@ class BitwiseLogicInstructionsTests extends InstructionsTest {
   test("XOR_A_R8") {
     forNonMemHLR8OpCodeParams { operandParam =>
       val opcode: UByte = OpCode.Base.XOR_A_R8.setParam(operandParam -> 0)
-      val instruction = Instruction.decode(Array(opcode))
+      val instruction = Instruction.decode(opcode, None)
 
       assertEquals(instruction.toString, f"XOR_A_R8(0x${opcode.toInt}%02X)")
       verifyInstruction[Instruction.XOR_A_R8](opcode, instruction) { xor =>
@@ -221,7 +221,7 @@ class BitwiseLogicInstructionsTests extends InstructionsTest {
   }
 
   test("OR_A_MEM_HL") {
-    val instruction = Instruction.decode(Array(OpCode.Base.OR_A_MEM_HL.pattern))
+    val instruction = Instruction.decode(OpCode.Base.OR_A_MEM_HL.pattern, None)
     assertEquals(instruction.toString, "OR_A_MEM_HL(0xB6)")
     verifyInstruction[Instruction.OR_A_MEM_HL.type](OpCode.Base.OR_A_MEM_HL.pattern, instruction)
 
@@ -261,7 +261,7 @@ class BitwiseLogicInstructionsTests extends InstructionsTest {
   test("OR_A_R8") {
     forNonMemHLR8OpCodeParams { operandParam =>
       val opcode: UByte = OpCode.Base.OR_A_R8.setParam(operandParam -> 0)
-      val instruction = Instruction.decode(Array(opcode))
+      val instruction = Instruction.decode(opcode, None)
 
       assertEquals(instruction.toString, f"OR_A_R8(0x${opcode.toInt}%02X)")
       verifyInstruction[Instruction.OR_A_R8](opcode, instruction) { xor =>
@@ -311,14 +311,13 @@ class BitwiseLogicInstructionsTests extends InstructionsTest {
   }
 
   test("AND_A_IMM8") {
-    val instructionZero = Instruction.decode(Array(OpCode.Base.AND_A_IMM8.pattern, 0xAA.toUByte))
-    assertEquals(instructionZero.toString, f"AND_A_IMM8(0xE6AA)")
-    verifyInstruction[Instruction.AND_A_IMM8](OpCode.Base.AND_A_IMM8.pattern, instructionZero) { and =>
-      assertEquals(and.imm8, 0xAA.toUByte)
-    }
+    val instructionZero = Instruction.decode(OpCode.Base.AND_A_IMM8.pattern, None)
+    assertEquals(instructionZero.toString, f"AND_A_IMM8(0xE6)")
+    verifyInstruction[Instruction.AND_A_IMM8.type](OpCode.Base.AND_A_IMM8.pattern, instructionZero)
 
     testInstruction(
       instructionZero,
+      setupInstructionState = state => state.imm8 = 0xAA.toUByte,
       setupRegister = regs => {
         regs.a = 0x55.toUByte // 01010101
         regs.f = 0x00.toUByte
@@ -329,13 +328,12 @@ class BitwiseLogicInstructionsTests extends InstructionsTest {
       }
     )
 
-    val instructionNonZero = Instruction.decode(Array(OpCode.Base.AND_A_IMM8.pattern, 0x0F.toUByte))
-    verifyInstruction[Instruction.AND_A_IMM8](OpCode.Base.AND_A_IMM8.pattern, instructionNonZero) { and =>
-      assertEquals(and.imm8, 0x0F.toUByte)
-    }
+    val instructionNonZero = Instruction.decode(OpCode.Base.AND_A_IMM8.pattern, None)
+    verifyInstruction[Instruction.AND_A_IMM8.type](OpCode.Base.AND_A_IMM8.pattern, instructionNonZero)
 
     testInstruction(
       instructionNonZero,
+      setupInstructionState = state => state.imm8 = 0x0F.toUByte,
       setupRegister = regs => {
         regs.a = 0xFF.toUByte
         regs.f = 0x00.toUByte
@@ -348,14 +346,13 @@ class BitwiseLogicInstructionsTests extends InstructionsTest {
   }
 
   test("XOR_A_IMM8") {
-    val instructionZero = Instruction.decode(Array(OpCode.Base.XOR_A_IMM8.pattern, 0xFF.toUByte))
-    assertEquals(instructionZero.toString, f"XOR_A_IMM8(0xEEFF)")
-    verifyInstruction[Instruction.XOR_A_IMM8](OpCode.Base.XOR_A_IMM8.pattern, instructionZero) { xor =>
-      assertEquals(xor.imm8, 0xFF.toUByte)
-    }
+    val instructionZero = Instruction.decode(OpCode.Base.XOR_A_IMM8.pattern, None)
+    assertEquals(instructionZero.toString, f"XOR_A_IMM8(0xEE)")
+    verifyInstruction[Instruction.XOR_A_IMM8.type](OpCode.Base.XOR_A_IMM8.pattern, instructionZero)
 
     testInstruction(
       instructionZero,
+      setupInstructionState = state => state.imm8 = 0xFF.toUByte,
       setupRegister = regs => {
         regs.a = 0xFF.toUByte
         regs.f = 0x00.toUByte
@@ -366,13 +363,12 @@ class BitwiseLogicInstructionsTests extends InstructionsTest {
       }
     )
 
-    val instructionNonZero = Instruction.decode(Array(OpCode.Base.XOR_A_IMM8.pattern, 0xF0.toUByte))
-    verifyInstruction[Instruction.XOR_A_IMM8](OpCode.Base.XOR_A_IMM8.pattern, instructionNonZero) { xor =>
-      assertEquals(xor.imm8, 0xF0.toUByte)
-    }
+    val instructionNonZero = Instruction.decode(OpCode.Base.XOR_A_IMM8.pattern, None)
+    verifyInstruction[Instruction.XOR_A_IMM8.type](OpCode.Base.XOR_A_IMM8.pattern, instructionNonZero)
 
     testInstruction(
       instructionNonZero,
+      setupInstructionState = state => state.imm8 = 0xF0.toUByte,
       setupRegister = regs => {
         regs.a = 0x0F.toUByte
         regs.f = 0x00.toUByte
@@ -385,14 +381,13 @@ class BitwiseLogicInstructionsTests extends InstructionsTest {
   }
 
   test("OR_A_IMM8") {
-    val instructionZero = Instruction.decode(Array(OpCode.Base.OR_A_IMM8.pattern, 0x00.toUByte))
-    assertEquals(instructionZero.toString, f"OR_A_IMM8(0xF600)")
-    verifyInstruction[Instruction.OR_A_IMM8](OpCode.Base.OR_A_IMM8.pattern, instructionZero) { or =>
-      assertEquals(or.imm8, 0x00.toUByte)
-    }
+    val instructionZero = Instruction.decode(OpCode.Base.OR_A_IMM8.pattern, None)
+    assertEquals(instructionZero.toString, f"OR_A_IMM8(0xF6)")
+    verifyInstruction[Instruction.OR_A_IMM8.type](OpCode.Base.OR_A_IMM8.pattern, instructionZero)
 
     testInstruction(
       instructionZero,
+      setupInstructionState = state => state.imm8 = 0x00.toUByte,
       setupRegister = regs => {
         regs.a = 0x00.toUByte
         regs.f = 0x00.toUByte
@@ -403,13 +398,12 @@ class BitwiseLogicInstructionsTests extends InstructionsTest {
       }
     )
 
-    val instructionNonZero = Instruction.decode(Array(OpCode.Base.OR_A_IMM8.pattern, 0x02.toUByte))
-    verifyInstruction[Instruction.OR_A_IMM8](OpCode.Base.OR_A_IMM8.pattern, instructionNonZero) { or =>
-      assertEquals(or.imm8, 0x02.toUByte)
-    }
+    val instructionNonZero = Instruction.decode(OpCode.Base.OR_A_IMM8.pattern, None)
+    verifyInstruction[Instruction.OR_A_IMM8.type](OpCode.Base.OR_A_IMM8.pattern, instructionNonZero)
 
     testInstruction(
       instructionNonZero,
+      setupInstructionState = state => state.imm8 = 0x02.toUByte,
       setupRegister = regs => {
         regs.a = 0x01.toUByte
         regs.f = 0x00.toUByte

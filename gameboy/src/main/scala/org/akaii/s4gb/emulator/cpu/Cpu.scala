@@ -39,12 +39,11 @@ object Cpu {
     registers: Registers,
     memory: MemoryMap,
     config: Config,
+    private var instruction: Instruction.State = Instruction.State(),
     private var imeFlag: IMEFlag = IMEEnabled,
     private var haltBugState: HaltBugState = HaltBugDormant,
     private var executionMode: ExecutionMode = ExecutionMode.Running,
-    private var microStep: Int = 0,
-    private var cycles: Long = 0L,
-    private var currentInstruction: Option[Instruction] = None
+    private var cycles: Long = 0L
   ) {
     def setIME(value: Boolean): Unit = (value, imeFlag) match {
       case (true, IMEDisabled) => imeFlag = IMEEnabling
@@ -66,47 +65,55 @@ object Cpu {
       executionMode = newMode
 
     def initializeInstructionOnce(): Unit =
-      currentInstruction = currentInstruction.orElse(Some(fetchInstruction()))
+      if(instruction.current == Instruction.INITIAL) setNextInstruction()
 
-    def getInstruction: Instruction = currentInstruction.get
+    def getInstruction: Instruction = instruction.current
 
-    def setNextInstruction(): Unit =
-      currentInstruction = Some(fetchInstruction())
+    def setNextInstruction(): Unit = {
+      val first = memory(registers.pc)
+      val immOffset = if (haltBugIsActive) -1 else 0
+      val second = memory.fetchIfPresent(registers.pc + (1 + immOffset).toUShort)
+      val third = memory.fetchIfPresent(registers.pc + (2 + immOffset).toUShort)
 
-    def getMicroStep: Int = microStep
+      // Record imm8/imm16 in instruction state
+      second.foreach(instruction.imm8 = _)
+      second.zip(third).foreach { case (s, t) =>
+        instruction.imm16 = (t.toUShort << 8) | s.toUShort
+      }
+
+      instruction.current = Instruction.decode(first, second)
+    }
+
+    def getImm8: UByte = instruction.imm8
+
+    def getImm16: UShort = instruction.imm16
+
+    def setScratch8(value: UByte): Unit = instruction.scratchUByte = value
+    def getScratch8: UByte = instruction.scratchUByte
+
+    def setScratch16(value: UShort): Unit = instruction.scratchUShort = value
+    def getScratch16: UShort = instruction.scratchUShort
+
+    def getMicroStep: Int = instruction.microStep
 
     def getCycles: Long = cycles
 
-    def getElapsed: Int = microStep + 1
+    def getElapsed: Int = instruction.microStep + 1
 
-    def isInstructionBoundary: Boolean = microStep == 0
+    def isInstructionBoundary: Boolean = instruction.microStep == 0
 
     def isInterruptPending: Boolean =
-      (memory(Interrupts.Address.INTERRUPT_ENABLE) & memory(Interrupts.Address.INTERRUPT_FLAG)) != UByte(0)
+      (memory(Interrupts.Address.INTERRUPT_ENABLE) & memory(Interrupts.Address.INTERRUPT_FLAG)) != UByte.MinValue
 
     def tick(instructionCompleted: Boolean): Unit = {
       cycles += 1
       if (instructionCompleted) {
         imeFlag = imeFlag.next()
         haltBugState = haltBugState.next()
-        microStep = 0
+        instruction.reset()
       } else {
-        microStep += 1
+        instruction.microStep += 1
       }
-    }
-
-    private def fetchInstruction(): Instruction = {
-      val first = memory(registers.pc)
-      val immOffset = if(haltBugIsActive) -1 else 0
-      val second = memory.fetchIfPresent(registers.pc + (1 + immOffset).toUShort)
-      val third = memory.fetchIfPresent(registers.pc + (2 + immOffset).toUShort)
-      // Avoid array concatenation allocations in the hot fetch path.
-      val nextInPC: Array[UByte] = (second, third) match {
-        case (Some(s), Some(t)) => Array(first, s, t)
-        case (Some(s), None) => Array(first, s)
-        case _ => Array(first)
-      }
-      Instruction.decode(nextInPC)
     }
   }
 
@@ -167,12 +174,12 @@ object Cpu {
       override def tick(state: State): Unit = {
         state.getInstruction.execute(state) match {
           case Instruction.ExecutionResult.Completed =>
+            state.tick(instructionCompleted = true)
             if (state.isInterruptPending && state.imeEnabled) {
               state.changeExecutionMode(InterruptHandling)
             } else {
               state.setNextInstruction()
             }
-            state.tick(instructionCompleted = true)
           case Instruction.ExecutionResult.Progressing =>
             state.tick(instructionCompleted = false)
         }
@@ -201,9 +208,9 @@ object Cpu {
       override def tick(state: State): Unit = {
         Instruction.INTERRUPT_HANDLING.execute(state) match {
           case Instruction.ExecutionResult.Completed =>
+            state.tick(instructionCompleted = true)
             state.setNextInstruction()
             state.changeExecutionMode(Running)
-            state.tick(instructionCompleted = true)
           case Instruction.ExecutionResult.Progressing =>
             state.tick(instructionCompleted = false)
         }

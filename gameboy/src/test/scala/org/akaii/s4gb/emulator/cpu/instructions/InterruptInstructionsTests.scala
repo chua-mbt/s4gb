@@ -12,7 +12,7 @@ import spire.math.{UByte, UShort}
 
 class InterruptInstructionsTests extends InstructionsTest {
   test("DI") {
-    val instruction = Instruction.decode(Array(OpCode.Base.DI.pattern))
+    val instruction = Instruction.decode(OpCode.Base.DI.pattern, None)
     assertEquals(instruction.toString, "DI(0xF3)")
     assertEquals(instruction, Instruction.DI)
 
@@ -22,7 +22,7 @@ class InterruptInstructionsTests extends InstructionsTest {
   }
 
   test("EI") {
-    val instruction = Instruction.decode(Array(OpCode.Base.EI.pattern))
+    val instruction = Instruction.decode(OpCode.Base.EI.pattern, None)
     assertEquals(instruction.toString, "EI(0xFB)")
     assertEquals(instruction, Instruction.EI)
 
@@ -32,7 +32,7 @@ class InterruptInstructionsTests extends InstructionsTest {
   }
 
   test("HALT") {
-    val instruction = Instruction.decode(Array(OpCode.Base.HALT.pattern))
+    val instruction = Instruction.decode(OpCode.Base.HALT.pattern, None)
     assertEquals(instruction.toString, "HALT(0x76)")
     assertEquals(instruction, Instruction.HALT)
 
@@ -44,7 +44,7 @@ class InterruptInstructionsTests extends InstructionsTest {
   }
 
   test("HALT - Halt Bug") {
-    val instruction = Instruction.decode(Array(OpCode.Base.HALT.pattern))
+    val instruction = Instruction.decode(OpCode.Base.HALT.pattern, None)
 
     testInstruction(
       instruction = instruction,
@@ -58,7 +58,7 @@ class InterruptInstructionsTests extends InstructionsTest {
   }
 
   test("HALT - Halt Bug (Disabled)") {
-    val instruction = Instruction.decode(Array(OpCode.Base.HALT.pattern))
+    val instruction = Instruction.decode(OpCode.Base.HALT.pattern, None)
 
     testInstruction(
       instruction = instruction,

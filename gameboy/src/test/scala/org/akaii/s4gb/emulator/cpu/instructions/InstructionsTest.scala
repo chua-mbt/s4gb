@@ -19,13 +19,16 @@ abstract class InstructionsTest extends FunSuite {
     setupRegister: Registers => Unit = _ => (),
     setupMemory: (Registers, TestMap) => Unit = (_, _) => (),
     initialIME: IMEFlag = IMEDisabled,
-    config: Config = Config()
+    config: Config = Config(),
+    setupInstruction: Instruction.State => Unit = _ => ()
   ): Cpu.State = {
     val registers = Registers()
     val memory = TestMap()
+    val instructionState = Instruction.State()
     setupRegister(registers)
     setupMemory(registers, memory)
-    Cpu.State(registers, memory, config, initialIME)
+    setupInstruction(instructionState)
+    Cpu.State(registers, memory, config, instructionState, initialIME)
   }
 
   private def setupExpected(
@@ -38,6 +41,7 @@ abstract class InstructionsTest extends FunSuite {
   ): Cpu.State = {
     val registers = Registers()
     val memory = TestMap()
+    val instructionState = Instruction.State()
 
     initialState.registers.copyTo(registers)
     initialState.memory.asInstanceOf[TestMap].copyTo(memory)
@@ -47,7 +51,7 @@ abstract class InstructionsTest extends FunSuite {
     expectedRegisters(registers)
     expectedMemory(memory)
 
-    Cpu.State(registers, memory, initialState.config, expectedIME, expectedHaltBugState)
+    Cpu.State(registers, memory, initialState.config, instructionState, expectedIME, expectedHaltBugState)
   }
 
   @annotation.tailrec
@@ -97,6 +101,7 @@ abstract class InstructionsTest extends FunSuite {
     setupMemory: (Registers, TestMap) => Unit = (_, _) => (),
     setupIME: IMEFlag = IMEDisabled,
     setupHaltBugState: HaltBugState = HaltBugDormant,
+    setupInstructionState: Instruction.State => Unit = _ => (),
     expectedRegister: Registers => Unit = _ => (),
     expectedMemory: TestMap => Unit = _ => (),
     expectedIME: IMEFlag = IMEDisabled,
@@ -106,7 +111,7 @@ abstract class InstructionsTest extends FunSuite {
     expectedElapsed: Option[Int] = None,
     clue: String = ""
   )(implicit loc: Location): Unit = {
-    val initialState = setupTest(setupRegister, setupMemory, setupIME, config)
+    val initialState = setupTest(setupRegister, setupMemory, setupIME, config, setupInstructionState)
     val expectedState = setupExpected(initialState, instruction, expectedRegister, expectedMemory,
       expectedIME, expectedHaltBugState)
     val finalState = exhaustInstruction(instruction, initialState)

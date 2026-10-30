@@ -25,7 +25,7 @@ class InstructionCompletenessTests extends FunSuite {
 
       val validOpcodes = (range.start to range.end).filterNot(range.excludes)
       val results: Seq[(UByte, Try[Instruction])] =
-        validOpcodes.map(v => v.toUByte -> Try(Instruction.decode(Array(v.toUByte))))
+        validOpcodes.map(v => v.toUByte -> Try(Instruction.decode(v.toUByte, None)))
 
       val (successes, failures) = results.foldLeft((0, Seq.empty[UByte])) {
         case ((s, fList), (byte, Success(_))) => (s + 1, fList)
@@ -49,7 +49,7 @@ class InstructionCompletenessTests extends FunSuite {
 
   test("CB prefix instructions completed") {
     val results: Seq[(UByte, Try[Instruction])] =
-      (0x00 to 0xFF).map(v => v.toUByte -> Try(Instruction.decode(Array(0xCB.toUByte, v.toUByte))))
+      (0x00 to 0xFF).map(v => v.toUByte -> Try(Instruction.decode(0xCB.toUByte, Some(v.toUByte))))
 
     val (successes, failures) = results.foldLeft((0, Seq.empty[UByte])) {
       case ((s, fList), (byte, Success(_))) => (s + 1, fList)

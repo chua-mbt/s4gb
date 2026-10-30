@@ -10,7 +10,7 @@ import org.akaii.s4gb.extensions.byteops.*
 class PseudoInstructionsTests extends InstructionsTest {
   test("HOLE") {
     OpCode.HOLES.foreach { hole =>
-      val instruction = Instruction.decode(Array(hole))
+      val instruction = Instruction.decode(hole, None)
       assertEquals(instruction.toString, f"HOLE(0x${hole.toInt}%02X)")
       verifyInstruction[Instruction.HOLE](hole, instruction)
       testInstruction(instruction = instruction, expectedExecutionMode = ExecutionMode.HardLock)

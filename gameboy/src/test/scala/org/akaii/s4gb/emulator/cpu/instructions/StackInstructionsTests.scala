@@ -16,23 +16,19 @@ class StackInstructionsTests extends InstructionsTest {
     testMemoryLocations.foreach { memoryLocation =>
       val imm16 = memoryLocation
 
-      val input: Array[UByte] = Array(OpCode.Base.LD_MEM_IMM16_SP.pattern, imm16.loByte, imm16.hiByte)
-      val instruction = Instruction.decode(input)
+      val input: Array[UByte] = Array(OpCode.Base.LD_MEM_IMM16_SP.pattern)
+      val instruction = Instruction.decode(input.head, None)
 
-      assertEquals(
-        instruction.toString,
-        f"LD_MEM_IMM16_SP(0x${OpCode.Base.LD_MEM_IMM16_SP.pattern.toInt}%02X" +
-          f"${imm16.loByte.toInt}%02X${imm16.hiByte.toInt}%02X)"
-      )
-      verifyInstruction[Instruction.LD_MEM_IMM16_SP](OpCode.Base.LD_MEM_IMM16_SP.pattern, instruction) { ld =>
-        assertEquals(ld.imm16, imm16)
-      }
+      assertEquals(instruction.toString, f"LD_MEM_IMM16_SP(0x${OpCode.Base.LD_MEM_IMM16_SP.pattern.toInt}%02X)")
 
-      val testState = setupTest()
+      verifyInstruction[Instruction.LD_MEM_IMM16_SP.type](OpCode.Base.LD_MEM_IMM16_SP.pattern, instruction)
+
+      val testState = setupTest(setupInstruction = state => state.imm16 = imm16)
       val testFinal = exhaustInstruction(instruction, testState)
 
       testInstruction(
         instruction = instruction,
+        setupInstructionState = state => state.imm16 = imm16,
         expectedMemory = memory => {
           memory.write(imm16, UByte(0x00))
           memory.write(imm16 + 1.toUShort, UByte(0x00))
@@ -46,7 +42,7 @@ class StackInstructionsTests extends InstructionsTest {
 
     forR16StackOpCodeParams { operandParam =>
       val opcode: UByte = OpCode.Base.POP_R16STK.setParam(operandParam -> 4)
-      val instruction = Instruction.decode(Array(opcode))
+      val instruction = Instruction.decode(opcode, None)
 
       verifyInstruction[Instruction.POP_R16STK](opcode, instruction) { pop =>
         assertEquals(pop.operand, operandParam)
@@ -87,7 +83,7 @@ class StackInstructionsTests extends InstructionsTest {
 
     forR16StackOpCodeParams { operandParam =>
       val opcode: UByte = OpCode.Base.PUSH_R16STK.setParam(operandParam -> 4)
-      val instruction = Instruction.decode(Array(opcode))
+      val instruction = Instruction.decode(opcode, None)
 
       verifyInstruction[Instruction.PUSH_R16STK](opcode, instruction) { push =>
         assertEquals(push.operand, operandParam)
@@ -128,13 +124,14 @@ class StackInstructionsTests extends InstructionsTest {
     )
 
     testCases.foreach { case (description, sp, imm, expectedSP, h, c) =>
-      val input = Array(OpCode.Base.ADD_SP_IMM8.pattern, imm.toUByte)
-      val instruction = Instruction.decode(input)
+      val input = Array(OpCode.Base.ADD_SP_IMM8.pattern)
+      val instruction = Instruction.decode(input.head, None)
 
       verifyInstruction(OpCode.Base.ADD_SP_IMM8.pattern, instruction)
 
       testInstruction(
         instruction,
+        setupInstructionState = state => state.imm8 = imm.toUByte,
         setupRegister = regs => {
           regs.sp = sp
           regs.flags.z = true   // should always be cleared
@@ -168,12 +165,13 @@ class StackInstructionsTests extends InstructionsTest {
     )
 
     testCases.foreach { case (description, sp, imm, expectedHL, h, c) =>
-      val input = Array(OpCode.Base.LD_HL_ADD_SP_IMM8.pattern, imm.toUByte)
-      val instr = Instruction.decode(input)
+      val input = Array(OpCode.Base.LD_HL_ADD_SP_IMM8.pattern)
+      val instr = Instruction.decode(input.head, None)
       verifyInstruction(OpCode.Base.LD_HL_ADD_SP_IMM8.pattern, instr)
 
       testInstruction(
         instr,
+        setupInstructionState = state => state.imm8 = imm.toUByte,
         setupRegister = regs => {
           regs.sp = sp
           regs.flags.z = true  // should always be cleared
@@ -194,7 +192,7 @@ class StackInstructionsTests extends InstructionsTest {
   }
 
   test("LD_SP_HL") {
-    val instruction = Instruction.decode(Array(OpCode.Base.LD_SP_HL.pattern))
+    val instruction = Instruction.decode(OpCode.Base.LD_SP_HL.pattern, None)
     verifyInstruction[Instruction.LD_SP_HL.type](OpCode.Base.LD_SP_HL.pattern, instruction)
 
     testInstruction(

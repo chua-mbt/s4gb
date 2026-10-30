@@ -20,14 +20,15 @@ class JumpInstructionsTests extends InstructionsTest {
 
     def jrInstruction(offset: Byte) = {
       val unsigned = offset.toUByte
-      val instruction = Instruction.decode(Array(OpCode.Base.JR_IMM8.pattern, unsigned))
-      verifyInstruction[Instruction.JR_IMM8](OpCode.Base.JR_IMM8.pattern, instruction) { jr => assertEquals(jr.imm8, unsigned) }
+      val instruction = Instruction.decode(OpCode.Base.JR_IMM8.pattern, None)
+      verifyInstruction[Instruction.JR_IMM8.type](OpCode.Base.JR_IMM8.pattern, instruction)
       instruction
     }
 
     // No-op jump (offset = 0)
     testInstruction(
       jrInstruction(0),
+      setupInstructionState = state => state.imm8 = 0x00.toUByte,
       setupRegister = regs => regs.pc = basePC,
       expectedRegister = regs => regs.pc = nextPC,
       expectedPC = Some(nextPC)
@@ -36,6 +37,7 @@ class JumpInstructionsTests extends InstructionsTest {
     // Forward small jump (offset = 5)
     testInstruction(
       jrInstruction(5),
+      setupInstructionState = state => state.imm8 = 0x05.toUByte,
       setupRegister = regs => regs.pc = basePC,
       expectedRegister = regs => regs.pc = nextPC + 5.toUShort,
       expectedPC = Some(nextPC + 5.toUShort)
@@ -44,6 +46,7 @@ class JumpInstructionsTests extends InstructionsTest {
     // Forward max jump (offset = 127)
     testInstruction(
       jrInstruction(127),
+      setupInstructionState = state => state.imm8 = 0x7F.toUByte,
       setupRegister = regs => regs.pc = basePC,
       expectedRegister = regs => regs.pc = nextPC + 127.toUShort,
       expectedPC = Some(nextPC + 127.toUShort)
@@ -52,6 +55,7 @@ class JumpInstructionsTests extends InstructionsTest {
     // Backward small jump (offset = -1)
     testInstruction(
       jrInstruction(-1),
+      setupInstructionState = state => state.imm8 = 0xFF.toUByte,
       setupRegister = regs => regs.pc = basePC,
       expectedRegister = regs => regs.pc = nextPC - 1.toUShort,
       expectedPC = Some(nextPC - 1.toUShort)
@@ -60,6 +64,7 @@ class JumpInstructionsTests extends InstructionsTest {
     // Backward max jump (offset = -128)
     testInstruction(
       jrInstruction(-128),
+      setupInstructionState = state => state.imm8 = 0x80.toUByte,
       setupRegister = regs => regs.pc = basePC,
       expectedRegister = regs => regs.pc = nextPC - 128.toUShort,
       expectedPC = Some(nextPC - 128.toUShort)
@@ -68,6 +73,7 @@ class JumpInstructionsTests extends InstructionsTest {
     // Infinite loop (offset = -2, points back to itself)
     testInstruction(
       jrInstruction(-2),
+      setupInstructionState = state => state.imm8 = 0xFE.toUByte,
       setupRegister = regs => regs.pc = basePC,
       expectedRegister = regs => regs.pc = basePC,
       expectedPC = Some(basePC)
@@ -82,10 +88,9 @@ class JumpInstructionsTests extends InstructionsTest {
       def jrInstruction(offset: Byte) = {
         val unsigned = offset.toUByte
         val opcode: UByte = OpCode.Base.JR_COND_IMM8.setParam(cond -> 3)
-        val instruction = Instruction.decode(Array(opcode, unsigned))
+        val instruction = Instruction.decode(opcode, None)
         verifyInstruction[Instruction.JR_COND_IMM8](opcode, instruction) { jr =>
           assertEquals(jr.condition, cond)
-          assertEquals(jr.imm8, unsigned)
         }
         instruction
       }
@@ -93,6 +98,7 @@ class JumpInstructionsTests extends InstructionsTest {
       // No-op jump (offset = 0)
       testInstruction(
         jrInstruction(0),
+        setupInstructionState = state => state.imm8 = 0x00.toUByte,
         setupRegister = regs => {
           regs.pc = basePC
           setupFlagForCondition(regs, cond)
@@ -105,6 +111,7 @@ class JumpInstructionsTests extends InstructionsTest {
       // Forward small jump (offset = 5)
       testInstruction(
         jrInstruction(5),
+        setupInstructionState = state => state.imm8 = 0x05.toUByte,
         setupRegister = regs => {
           regs.pc = basePC
           setupFlagForCondition(regs, cond)
@@ -117,6 +124,7 @@ class JumpInstructionsTests extends InstructionsTest {
       // Forward max jump (offset = 127)
       testInstruction(
         jrInstruction(127),
+        setupInstructionState = state => state.imm8 = 0x7F.toUByte,
         setupRegister = regs => {
           regs.pc = basePC
           setupFlagForCondition(regs, cond)
@@ -129,6 +137,7 @@ class JumpInstructionsTests extends InstructionsTest {
       // Backward small jump (offset = -1)
       testInstruction(
         jrInstruction(-1),
+        setupInstructionState = state => state.imm8 = 0xFF.toUByte,
         setupRegister = regs => {
           regs.pc = basePC
           setupFlagForCondition(regs, cond)
@@ -141,6 +150,7 @@ class JumpInstructionsTests extends InstructionsTest {
       // Backward max jump (offset = -128)
       testInstruction(
         jrInstruction(-128),
+        setupInstructionState = state => state.imm8 = 0x80.toUByte,
         setupRegister = regs => {
           regs.pc = basePC
           setupFlagForCondition(regs, cond)
@@ -153,6 +163,7 @@ class JumpInstructionsTests extends InstructionsTest {
       // Infinite loop (offset = -2)
       testInstruction(
         jrInstruction(-2),
+        setupInstructionState = state => state.imm8 = 0xFE.toUByte,
         setupRegister = regs => {
           regs.pc = basePC
           setupFlagForCondition(regs, cond)
@@ -170,10 +181,11 @@ class JumpInstructionsTests extends InstructionsTest {
 
     forCondOpCodeParams { cond =>
       val opcode: UByte = OpCode.Base.JR_COND_IMM8.setParam(cond -> 3)
-      val instruction = Instruction.decode(Array(opcode, offset.toUByte))
+      val instruction = Instruction.decode(opcode, None)
 
       testInstruction(
         instruction,
+        setupInstructionState = state => state.imm8 = offset.toUByte,
         setupRegister = regs => {
           regs.pc = basePC
           setupFlagToFailCondition(regs, cond)
@@ -190,7 +202,7 @@ class JumpInstructionsTests extends InstructionsTest {
 
     forCondOpCodeParams { cond =>
       val opcode: UByte = OpCode.Base.RET_COND.setParam(cond -> 3)
-      val instruction = Instruction.decode(Array(opcode))
+      val instruction = Instruction.decode(opcode, None)
 
       verifyInstruction[Instruction.RET_COND](opcode, instruction) { ret =>
         assertEquals(ret.condition, cond)
@@ -221,7 +233,7 @@ class JumpInstructionsTests extends InstructionsTest {
 
     forCondOpCodeParams { cond =>
       val opcode: UByte = OpCode.Base.RET_COND.setParam(cond -> 3)
-      val instruction = Instruction.decode(Array(opcode))
+      val instruction = Instruction.decode(opcode, None)
 
       verifyInstruction[Instruction.RET_COND](opcode, instruction) { ret =>
         assertEquals(ret.condition, cond)
@@ -244,7 +256,7 @@ class JumpInstructionsTests extends InstructionsTest {
     val returnAddress: UShort = 0x1234.toUShort
     val initialSP: UShort = 0xFFFE.toUShort
 
-    val instruction = Instruction.decode(Array(OpCode.Base.RET.pattern))
+    val instruction = Instruction.decode(OpCode.Base.RET.pattern, None)
     verifyInstruction[Instruction.RET.type](OpCode.Base.RET.pattern, instruction)
 
     testInstruction(
@@ -266,7 +278,7 @@ class JumpInstructionsTests extends InstructionsTest {
     val returnAddress: UShort = 0x1234.toUShort
     val initialSP: UShort = 0xFFFE.toUShort
 
-    val instruction = Instruction.decode(Array(OpCode.Base.RETI.pattern))
+    val instruction = Instruction.decode(OpCode.Base.RETI.pattern, None)
     verifyInstruction[Instruction.RETI.type](OpCode.Base.RETI.pattern, instruction)
 
     testInstruction(
@@ -293,14 +305,14 @@ class JumpInstructionsTests extends InstructionsTest {
 
     forCondOpCodeParams { cond =>
       val opcode: UByte = OpCode.Base.JP_COND_IMM16.setParam(cond -> 3)
-      val instruction = Instruction.decode(Array(opcode, immLo, immHi))
+      val instruction = Instruction.decode(opcode, None)
       verifyInstruction[Instruction.JP_COND_IMM16](opcode, instruction) { jp =>
         assertEquals(jp.condition, cond)
-        assertEquals(jp.imm16, targetAddress)
       }
 
       testInstruction(
         instruction,
+        setupInstructionState = state => state.imm16 = targetAddress,
         setupRegister = regs => setupFlagForCondition(regs, cond),
         expectedRegister = regs => regs.pc = targetAddress,
         expectedPC = Some(targetAddress),
@@ -316,14 +328,14 @@ class JumpInstructionsTests extends InstructionsTest {
 
     forCondOpCodeParams { cond =>
       val opcode: UByte = OpCode.Base.JP_COND_IMM16.setParam(cond -> 3)
-      val instruction = Instruction.decode(Array(opcode, immLo, immHi))
+      val instruction = Instruction.decode(opcode, None)
       verifyInstruction[Instruction.JP_COND_IMM16](opcode, instruction) { jp =>
         assertEquals(jp.condition, cond)
-        assertEquals(jp.imm16, targetAddress)
       }
 
       testInstruction(
         instruction,
+        setupInstructionState = state => state.imm16 = targetAddress,
         setupRegister = regs => setupFlagToFailCondition(regs, cond),
         expectedElapsed = Some(3)
       )
@@ -335,20 +347,19 @@ class JumpInstructionsTests extends InstructionsTest {
     val immLo: UByte = targetAddress.loByte
     val immHi: UByte = targetAddress.hiByte
 
-    val instruction = Instruction.decode(Array(OpCode.Base.JP_IMM16.pattern, immLo, immHi))
-    verifyInstruction[Instruction.JP_IMM16](OpCode.Base.JP_IMM16.pattern, instruction) { jp =>
-      assertEquals(jp.imm16, targetAddress)
-    }
+    val instruction = Instruction.decode(OpCode.Base.JP_IMM16.pattern, None)
+    verifyInstruction[Instruction.JP_IMM16.type](OpCode.Base.JP_IMM16.pattern, instruction)
 
     testInstruction(
       instruction,
+      setupInstructionState = state => state.imm16 = targetAddress,
       expectedRegister = regs => regs.pc = targetAddress,
       expectedPC = Some(targetAddress),
     )
   }
 
   test("JP_HL") {
-    val instruction = Instruction.decode(Array(OpCode.Base.JP_HL.pattern))
+    val instruction = Instruction.decode(OpCode.Base.JP_HL.pattern, None)
     verifyInstruction[Instruction.JP_HL.type](OpCode.Base.JP_HL.pattern, instruction)
 
     val targetAddress = 0x1234.toUShort
@@ -371,14 +382,14 @@ class JumpInstructionsTests extends InstructionsTest {
 
     forCondOpCodeParams { cond =>
       val opcode: UByte = OpCode.Base.CALL_COND_IMM16.setParam(cond -> 3)
-      val instruction = Instruction.decode(Array(opcode, immLo, immHi))
+      val instruction = Instruction.decode(opcode, None)
       verifyInstruction[Instruction.CALL_COND_IMM16](opcode, instruction) { call =>
         assertEquals(call.condition, cond)
-        assertEquals(call.imm16, targetAddress)
       }
 
       testInstruction(
         instruction,
+        setupInstructionState = state => state.imm16 = targetAddress,
         setupRegister = regs => {
           regs.pc = initialPC
           regs.sp = initialSP
@@ -404,14 +415,14 @@ class JumpInstructionsTests extends InstructionsTest {
 
     forCondOpCodeParams { cond =>
       val opcode: UByte = OpCode.Base.CALL_COND_IMM16.setParam(cond -> 3)
-      val instruction = Instruction.decode(Array(opcode, immLo, immHi))
+      val instruction = Instruction.decode(opcode, None)
       verifyInstruction[Instruction.CALL_COND_IMM16](opcode, instruction) { call =>
         assertEquals(call.condition, cond)
-        assertEquals(call.imm16, targetAddress)
       }
 
       testInstruction(
         instruction,
+        setupInstructionState = state => state.imm16 = targetAddress,
         setupRegister = regs => setupFlagToFailCondition(regs, cond),
         expectedElapsed = Some(3)
       )
@@ -426,13 +437,12 @@ class JumpInstructionsTests extends InstructionsTest {
     val initialPC: UShort = 0x0100.toUShort
     val returnAddress: UShort = initialPC + 3.toUShort
 
-    val instruction = Instruction.decode(Array(OpCode.Base.CALL_IMM16.pattern, immLo, immHi))
-    verifyInstruction[Instruction.CALL_IMM16](OpCode.Base.CALL_IMM16.pattern, instruction) { call =>
-      assertEquals(call.imm16, targetAddress)
-    }
+    val instruction = Instruction.decode(OpCode.Base.CALL_IMM16.pattern, None)
+    verifyInstruction[Instruction.CALL_IMM16.type](OpCode.Base.CALL_IMM16.pattern, instruction)
 
     testInstruction(
       instruction,
+      setupInstructionState = state => state.imm16 = targetAddress,
       setupRegister = regs => {
         regs.pc = initialPC
         regs.sp = initialSP
@@ -458,7 +468,7 @@ class JumpInstructionsTests extends InstructionsTest {
 
     targets.foreach { target =>
       val opcode: UByte = OpCode.Base.RST_TGT3.pattern | target
-      val instruction = Instruction.decode(Array(opcode))
+      val instruction = Instruction.decode(opcode, None)
       verifyInstruction[Instruction.RST_TGT3](opcode, instruction) { rst =>
         assertEquals(rst.targetAddress, target)
       }

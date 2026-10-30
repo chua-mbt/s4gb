@@ -13,7 +13,7 @@ class BitFlagInstructionsTests extends InstructionsTest {
 
     (1 to 7).foreach { bitIndex =>
       val opcode: UByte = (0x46 | (bitIndex << 3)).toUByte
-      val instruction = Instruction.decode(Array(0xCB.toUByte, opcode))
+      val instruction = Instruction.decode(0xCB.toUByte, Some(opcode))
 
       assertEquals(instruction.toString, f"BIT_B3_MEM_HL(0xCB${opcode.toInt}%02X)")
       verifyInstruction[Instruction.BIT_B3_MEM_HL](opcode, instruction)
@@ -38,7 +38,7 @@ class BitFlagInstructionsTests extends InstructionsTest {
     forNonMemHLR8OpCodeParams { operandParam =>
       (1 to 7).foreach { bitIndex =>
         val opcode: UByte = OpCode.CB.BIT_B3_R8.pattern | (bitIndex << 3).toUByte | operandParam.ordinal.toUByte
-        val instruction = Instruction.decode(Array(0xCB.toUByte, opcode))
+        val instruction = Instruction.decode(0xCB.toUByte, Some(opcode))
 
         assertEquals(instruction.toString, f"BIT_B3_R8(0xCB${opcode.toInt}%02X)")
         verifyInstruction[Instruction.BIT_B3_R8](opcode, instruction) { bit =>
@@ -65,7 +65,7 @@ class BitFlagInstructionsTests extends InstructionsTest {
 
     (1 to 7).foreach { bitIndex =>
       val opcode: UByte = (0x86 | (bitIndex << 3)).toUByte
-      val instruction = Instruction.decode(Array(0xCB.toUByte, opcode))
+      val instruction = Instruction.decode(0xCB.toUByte, Some(opcode))
 
       assertEquals(instruction.toString, f"RES_B3_MEM_HL(0xCB${opcode.toInt}%02X)")
       verifyInstruction[Instruction.RES_B3_MEM_HL](opcode, instruction)
@@ -90,7 +90,7 @@ class BitFlagInstructionsTests extends InstructionsTest {
     forNonMemHLR8OpCodeParams { operandParam =>
       (1 to 7).foreach { bitIndex =>
         val opcode: UByte = OpCode.CB.RES_B3_R8.pattern | (bitIndex << 3).toUByte | operandParam.ordinal.toUByte
-        val instruction = Instruction.decode(Array(0xCB.toUByte, opcode))
+        val instruction = Instruction.decode(0xCB.toUByte, Some(opcode))
 
         assertEquals(instruction.toString, f"RES_B3_R8(0xCB${opcode.toInt}%02X)")
         verifyInstruction[Instruction.RES_B3_R8](opcode, instruction) { bit =>
@@ -117,7 +117,7 @@ class BitFlagInstructionsTests extends InstructionsTest {
 
     (1 to 7).foreach { bitIndex =>
       val opcode: UByte = (0xC6 | (bitIndex << 3)).toUByte
-      val instruction = Instruction.decode(Array(0xCB.toUByte, opcode))
+      val instruction = Instruction.decode(0xCB.toUByte, Some(opcode))
 
       assertEquals(instruction.toString, f"SET_B3_MEM_HL(0xCB${opcode.toInt}%02X)")
       verifyInstruction[Instruction.SET_B3_MEM_HL](opcode, instruction)
@@ -142,7 +142,7 @@ class BitFlagInstructionsTests extends InstructionsTest {
     forNonMemHLR8OpCodeParams { operandParam =>
       (1 to 7).foreach { bitIndex =>
         val opcode: UByte = OpCode.CB.SET_B3_R8.pattern | (bitIndex << 3).toUByte | operandParam.ordinal.toUByte
-        val instruction = Instruction.decode(Array(0xCB.toUByte, opcode))
+        val instruction = Instruction.decode(0xCB.toUByte, Some(opcode))
 
         assertEquals(instruction.toString, f"SET_B3_R8(0xCB${opcode.toInt}%02X)")
         verifyInstruction[Instruction.SET_B3_R8](opcode, instruction) { bit =>

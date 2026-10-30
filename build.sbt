@@ -89,7 +89,7 @@ lazy val opcodeTable = (project in file("opcode-table"))
   .settings(
     name := "s4gb-opcode-table",
     generateOpcodeTable := {
-      (Compile / runMain).toTask(" OpcodeTableGenerator").value
+      (Compile / runMain).toTask(" OpCodeTableGenerator").value
     }
   )
 
