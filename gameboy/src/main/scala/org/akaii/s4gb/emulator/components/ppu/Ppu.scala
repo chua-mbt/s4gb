@@ -3,35 +3,27 @@ package org.akaii.s4gb.emulator.components.ppu
 import org.akaii.s4gb.collections.RingBuffer
 import org.akaii.s4gb.emulator.components.Interrupts
 import org.akaii.s4gb.emulator.components.ppu.fetcher.{BackgroundFetcher, ObjectFetcher}
-import org.akaii.s4gb.emulator.memorymap.RegisterMap
+import org.akaii.s4gb.emulator.memorymap.{MemoryMap, StorageMap}
 import org.akaii.s4gb.extensions.byteops.*
 import spire.math.{UByte, UShort}
-
-import scala.collection.mutable
 
 /**
  * Picture Processing Unit
  *
  * @see [[https://gbdev.io/pandocs/Rendering.html#ppu-modes]]
  */
-class Ppu(interrupts: Interrupts, vram: Array[UByte], oam: Array[UByte], emitter: PixelEmitter) extends RegisterMap {
+class Ppu(interrupts: Interrupts, vram: Array[UByte], oam: Array[UByte], emitter: PixelEmitter) extends MemoryMap {
 
   import Ppu.*
   import Ppu.Address.*
 
   /**
-   * Initialize hardware registers with their DMG boot values.
+   * Stored PPU registers, SCY through WX.
+   *
+   * LCDC, STAT, and LY are computed and live on `state`. FF46 is DMA and is never
+   * routed here, so its slot stays unused.
    */
-  override protected val registers: mutable.Map[UShort, UByte] = mutable.Map(
-    SCY -> UByte(0),
-    SCX -> UByte(0),
-    LYC -> UByte(0),
-    BGP -> UByte(0),
-    OBP0 -> UByte(0),
-    OBP1 -> UByte(0),
-    WY -> UByte(0),
-    WX -> UByte(0),
-  )
+  private val registers: StorageMap = StorageMap(LCDC, WX)
 
   private[ppu] val state: Ppu.State = Ppu.State(
     oam = oam.clone(),
@@ -71,7 +63,7 @@ class Ppu(interrupts: Interrupts, vram: Array[UByte], oam: Array[UByte], emitter
     } else if (isOam(address)) {
       if (state.lcdStatus.ppuMode.canAccessOam) state.oam(oamIndex(address)) else GARBAGE
     } else {
-      super.apply(address)
+      registers(address)
     }
 
   override def write(address: UShort, value: UByte): Unit =
@@ -92,7 +84,7 @@ class Ppu(interrupts: Interrupts, vram: Array[UByte], oam: Array[UByte], emitter
     } else if (isOam(address)) {
       if (state.lcdStatus.ppuMode.canAccessOam) state.oam(oamIndex(address)) = value
     } else {
-      super.write(address, value)
+      registers.write(address, value)
     }
 
   def tick(): Unit = {
@@ -142,7 +134,7 @@ object Ppu {
     emitter: PixelEmitter,
     oam: Array[UByte] = Array.empty,
     vram: Array[UByte] = Array.empty,
-    registers: mutable.Map[UShort, UByte] = mutable.Map.empty,
+    registers: StorageMap = StorageMap(Address.LCDC, Address.WX),
     scanlineObjects: Array[GameboyObject] = Array.fill(OamScanner.OBJECTS_PER_SCANLINE)(GameboyObject.empty),
     backgroundFifo: RingBuffer[BackgroundPixel] = RingBuffer[BackgroundPixel](FIFO_SIZE),
     objectFifo: RingBuffer[ObjectPixel] = RingBuffer[ObjectPixel](FIFO_SIZE),

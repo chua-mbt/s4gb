@@ -1,9 +1,8 @@
 package org.akaii.s4gb.emulator.components.ppu.fetcher
 
 import org.akaii.s4gb.emulator.components.ppu.*
+import org.akaii.s4gb.emulator.memorymap.StorageMap
 import spire.math.{UByte, UShort}
-
-import scala.collection.mutable
 
 trait PixelFetcherFixtures extends TestEmitters {
 
@@ -21,12 +20,11 @@ trait PixelFetcherFixtures extends TestEmitters {
     objSize: Boolean = false,
     vram: Array[UByte] = Array.fill(Ppu.VRAM_SIZE)(UByte(0))
   ): Ppu.State = {
-    val registers = mutable.Map[UShort, UByte](
-      Ppu.Address.SCX -> UByte(scx),
-      Ppu.Address.SCY -> UByte(scy),
-      Ppu.Address.WX -> UByte(wx),
-      Ppu.Address.WY -> UByte(wy),
-    )
+    val registers = StorageMap(Ppu.Address.SCY, Ppu.Address.WX)
+    registers(Ppu.Address.SCX) = UByte(scx)
+    registers(Ppu.Address.SCY) = UByte(scy)
+    registers(Ppu.Address.WX) = UByte(wx)
+    registers(Ppu.Address.WY) = UByte(wy)
     val lcdc = LcdControl(
       bgEnable = bgEnable,
       bgWindowTileData = bgWindowTileData,

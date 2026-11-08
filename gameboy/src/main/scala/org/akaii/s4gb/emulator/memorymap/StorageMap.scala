@@ -1,22 +1,13 @@
 package org.akaii.s4gb.emulator.memorymap
 
-import org.akaii.s4gb.extensions.byteops.*
 import spire.math.{UByte, UShort}
-
-import scala.collection.mutable
 
 /**
  * Read/write storage for a contiguous address range.
  *
  * @see [[https://gbdev.io/pandocs/Memory_Map.html]]
  */
-final class StorageMap(val start: UShort, val end: UShort) extends RegisterMap {
-
-  require(start.toInt <= end.toInt, f"Invalid storage range: 0x${start.toInt}%04X-0x${end.toInt}%04X")
-
-  override protected val registers: mutable.Map[UShort, UByte] =
-    mutable.Map((start.toInt to end.toInt).map(address => (address.toUShort, UByte(0)))*)
-}
+final class StorageMap(start: UShort, end: UShort) extends RegisterMap(start, end)
 
 object StorageMap {
 

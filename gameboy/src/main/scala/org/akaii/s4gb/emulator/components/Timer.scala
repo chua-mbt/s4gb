@@ -1,11 +1,9 @@
 package org.akaii.s4gb.emulator.components
 
 import org.akaii.s4gb.emulator.components.Interrupts
-import org.akaii.s4gb.emulator.memorymap.{MemoryMap, RegisterMap}
+import org.akaii.s4gb.emulator.memorymap.RegisterMap
 import org.akaii.s4gb.extensions.byteops.*
 import spire.math.{UByte, UShort}
-
-import scala.collection.mutable
 
 /**
  * Timer and Divider Registers
@@ -13,7 +11,7 @@ import scala.collection.mutable
  * @see [[https://gbdev.io/pandocs/Timer_and_Divider_Registers.html]]
  * @see [[https://gbdev.io/pandocs/Timer_Obscure_Behaviour.html#timer-obscure-behaviour]]
  */
-class Timer(val interrupts: Interrupts) extends RegisterMap {
+class Timer(val interrupts: Interrupts) extends RegisterMap(Timer.Address.DIV, Timer.Address.TAC) {
 
   import Timer.*
   import Timer.Address.*
@@ -25,12 +23,6 @@ class Timer(val interrupts: Interrupts) extends RegisterMap {
    * The system counter is constantly incrementing every M-cycle, unless the CPU is in STOP mode.
    */
   private var systemCounter: UShort = UShort(0)
-
-  override protected val registers: mutable.Map[UShort, UByte] = mutable.Map(
-    TIMA -> UByte(0),
-    TMA -> UByte(0),
-    TAC -> UByte(0),
-  )
 
   def tick(): Unit = {
     val previousCounter = systemCounter
@@ -48,20 +40,20 @@ class Timer(val interrupts: Interrupts) extends RegisterMap {
     case other => super.write(other, value)
   }
 
-  private def isTimerEnabled: Boolean = (registers(TAC) & Masks.TAC_ENABLE) != UByte(0)
+  private def isTimerEnabled: Boolean = (stored(TAC) & Masks.TAC_ENABLE) != UByte(0)
 
   private def atFrequencyBoundary(previous: UShort, current: UShort): Boolean = {
-    val watchedBit = watchedBitForTAC(registers(TAC))
+    val watchedBit = watchedBitForTAC(stored(TAC))
     ((previous >>> watchedBit) & UShort(1)) == UShort(1) && ((current >>> watchedBit) & UShort(1)) == UShort(0)
   }
 
   private def incrementTIMA(previous: UShort, current: UShort): Unit =
     if (isTimerEnabled && atFrequencyBoundary(previous, current)) {
-      if (registers(TIMA) == UByte(0xFF)) {
-        registers(TIMA) = registers(TMA)
+      if (stored(TIMA) == UByte(0xFF)) {
+        store(TIMA, stored(TMA))
         interrupts.request(Interrupts.Source.Timer)
       } else {
-        registers(TIMA) = registers(TIMA) + UByte(1)
+        store(TIMA, stored(TIMA) + UByte(1))
       }
     }
 

@@ -1,21 +1,22 @@
 package org.akaii.s4gb.emulator.components
 
 import org.akaii.s4gb.emulator.components.Interrupts
-import org.akaii.s4gb.emulator.memorymap.RegisterMap
+import org.akaii.s4gb.emulator.memorymap.MemoryMap
 import org.akaii.s4gb.extensions.byteops.*
 import spire.math.{UByte, UShort}
-
-import scala.collection.mutable
 
 /**
  * Interrupt registers
  *
  * @see [[https://gbdev.io/pandocs/Interrupts.html]]
  */
-class Interrupts extends RegisterMap {
+class Interrupts extends MemoryMap {
 
   import Interrupts.Address.*
   import Interrupts.{Masks, Source}
+
+  private var interruptFlag: UByte = UByte(0)
+  private var interruptEnable: UByte = UByte(0)
 
   /**
    * Initializes these interrupts to DMG power-up state.
@@ -23,37 +24,37 @@ class Interrupts extends RegisterMap {
    * @see [[https://gbdev.io/pandocs/Power_Up_Sequence.html#hardware-registers]]
    */
   def initialize(): Unit = {
-    registers(INTERRUPT_FLAG) = UByte(0xE1)
-    registers(INTERRUPT_ENABLE) = UByte(0x00)
+    interruptFlag = UByte(0xE1)
+    interruptEnable = UByte(0x00)
   }
 
   def request(source: Source): Unit = {
     val mask = UByte(1 << source.bit)
-    registers(INTERRUPT_FLAG) = registers(INTERRUPT_FLAG) | mask
+    interruptFlag = interruptFlag | mask
   }
 
   def clear(source: Source): Unit = {
     val mask = UByte(1 << source.bit)
-    registers(INTERRUPT_FLAG) = registers(INTERRUPT_FLAG) & ~mask
+    interruptFlag = interruptFlag & ~mask
   }
 
-  override protected val registers: mutable.Map[UShort, UByte] =
-    mutable.Map(
-      INTERRUPT_ENABLE -> UByte(0),
-      INTERRUPT_FLAG -> UByte(0)
-    )
+  override def apply(address: UShort): UByte =
+    if (address == INTERRUPT_FLAG) interruptFlag | Masks.IGNORED
+    else if (address == INTERRUPT_ENABLE) interruptEnable
+    else throw new IllegalArgumentException(s"Invalid register address: $address")
 
-  override def apply(address: UShort): UByte = {
-    val byte = super.apply(address)
-    if(address == INTERRUPT_FLAG) byte | Masks.IGNORED else byte
-  }
+  override def write(address: UShort, value: UByte): Unit =
+    if (address == INTERRUPT_FLAG) interruptFlag = value & ~Masks.IGNORED
+    else if (address == INTERRUPT_ENABLE) interruptEnable = value
+    else throw new IllegalArgumentException(s"Invalid register address: $address")
 
-  override def write(address: UShort, value: UByte): Unit = {
-    if (address == INTERRUPT_FLAG) {
-      registers(INTERRUPT_FLAG) = value & ~Masks.IGNORED
-    } else {
-      super.write(address, value)
-    }
+  override def toString: String = {
+    val entries = Seq(INTERRUPT_ENABLE -> interruptEnable, INTERRUPT_FLAG -> interruptFlag)
+      .filter(_._2 != UByte(0))
+      .sortBy(_._1.toInt)
+      .map { case (address, value) => f"0x${address.toInt}%04X=0x${value.toInt}%02X" }
+      .mkString(",")
+    s"${getClass.getSimpleName}($entries)"
   }
 }
 
