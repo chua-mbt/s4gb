@@ -2,8 +2,6 @@ package org.akaii.s4gb.emulator.memorymap
 
 import spire.math.{UByte, UShort}
 
-import scala.util.Try
-
 /**
  * Represents an abstraction of the GameBoy's 16-bit address bus
  *
@@ -12,8 +10,6 @@ import scala.util.Try
 trait MemoryMap() {
   def apply(address: UShort): UByte
   def write(address: UShort, value: UByte): Unit
-
-  def fetchIfPresent(address: UShort): Option[UByte] = Try(apply(address)).toOption
 }
 
 object MemoryMap {

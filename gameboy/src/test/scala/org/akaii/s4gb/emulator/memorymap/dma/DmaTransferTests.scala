@@ -49,7 +49,6 @@ object DmaTransferTests {
   private val mockMemory = new MemoryMap {
     override def apply(address: UShort): UByte = UByte(address.toInt & 0xFF)
     override def write(address: UShort, value: UByte): Unit = ()
-    override def fetchIfPresent(address: UShort): Option[UByte] = None
   }
 
   class OamMemory extends MemoryMap {

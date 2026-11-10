@@ -72,16 +72,13 @@ object Cpu {
     def setNextInstruction(): Unit = {
       val first = memory(registers.pc)
       val immOffset = if (haltBugIsActive) -1 else 0
-      val second = memory.fetchIfPresent(registers.pc + (1 + immOffset).toUShort)
-      val third = memory.fetchIfPresent(registers.pc + (2 + immOffset).toUShort)
+      val second = memory(registers.pc + (1 + immOffset).toUShort)
+      val third = memory(registers.pc + (2 + immOffset).toUShort)
 
-      // Record imm8/imm16 in instruction state
-      second.foreach(instruction.imm8 = _)
-      second.zip(third).foreach { case (s, t) =>
-        instruction.imm16 = (t.toUShort << 8) | s.toUShort
-      }
+      instruction.imm8 = second
+      instruction.imm16 = (third.toUShort << 8) | second.toUShort
 
-      instruction.current = Instruction.decode(first, second)
+      instruction.current = Instruction.decode(first, Some(second))
     }
 
     def getImm8: UByte = instruction.imm8

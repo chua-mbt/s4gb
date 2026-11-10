@@ -20,11 +20,6 @@ class DispatcherTests extends FunSuite {
     }
   }
 
-  test("fetchIfPresent returns None for unmapped address") {
-    val dispatcher = freshDispatcher()
-    assertEquals(dispatcher.fetchIfPresent(UShort(0xC000)), None)
-  }
-
   test("ROM write is no-op, read returns value") {
     val dispatcher = freshDispatcher()
     dispatcher.write(ROM_START, UByte(0xFF))

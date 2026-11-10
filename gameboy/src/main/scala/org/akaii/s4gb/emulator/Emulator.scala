@@ -37,10 +37,12 @@ case class Emulator(
    * is locked out of everything but HRAM.
    */
   def tick(): Unit = {
-    (0 until TCYCLES_PER_MCYCLE).foreach { _ =>
+    var tCycle = 0
+    while (tCycle < TCYCLES_PER_MCYCLE) {
       timer.tick()
       DmaTransfer.tick(dma, bus, ppu)
       ppu.tick()
+      tCycle += 1
     }
     cpu.tick()
   }
@@ -68,8 +70,13 @@ object Emulator {
     val audio = StorageMap(StorageMap.Address.AUDIO_START, StorageMap.Address.AUDIO_END)
     val unusedIo4C = StorageMap(StorageMap.Address.UNUSED_IO_4C_START, StorageMap.Address.UNUSED_IO_4C_END)
 
+    // Ordering matters! More frequently accessed registers should be at the top since we linear scan downwards!
     val bus = Dispatcher.withRanges(
+      // Invoked on every instruction boundary -- start
       (Rom.Address.ROM_START, Rom.Address.ROM_END) -> rom,
+      (Interrupts.Address.INTERRUPT_FLAG, Interrupts.Address.INTERRUPT_FLAG) -> interrupts,
+      (Interrupts.Address.INTERRUPT_ENABLE, Interrupts.Address.INTERRUPT_ENABLE) -> interrupts,
+      // Invoked on every instruction boundary -- end
       (Ppu.Address.VRAM.START, Ppu.Address.VRAM.END) -> ppu,
       (externalRam.start, externalRam.end) -> externalRam,
       (wram0.start, wram0.end) -> wram0,
@@ -82,14 +89,12 @@ object Emulator {
       (unusedIo03.start, unusedIo03.end) -> unusedIo03,
       (Timer.Address.TIMER_START, Timer.Address.TIMER_END) -> timer,
       (unusedIo08.start, unusedIo08.end) -> unusedIo08,
-      (Interrupts.Address.INTERRUPT_FLAG, Interrupts.Address.INTERRUPT_FLAG) -> interrupts,
       (audio.start, audio.end) -> audio,
       (Ppu.Address.LCDC, Ppu.Address.LYC) -> ppu,
       (DmaRegister.Address.DMA, DmaRegister.Address.DMA) -> DmaRegister(dma),
       (Ppu.Address.BGP, Ppu.Address.WX) -> ppu,
       (unusedIo4C.start, unusedIo4C.end) -> unusedIo4C,
       (StorageMap.Address.HRAM_START, StorageMap.Address.HRAM_END) -> hram,
-      (Interrupts.Address.INTERRUPT_ENABLE, Interrupts.Address.INTERRUPT_ENABLE) -> interrupts,
     )
 
     Emulator(cpu = Cpu(Cpu.State(Registers(), new DmaGate(dma, bus), config)), ppu, timer, interrupts, joypad, dma, bus)

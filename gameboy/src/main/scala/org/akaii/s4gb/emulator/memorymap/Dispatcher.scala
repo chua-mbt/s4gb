@@ -13,15 +13,9 @@ class Dispatcher private (components: MemoryMap*) extends MemoryMap {
   override def write(address: UShort, value: UByte): Unit =
     componentFor(address).write(address, value)
 
-  override def fetchIfPresent(address: UShort): Option[UByte] =
-    componentForOption(address).map(_.apply(address))
-
   private def componentFor(address: UShort): MemoryMap =
     components.find(contains(_, address))
       .getOrElse(throw new IllegalArgumentException(f"No component for address: 0x${address.toInt}%04X"))
-
-  private def componentForOption(address: UShort): Option[MemoryMap] =
-    components.find(contains(_, address))
 
   private def contains(component: MemoryMap, address: UShort): Boolean =
     component match {
@@ -46,6 +40,5 @@ object Dispatcher {
   ) extends MemoryMap {
     override def apply(address: UShort): UByte = component(address)
     override def write(address: UShort, value: UByte): Unit = component.write(address, value)
-    override def fetchIfPresent(address: UShort): Option[UByte] = component.fetchIfPresent(address)
   }
 }
