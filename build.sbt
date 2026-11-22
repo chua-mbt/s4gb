@@ -1,11 +1,15 @@
 import scala.sys.process.*
 
-ThisBuild / scalaVersion := "3.7.4"
+// Dependency versions. Keep every version here.
+val scala3Version = "3.10.1"
+val munitVersion = "1.3.6"
+val spireVersion = "0.18.0"
+val scalajsDomVersion = "2.8.1"
+val esbuildVersion = "0.28.2"
+
+ThisBuild / scalaVersion := scala3Version
 ThisBuild / version := "0.1.0-SNAPSHOT"
 ThisBuild / testFrameworks += new TestFramework("utest.runner.Framework")
-
-val munitVersion = "1.2.4"
-val spireVersion = "0.18.0"
 
 lazy val romSources = taskKey[Unit]("Ensure the test ROM submodules are initialized")
 lazy val mealybugRoms = taskKey[File]("Fetch and unpack the prebuilt Mealybug Tearoom ROMs")
@@ -27,7 +31,7 @@ lazy val gameboy = crossProject(JVMPlatform, JSPlatform)
       "-deprecation",
       "-feature",
       "-unchecked",
-      "-Xfatal-warnings"
+      "-Werror"
     )
   )
 
@@ -54,17 +58,17 @@ lazy val jsShell = (project in file("js-shell"))
     scalacOptions ++= Seq("-deprecation", "-feature", "-unchecked"),
     scalaJSUseMainModuleInitializer := true,
     Compile / mainClass := Some("org.akaii.s4gb.jsshell.Shell"),
-    libraryDependencies += "org.scala-js" %%% "scalajs-dom" % "2.8.1",
+    libraryDependencies += "org.scala-js" %%% "scalajs-dom" % scalajsDomVersion,
     minifyJs := {
       val report = (Compile / fullLinkJS).value.data
       val outDir = (Compile / fullLinkJSOutput).value
       val mainModule = report.publicModules
         .find(_.moduleID == "main")
         .getOrElse(sys.error("fullLinkJS report has no module named 'main'"))
-      val source = outDir / mainModule.jsFileName
-      val target = outDir / (mainModule.jsFileName.stripSuffix(".js") + ".min.js")
+      val source = outDir / mainModule.moduleFileName
+      val target = outDir / (mainModule.moduleFileName.stripSuffix(".js") + ".min.js")
       val command = Seq(
-        "npx", "--yes", "esbuild@0.28.2",
+        "npx", "--yes", s"esbuild@$esbuildVersion",
         source.getAbsolutePath,
         "--minify",
         "--outfile=" + target.getAbsolutePath

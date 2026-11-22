@@ -1,2 +1,6 @@
-addSbtPlugin("org.scala-js" % "sbt-scalajs" % "1.22.0")
-addSbtPlugin("org.portable-scala" % "sbt-scalajs-crossproject" % "1.3.2")
+// Plugin versions. Library and Scala versions live in build.sbt.
+val sbtScalajsVersion = "1.23.0"
+val sbtScalajsCrossProjectVersion = "1.4.0"
+
+addSbtPlugin("org.scala-js" % "sbt-scalajs" % sbtScalajsVersion)
+addSbtPlugin("org.portable-scala" % "sbt-scalajs-crossproject" % sbtScalajsCrossProjectVersion)
