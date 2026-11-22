@@ -1,3 +1,5 @@
+import scala.sys.process.*
+
 ThisBuild / scalaVersion := "3.7.4"
 ThisBuild / version := "0.1.0-SNAPSHOT"
 ThisBuild / testFrameworks += new TestFramework("utest.runner.Framework")
@@ -9,6 +11,7 @@ lazy val romSources = taskKey[Unit]("Ensure the test ROM submodules are initiali
 lazy val mealybugRoms = taskKey[File]("Fetch and unpack the prebuilt Mealybug Tearoom ROMs")
 lazy val mooneyeRoms = taskKey[File]("Fetch and unpack the prebuilt Mooneye test suite ROMs")
 lazy val acid2Roms = taskKey[File]("Fetch the prebuilt dmg-acid2 ROM from its release")
+lazy val minifyJs = taskKey[File]("Minify the linked JavaScript with esbuild")
 
 lazy val gameboy = crossProject(JVMPlatform, JSPlatform)
   .crossType(CrossType.Pure)
@@ -52,10 +55,27 @@ lazy val jsShell = (project in file("js-shell"))
     scalaJSUseMainModuleInitializer := true,
     Compile / mainClass := Some("org.akaii.s4gb.jsshell.Shell"),
     libraryDependencies += "org.scala-js" %%% "scalajs-dom" % "2.8.1",
+    minifyJs := {
+      val report = (Compile / fullLinkJS).value.data
+      val outDir = (Compile / fullLinkJSOutput).value
+      val mainModule = report.publicModules
+        .find(_.moduleID == "main")
+        .getOrElse(sys.error("fullLinkJS report has no module named 'main'"))
+      val source = outDir / mainModule.jsFileName
+      val target = outDir / (mainModule.jsFileName.stripSuffix(".js") + ".min.js")
+      val command = Seq(
+        "npx", "--yes", "esbuild@0.28.2",
+        source.getAbsolutePath,
+        "--minify",
+        "--outfile=" + target.getAbsolutePath
+      )
+      val exit = Process(command, baseDirectory.value).!
+      if (exit != 0) sys.error(s"esbuild failed with exit code $exit")
+      target
+    },
     generateHtml := {
-      (Compile / fullLinkJS).value
-      val outDir = (Compile / fullLinkJS / scalaJSLinkerOutputDirectory).value
-      val js = IO.read(outDir / "main.js")
+      val minified = minifyJs.value
+      val js = IO.read(minified)
       val html =
         "<!DOCTYPE html>\n" +
         "<html lang=\"en\">\n" +
@@ -68,18 +88,26 @@ lazy val jsShell = (project in file("js-shell"))
         "  <script>\n" + js + "\n</script>\n" +
         "</body>\n" +
         "</html>\n"
-      val file = outDir / "index.html"
+      val file = minified.getParentFile / "index.html"
       IO.write(file, html)
       file
     },
     openHtml := {
       val file = generateHtml.value
-      if (java.awt.Desktop.isDesktopSupported && java.awt.Desktop.getDesktop.isSupported(java.awt.Desktop.Action.BROWSE)) {
-        java.awt.Desktop.getDesktop.browse(file.toURI)
+      val desktop = java.awt.Desktop.getDesktop
+      if (java.awt.Desktop.isDesktopSupported && desktop.isSupported(java.awt.Desktop.Action.BROWSE)) {
+        desktop.browse(file.toURI)
       } else {
-        println(file.getAbsolutePath)
+        val os = sys.props("os.name").toLowerCase
+        val opener =
+          if (os.contains("mac")) Seq("open", file.getAbsolutePath)
+          else if (os.contains("win")) Seq("cmd", "/c", "start", "", file.getAbsolutePath)
+          else Seq("xdg-open", file.getAbsolutePath)
+        val exit = Process(opener, baseDirectory.value).!
+        if (exit != 0) println(file.getAbsolutePath)
       }
-    }
+    },
+    Compile / run := openHtml.value
   )
 
 lazy val generateOpcodeTable = taskKey[Unit]("Generate HTML opcode table")
